@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% set active_page = "history" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>📋 备份历史</h2>
+</div>
+
+<div class="history-list card" id="historyList">
+    <div class="loading">加载中...</div>
+</div>
+
+<div class="history-detail card" id="historyDetail" style="display:none;">
+    <div class="detail-header">
+        <button class="btn-back" onclick="hideDetail()">← 返回</button>
+        <h3 id="detailTitle"></h3>
+    </div>
+    <div id="detailContent"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", loadHistory);
+
+function loadHistory() {
+    fetch("/api/history")
+        .then(r => r.json())
+        .then(records => {
+            const container = document.getElementById("historyList");
+            if (!records || records.length === 0) {
+                container.innerHTML = '<div class="empty-state">还没有备份记录</div>';
+                return;
+            }
+            container.innerHTML = records.map(r => `
+                <div class="history-item" onclick="showDetail(${r.id})">
+                    <div class="h-left">
+                        <span class="h-icon ${r.status === 'completed' ? 'ok' : r.status === 'error' ? 'err' : ''}">
+                            ${r.status === 'completed' ? '✅' : r.status === 'error' ? '❌' : '⏳'}
+                        </span>
+                        <div class="h-info">
+                            <div class="h-event">${r.event_name}</div>
+                            <div class="h-meta">${r.backup_root}</div>
+                        </div>
+                    </div>
+                    <div class="h-right">
+                        <div class="h-count">${r.total_files || 0} 文件</div>
+                        <div class="h-date">${formatDateTime(r.started_at)}</div>
+                    </div>
+                </div>
+            `).join("");
+        });
+}
+
+function showDetail(id) {
+    document.getElementById("historyList").style.display = "none";
+    const detail = document.getElementById("historyDetail");
+    detail.style.display = "block";
+
+    fetch(`/api/history/${id}`)
+        .then(r => r.json())
+        .then(data => {
+            const rec = data.record || {};
+            document.getElementById("detailTitle").textContent = rec.event_name || "详情";
+
+            let html = `
+                <div class="detail-summary">
+                    <div class="ds-item"><label>状态</label><span>${rec.status === 'completed' ? '✅ 成功' : rec.status === 'error' ? '❌ 失败' : '⏳ 进行中'}</span></div>
+                    <div class="ds-item"><label>目标位置</label><span>${rec.backup_root || ''}</span></div>
+                    <div class="ds-item"><label>总文件</label><span>${rec.total_files || 0}</span></div>
+                    <div class="ds-item"><label>校验通过</label><span>${rec.verified_files || 0}</span></div>
+                    <div class="ds-item"><label>耗时</label><span>${rec.duration_seconds ? Math.round(rec.duration_seconds) + 's' : '--'}</span></div>
+                    <div class="ds-item"><label>开始</label><span>${formatDateTime(rec.started_at)}</span></div>
+                    ${rec.finished_at ? `<div class="ds-item"><label>完成</label><span>${formatDateTime(rec.finished_at)}</span></div>` : ''}
+                </div>
+            `;
+
+            if (data.files && data.files.length > 0) {
+                html += `<h4 style="margin-top:20px;">文件列表 (前 ${data.files.length} 个)</h4>
+                    <div class="file-list">`;
+                data.files.forEach(f => {
+                    html += `<div class="file-item ${f.status}">
+                        <span class="f-icon">${f.media_type === 'video' ? '🎬' : '📸'}</span>
+                        <span class="f-name">${f.source_path.split('/').pop()}</span>
+                        <span class="f-cam">${f.camera || ''}</span>
+                        <span class="f-status ${f.status}">${f.status === 'completed' ? '✅' : f.status === 'failed' ? '❌' : '⏳'}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            document.getElementById("detailContent").innerHTML = html;
+        });
+}
+
+function hideDetail() {
+    document.getElementById("historyList").style.display = "block";
+    document.getElementById("historyDetail").style.display = "none";
+}
+
+function formatDateTime(iso) {
+    if (!iso) return "--";
+    const d = new Date(iso);
+    return d.toLocaleString("zh-CN", {
+        month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit"
+    });
+}
+</script>
+
+<style>
+.history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px; border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: background 0.2s;
+}
+.history-item:hover { background: var(--hover); }
+.h-left { display: flex; align-items: center; gap: 12px; }
+.h-icon { font-size: 1.3em; }
+.h-event { font-weight: 600; margin-bottom: 4px; }
+.h-meta { font-size: 0.85em; color: var(--text-dim); }
+.h-right { text-align: right; }
+.h-count { font-weight: 500; margin-bottom: 4px; }
+.h-date { font-size: 0.85em; color: var(--text-dim); }
+.detail-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ds-item label { display: block; font-size: 0.85em; color: var(--text-dim); margin-bottom: 4px; }
+.ds-item span { font-weight: 500; }
+.file-list { margin-top: 12px; max-height: 400px; overflow-y: auto; }
+.file-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.file-item.failed { background: rgba(255,68,68,0.05); }
+.f-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.f-cam { color: var(--text-dim); font-size: 0.85em; min-width: 80px; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+.loading { text-align: center; padding: 40px; color: var(--text-dim); }
+</style>
+{% endblock %}
