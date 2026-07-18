@@ -8,8 +8,6 @@ from pathlib import Path
 
 ROOT = Path(os.getcwd()).resolve()
 SMB = ROOT / "smb"
-# Windows uses .ico, macOS uses .icns - skip icon on Windows build
-ICON = None
 
 block_cipher = None
 
@@ -62,7 +60,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=ICON if os.path.exists(ICON) else None,
 )
 
 # Windows doesn't need BUNDLE (that's for .app)
