@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% set active_page = "settings" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>⚙️ 设置</h2>
+</div>
+
+<div class="card settings-form">
+    <div class="form-row">
+        <label for="sWebPort">Web 服务端口</label>
+        <input type="number" id="sWebPort" value="8080" min="1024" max="65535">
+    </div>
+    <div class="form-row">
+        <label for="sAutoBrowser">启动时自动打开浏览器</label>
+        <label class="toggle">
+            <input type="checkbox" id="sAutoBrowser" checked>
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    <div class="form-row">
+        <label for="sVerify">校验方式</label>
+        <select id="sVerify">
+            <option value="sha256">SHA256 (推荐)</option>
+            <option value="skip">跳过校验 (更快速)</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label>已备份文件总数</label>
+        <span id="totalBackups" class="setting-value">—</span>
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveSettings()">💾 保存设置</button>
+        <button class="btn-secondary" onclick="resetSettings()" style="margin-left:8px;">🔄 恢复默认</button>
+    </div>
+    <div id="saveMsg" class="save-msg" style="display:none;"></div>
+</div>
+
+<!-- 百度网盘设置 -->
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>☁️ 百度网盘</h3></div>
+    <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:16px;">
+        备份完成后自动上传到百度网盘。需在 <a href="https://pan.baidu.com/union/home" target="_blank" style="color:var(--accent);">百度网盘开放平台</a> 注册应用获取 API Key。
+    </p>
+    <div class="form-row">
+        <label for="bdApiKey">API Key (App Key)</label>
+        <input type="text" id="bdApiKey" placeholder="填写你的百度网盘 App Key">
+    </div>
+    <div class="form-row">
+        <label for="bdSecretKey">Secret Key</label>
+        <input type="password" id="bdSecretKey" placeholder="填写你的 Secret Key">
+    </div>
+    <div class="form-row">
+        <label for="bdAppId">App ID (选填)</label>
+        <input type="text" id="bdAppId" placeholder="应用 ID">
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveBaiduSettings()">💾 保存凭证</button>
+        <button class="btn-secondary" onclick="authorizeBaidu()" id="btnBaiduAuth">🔗 授权百度网盘</button>
+    </div>
+    <div id="baiduStatus" class="save-msg" style="margin-top:12px;display:none;"></div>
+    <div id="baiduAuthPanel" style="display:none;margin-top:16px;padding:16px;background:var(--bg);border-radius:8px;">
+        <p style="margin-bottom:8px;">1. 点击下方按钮，在打开的页面中授权</p>
+        <button class="btn-secondary" onclick="openBaiduAuthUrl()" id="btnOpenAuth">🔗 打开授权页面</button>
+        <p style="margin:12px 0 8px;">2. 授权成功后，把页面显示的授权码粘贴过来</p>
+        <div style="display:flex;gap:8px;">
+            <input type="text" id="bdAuthCode" placeholder="粘贴授权码" style="flex:1;">
+            <button class="btn-primary" onclick="exchangeBaiduCode()">确认</button>
+        </div>
+    </div>
+</div>
+
+<!-- AI 自动命名设置 -->
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>🤖 AI 自动命名</h3></div>
+    <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:16px;">
+        插入 SD 卡后自动识别照片内容，建议事件文件夹名。
+    </p>
+    <div class="form-row">
+        <label>启用 AI 命名</label>
+        <label class="toggle">
+            <input type="checkbox" id="aiEnabled" checked>
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    <div class="form-row">
+        <label for="aiBackend">后端</label>
+        <select id="aiBackend">
+            <option value="ollama">Ollama (本地，免费)</option>
+            <option value="openai">OpenAI 兼容 API</option>
+        </select>
+    </div>
+    <div id="aiOllamaSettings">
+        <div class="form-row">
+            <label for="aiOllamaModel">Ollama 模型</label>
+            <input type="text" id="aiOllamaModel" value="llava">
+        </div>
+        <div class="form-row">
+            <label for="aiOllamaUrl">Ollama 地址</label>
+            <input type="text" id="aiOllamaUrl" value="http://localhost:11434">
+        </div>
+    </div>
+    <div id="aiOpenaiSettings" style="display:none;">
+        <div class="form-row">
+            <label for="aiOpenaiKey">API Key</label>
+            <input type="password" id="aiOpenaiKey" placeholder="sk-...">
+        </div>
+        <div class="form-row">
+            <label for="aiOpenaiModel">模型</label>
+            <input type="text" id="aiOpenaiModel" value="gpt-4o-mini">
+        </div>
+        <div class="form-row">
+            <label for="aiOpenaiBase">API 地址</label>
+            <input type="text" id="aiOpenaiBase" value="https://api.openai.com/v1">
+        </div>
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveAISettings()">💾 保存 AI 设置</button>
+    </div>
+    <div id="aiSaveMsg" class="save-msg" style="display:none;"></div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+    <h4 style="margin-bottom:12px;">📊 存储概览</h4>
+    <canvas id="storageChart" height="200"></canvas>
+</div>
+
+<div class="card" style="margin-top:16px;text-align:center;color:var(--text-dim);font-size:0.85em;">
+    Smart Media Backup v1.0.0<br>
+    By 陆冠霖
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    loadSettings();
+    loadStorageChart();
+    loadBaiduStatus();
+    loadAIStatus();
+});
+
+function loadSettings() {
+    fetch("/api/status")
+        .then(r => r.json())
+        .then(data => {
+            if (data.version) {
+                // load from localStorage for now
+                const saved = localStorage.getItem("smb_settings");
+                if (saved) {
+                    const s = JSON.parse(saved);
+                    document.getElementById("sWebPort").value = s.web_port || 8080;
+                    document.getElementById("sAutoBrowser").checked = s.auto_browser !== false;
+                    document.getElementById("sVerify").value = s.verify || "sha256";
+                }
+            }
+        });
+
+    // 备份总数
+    fetch("/api/history?limit=1000")
+        .then(r => r.json())
+        .then(records => {
+            const total = records.reduce((sum, r) => sum + (r.total_files || 0), 0);
+            document.getElementById("totalBackups").textContent = total + " 个";
+        });
+}
+
+function saveSettings() {
+    const settings = {
+        web_port: parseInt(document.getElementById("sWebPort").value),
+        auto_browser: document.getElementById("sAutoBrowser").checked,
+        verify: document.getElementById("sVerify").value,
+    };
+    localStorage.setItem("smb_settings", JSON.stringify(settings));
+
+    const msg = document.getElementById("saveMsg");
+    msg.style.display = "block";
+    msg.textContent = "✅ 设置已保存（重启后生效）";
+    msg.style.color = "#4ade80";
+    setTimeout(() => msg.style.display = "none", 3000);
+}
+
+function resetSettings() {
+    localStorage.removeItem("smb_settings");
+    document.getElementById("sWebPort").value = 8080;
+    document.getElementById("sAutoBrowser").checked = true;
+    document.getElementById("sVerify").value = "sha256";
+    document.getElementById("saveMsg").style.display = "block";
+    document.getElementById("saveMsg").textContent = "🔄 已恢复默认设置";
+    document.getElementById("saveMsg").style.color = "#fbbf24";
+    setTimeout(() => document.getElementById("saveMsg").style.display = "none", 3000);
+}
+
+function loadStorageChart() {
+    fetch("/api/volumes")
+        .then(r => r.json())
+        .then(volumes => {
+            const ctx = document.getElementById("storageChart").getContext("2d");
+            const labels = volumes.map(v => v.name || v.mount_point);
+            const used = volumes.map(v => v.size_used || 0);
+            const free = volumes.map(v => (v.size_total || 0) - (v.size_used || 0));
+
+            new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: used,
+                        backgroundColor: ["#4ade80", "#60a5fa", "#fbbf24", "#f472b6", "#a78bfa"],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: "bottom", labels: { color: "#94a3b8" } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                    const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                                    return ctx.label + ": " + formatSize(ctx.raw) + " (" + pct + "%)";
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+}
+
+function formatSize(bytes) {
+    if (!bytes) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let i = 0, s = bytes;
+    while (s >= 1024 && i < units.length-1) { s /= 1024; i++; }
+    return s.toFixed(i > 0 ? 1 : 0) + " " + units[i];
+}
+
+// ====== 百度网盘 ======
+
+function loadBaiduStatus() {
+    fetch("/api/baidu/status")
+        .then(r => r.json())
+        .then(s => {
+            if (s.configured) {
+                document.getElementById("bdApiKey").value = s.api_key || "";
+                document.getElementById("btnBaiduAuth").disabled = false;
+            }
+            const st = document.getElementById("baiduStatus");
+            if (s.authorized) {
+                st.style.display = "block";
+                st.innerHTML = "✅ 已授权百度网盘";
+                st.style.color = "#4ade80";
+            } else if (s.configured) {
+                st.style.display = "block";
+                st.innerHTML = "⚠️ 已配置，尚未授权";
+                st.style.color = "#fbbf24";
+            }
+        });
+}
+
+function saveBaiduSettings() {
+    const apiKey = document.getElementById("bdApiKey").value.trim();
+    const secretKey = document.getElementById("bdSecretKey").value.trim();
+    const appId = document.getElementById("bdAppId").value.trim();
+    if (!apiKey || !secretKey) {
+        alert("请填写 API Key 和 Secret Key");
+        return;
+    }
+    fetch("/api/baidu/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({api_key: apiKey, secret_key: secretKey, app_id: appId})
+    })
+    .then(r => r.json())
+    .then(d => {
+        const st = document.getElementById("baiduStatus");
+        st.style.display = "block";
+        st.innerHTML = "✅ 凭证已保存";
+        st.style.color = "#4ade80";
+        document.getElementById("btnBaiduAuth").disabled = false;
+        setTimeout(() => st.style.display = "none", 3000);
+    });
+}
+
+function authorizeBaidu() {
+    document.getElementById("baiduAuthPanel").style.display = "block";
+    document.getElementById("btnBaiduAuth").disabled = true;
+}
+
+function openBaiduAuthUrl() {
+    fetch("/api/baidu/auth_url")
+        .then(r => r.json())
+        .then(d => {
+            if (d.url) {
+                window.open(d.url, "_blank");
+            } else {
+                alert("获取授权链接失败");
+            }
+        });
+}
+
+function exchangeBaiduCode() {
+    const code = document.getElementById("bdAuthCode").value.trim();
+    if (!code) { alert("请粘贴授权码"); return; }
+    fetch("/api/baidu/exchange", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({code: code})
+    })
+    .then(r => r.json())
+    .then(d => {
+        const st = document.getElementById("baiduStatus");
+        st.style.display = "block";
+        if (d.ok) {
+            st.innerHTML = "✅ 授权成功！备份完成后将自动上传到百度网盘";
+            st.style.color = "#4ade80";
+            document.getElementById("baiduAuthPanel").style.display = "none";
+        } else {
+            st.innerHTML = "❌ 授权失败，请检查授权码是否正确";
+            st.style.color = "#ff4444";
+        }
+        document.getElementById("btnBaiduAuth").disabled = false;
+    });
+}
+
+// ====== AI 命名设置 ======
+
+function loadAIStatus() {
+    fetch("/api/ai/status")
+        .then(r => r.json())
+        .then(s => {
+            document.getElementById("aiEnabled").checked = s.enabled;
+            document.getElementById("aiBackend").value = s.backend || "ollama";
+            document.getElementById("aiOllamaModel").value = s.ollama_model || "llava";
+            document.getElementById("aiOllamaUrl").value = s.ollama_url || "http://localhost:11434";
+            document.getElementById("aiOpenaiModel").value = s.openai_model || "gpt-4o-mini";
+            document.getElementById("aiOpenaiBase").value = s.openai_base || "https://api.openai.com/v1";
+            toggleAIBackend();
+        });
+}
+
+function toggleAIBackend() {
+    const v = document.getElementById("aiBackend").value;
+    document.getElementById("aiOllamaSettings").style.display = v === "ollama" ? "block" : "none";
+    document.getElementById("aiOpenaiSettings").style.display = v === "openai" ? "block" : "none";
+}
+
+function saveAISettings() {
+    fetch("/api/ai/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            backend: document.getElementById("aiBackend").value,
+            ollama_model: document.getElementById("aiOllamaModel").value.trim(),
+            ollama_url: document.getElementById("aiOllamaUrl").value.trim(),
+            openai_key: document.getElementById("aiOpenaiKey").value.trim(),
+            openai_model: document.getElementById("aiOpenaiModel").value.trim(),
+            openai_base: document.getElementById("aiOpenaiBase").value.trim(),
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById("aiSaveMsg");
+        msg.style.display = "block";
+        msg.textContent = "✅ AI 设置已保存";
+        msg.style.color = "#4ade80";
+        setTimeout(() => msg.style.display = "none", 3000);
+    });
+}
+
+document.getElementById("aiBackend").addEventListener("change", toggleAIBackend);
+</script>
+
+<style>
+.settings-form .form-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.settings-form label { font-weight: 500; }
+.settings-form input[type="number"] { width: 120px; }
+.setting-value { font-weight: 600; color: var(--accent); }
+.form-actions { margin-top: 20px; }
+.save-msg { margin-top: 12px; font-weight: 500; }
+
+/* Toggle开关 */
+.toggle { position: relative; display: inline-block; width: 48px; height: 26px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background: #374151; border-radius: 26px; transition: 0.3s;
+}
+.toggle-slider::before {
+    content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
+    background: #94a3b8; border-radius: 50%; transition: 0.3s;
+}
+.toggle input:checked + .toggle-slider { background: var(--accent); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(22px); background: #fff; }
+</style>
+{% endblock %}
