@@ -1,0 +1,33 @@
+name: Sync to Gitee and deploy Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  sync-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          git remote add gitee https://luguanlin:${GITEE_TOKEN}@gitee.com/luguanlin/smart-media-backup.git
+          git push -f gitee main
+          echo "✅ Synced to Gitee"
+
+      - name: Refresh Gitee Pages
+        uses: okou19900722/gitee-pages@v1
+        with:
+          username: "luguanlin"
+          password: ${{ secrets.GITEE_PASSWORD }}
+          repository: "luguanlin/smart-media-backup"
+          branch: "main"
+          directory: "/website"
+          https: false
