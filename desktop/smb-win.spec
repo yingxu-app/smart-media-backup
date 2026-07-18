@@ -6,7 +6,7 @@ Run: pyinstaller smb-win.spec --noconfirm
 import os
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(os.getcwd()).resolve()
 SMB = ROOT / "smb"
 # Windows uses .ico, macOS uses .icns - skip icon on Windows build
 ICON = None
