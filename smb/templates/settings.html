@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% set active_page = "settings" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>⚙️ 设置</h2>
+</div>
+
+<div class="card settings-form">
+    <div class="form-row">
+        <label for="sWebPort">Web 服务端口</label>
+        <input type="number" id="sWebPort" value="8080" min="1024" max="65535">
+    </div>
+    <div class="form-row">
+        <label for="sAutoBrowser">启动时自动打开浏览器</label>
+        <label class="toggle">
+            <input type="checkbox" id="sAutoBrowser" checked>
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    <div class="form-row">
+        <label for="sVerify">校验方式</label>
+        <select id="sVerify">
+            <option value="sha256">SHA256 (推荐)</option>
+            <option value="skip">跳过校验 (更快速)</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label>已备份文件总数</label>
+        <span id="totalBackups" class="setting-value">—</span>
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveSettings()">💾 保存设置</button>
+        <button class="btn-secondary" onclick="resetSettings()" style="margin-left:8px;">🔄 恢复默认</button>
+    </div>
+    <div id="saveMsg" class="save-msg" style="display:none;"></div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+    <h4 style="margin-bottom:12px;">📊 存储概览</h4>
+    <canvas id="storageChart" height="200"></canvas>
+</div>
+
+<div class="card" style="margin-top:16px;text-align:center;color:var(--text-dim);font-size:0.85em;">
+    Smart Media Backup v1.0.0<br>
+    By 陆冠霖
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    loadSettings();
+    loadStorageChart();
+});
+
+function loadSettings() {
+    fetch("/api/status")
+        .then(r => r.json())
+        .then(data => {
+            if (data.version) {
+                // load from localStorage for now
+                const saved = localStorage.getItem("smb_settings");
+                if (saved) {
+                    const s = JSON.parse(saved);
+                    document.getElementById("sWebPort").value = s.web_port || 8080;
+                    document.getElementById("sAutoBrowser").checked = s.auto_browser !== false;
+                    document.getElementById("sVerify").value = s.verify || "sha256";
+                }
+            }
+        });
+
+    // 备份总数
+    fetch("/api/history?limit=1000")
+        .then(r => r.json())
+        .then(records => {
+            const total = records.reduce((sum, r) => sum + (r.total_files || 0), 0);
+            document.getElementById("totalBackups").textContent = total + " 个";
+        });
+}
+
+function saveSettings() {
+    const settings = {
+        web_port: parseInt(document.getElementById("sWebPort").value),
+        auto_browser: document.getElementById("sAutoBrowser").checked,
+        verify: document.getElementById("sVerify").value,
+    };
+    localStorage.setItem("smb_settings", JSON.stringify(settings));
+
+    const msg = document.getElementById("saveMsg");
+    msg.style.display = "block";
+    msg.textContent = "✅ 设置已保存（重启后生效）";
+    msg.style.color = "#4ade80";
+    setTimeout(() => msg.style.display = "none", 3000);
+}
+
+function resetSettings() {
+    localStorage.removeItem("smb_settings");
+    document.getElementById("sWebPort").value = 8080;
+    document.getElementById("sAutoBrowser").checked = true;
+    document.getElementById("sVerify").value = "sha256";
+    document.getElementById("saveMsg").style.display = "block";
+    document.getElementById("saveMsg").textContent = "🔄 已恢复默认设置";
+    document.getElementById("saveMsg").style.color = "#fbbf24";
+    setTimeout(() => document.getElementById("saveMsg").style.display = "none", 3000);
+}
+
+function loadStorageChart() {
+    fetch("/api/volumes")
+        .then(r => r.json())
+        .then(volumes => {
+            const ctx = document.getElementById("storageChart").getContext("2d");
+            const labels = volumes.map(v => v.name || v.mount_point);
+            const used = volumes.map(v => v.size_used || 0);
+            const free = volumes.map(v => (v.size_total || 0) - (v.size_used || 0));
+
+            new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: used,
+                        backgroundColor: ["#4ade80", "#60a5fa", "#fbbf24", "#f472b6", "#a78bfa"],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: "bottom", labels: { color: "#94a3b8" } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                    const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                                    return ctx.label + ": " + formatSize(ctx.raw) + " (" + pct + "%)";
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+}
+
+function formatSize(bytes) {
+    if (!bytes) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let i = 0, s = bytes;
+    while (s >= 1024 && i < units.length-1) { s /= 1024; i++; }
+    return s.toFixed(i > 0 ? 1 : 0) + " " + units[i];
+}
+</script>
+
+<style>
+.settings-form .form-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.settings-form label { font-weight: 500; }
+.settings-form input[type="number"] { width: 120px; }
+.setting-value { font-weight: 600; color: var(--accent); }
+.form-actions { margin-top: 20px; }
+.save-msg { margin-top: 12px; font-weight: 500; }
+
+/* Toggle开关 */
+.toggle { position: relative; display: inline-block; width: 48px; height: 26px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background: #374151; border-radius: 26px; transition: 0.3s;
+}
+.toggle-slider::before {
+    content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
+    background: #94a3b8; border-radius: 50%; transition: 0.3s;
+}
+.toggle input:checked + .toggle-slider { background: var(--accent); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(22px); background: #fff; }
+</style>
+{% endblock %}

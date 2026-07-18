@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Media Backup — 智能 SD 卡备份工具</title>
+    <meta name="description" content="插卡到电脑，自动读取设备/日期，按设备→事件→照片/视频分类整理。Web 面板可视化进度。免费开源。">
+    <style>
+        :root {
+            --bg: #0b0d14;
+            --bg-card: #131620;
+            --bg-elevated: #1a1e2d;
+            --border: #252a3a;
+            --text: #e8edf5;
+            --text-dim: #6b728d;
+            --accent: #4ade80;
+            --accent-hover: #22c55e;
+            --radius: 14px;
+            --max-w: 1100px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Nav */
+        nav {
+            display: flex; justify-content: space-between; align-items: center;
+            max-width: var(--max-w); margin: 0 auto; padding: 20px 24px;
+        }
+        .nav-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.1em; }
+        .nav-brand span { color: var(--accent); }
+        .nav-links { display: flex; gap: 24px; align-items: center; }
+        .nav-links a { color: var(--text-dim); text-decoration: none; font-size: 0.9em; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--text); }
+
+        /* Hero */
+        .hero {
+            max-width: var(--max-w); margin: 60px auto 80px; padding: 0 24px;
+            text-align: center;
+        }
+        .hero-badge {
+            display: inline-block; padding: 6px 14px; border-radius: 20px;
+            background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.2);
+            color: var(--accent); font-size: 0.8em; font-weight: 600;
+            margin-bottom: 24px;
+        }
+        .hero h1 { font-size: 3.2em; font-weight: 800; line-height: 1.15; margin-bottom: 20px; letter-spacing: -0.02em; }
+        .hero h1 .highlight { background: linear-gradient(135deg, var(--accent), #22d3ee); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero p { font-size: 1.2em; color: var(--text-dim); max-width: 640px; margin: 0 auto 40px; }
+        .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+        .btn-primary, .btn-secondary {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 14px 32px; border-radius: 12px; font-size: 1em; font-weight: 600;
+            text-decoration: none; transition: all 0.25s;
+        }
+        .btn-primary {
+            background: var(--accent); color: #0b0d14;
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover); transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(74, 222, 128, 0.3);
+        }
+        .btn-secondary {
+            background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .btn-small { font-size: 0.85em; padding: 10px 20px; }
+        .hero-meta { margin-top: 16px; font-size: 0.85em; color: var(--text-dim); }
+
+        /* Dashboard Mockup */
+        .mockup {
+            max-width: 860px; margin: 0 auto 80px; padding: 0 24px;
+        }
+        .mockup img {
+            width: 100%; border-radius: 16px; border: 1px solid var(--border);
+            box-shadow: 0 20px 80px rgba(0,0,0,0.5);
+        }
+        .mockup-placeholder {
+            width: 100%; aspect-ratio: 16/10; border-radius: 16px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--text-dim); font-size: 0.95em; gap: 4px;
+            box-shadow: 0 20px 80px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .mockup-placeholder .top-bar {
+            width: 100%; padding: 16px 24px; display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .mockup-placeholder .top-bar .dots { display: flex; gap: 6px; }
+        .mockup-placeholder .top-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .mockup-placeholder .top-bar .dot.r { background: #ff5f57; }
+        .mockup-placeholder .top-bar .dot.y { background: #ffbd2e; }
+        .mockup-placeholder .top-bar .dot.g { background: #28c840; }
+        .mockup-placeholder .top-bar span { color: var(--text-dim); font-size: 0.8em; margin-left: 12px; }
+        .mockup-body {
+            flex: 1; width: 100%; padding: 24px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+        }
+        .mockup-body .left { display: flex; flex-direction: column; gap: 16px; }
+        .mockup-body .right { display: flex; flex-direction: column; gap: 16px; }
+        .mu-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+        .mu-card .mu-title { font-size: 0.75em; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .mu-device { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .mu-device:last-child { border: none; }
+        .mu-device .name { flex: 1; font-weight: 500; font-size: 0.9em; }
+        .mu-device .count { font-size: 0.8em; color: var(--text-dim); }
+        .mu-bar { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+        .mu-bar .fill { height: 100%; width: 62%; background: linear-gradient(90deg, var(--accent), #22d3ee); border-radius: 3px; }
+        .mu-stats { display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-dim); }
+
+        /* Sections */
+        section { max-width: var(--max-w); margin: 0 auto 80px; padding: 0 24px; }
+        .section-title { text-align: center; font-size: 2em; font-weight: 700; margin-bottom: 12px; }
+        .section-sub { text-align: center; color: var(--text-dim); margin-bottom: 48px; font-size: 1.05em; }
+
+        /* How it works */
+        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .step {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 32px 24px; text-align: center; position: relative;
+        }
+        .step-num {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(74, 222, 128, 0.1); color: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.1em; margin: 0 auto 16px;
+        }
+        .step h3 { margin-bottom: 8px; font-size: 1.1em; }
+        .step p { color: var(--text-dim); font-size: 0.9em; }
+
+        /* Features */
+        .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .feature {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 28px 24px;
+        }
+        .feature-icon { font-size: 2em; margin-bottom: 12px; }
+        .feature h4 { margin-bottom: 6px; }
+        .feature p { color: var(--text-dim); font-size: 0.9em; }
+
+        /* Directory Tree */
+        .tree {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 32px; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.85em;
+            line-height: 2;
+        }
+        .tree .highlight { color: var(--accent); }
+        .tree .dim { color: var(--text-dim); }
+        .tree .leaf { color: #94a3b8; }
+
+        /* Download */
+        .download-box {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 48px; text-align: center;
+        }
+        .download-box h3 { font-size: 1.4em; margin-bottom: 8px; }
+        .download-box p { color: var(--text-dim); margin-bottom: 32px; }
+        .download-grid { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        .download-card {
+            background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+            padding: 32px 40px; text-align: center; min-width: 200px;
+            transition: border-color 0.2s; text-decoration: none; color: inherit;
+        }
+        .download-card:hover { border-color: var(--accent); }
+        .download-card .os-icon { font-size: 2.5em; margin-bottom: 12px; }
+        .download-card .os-name { font-weight: 700; font-size: 1.1em; }
+        .download-card .os-size { font-size: 0.8em; color: var(--text-dim); margin: 4px 0 12px; }
+        .download-card .dl-btn {
+            display: inline-block; padding: 8px 20px; border-radius: 8px;
+            background: var(--accent); color: #0b0d14; font-weight: 700; font-size: 0.85em;
+        }
+        .download-meta { margin-top: 20px; font-size: 0.85em; color: var(--text-dim); }
+        .download-meta a { color: var(--accent); }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border); padding: 40px 24px;
+            text-align: center; color: var(--text-dim); font-size: 0.85em;
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2em; }
+            .steps, .features { grid-template-columns: 1fr; }
+            .mockup-body { grid-template-columns: 1fr; }
+            .download-grid { flex-direction: column; align-items: center; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-brand">
+        <span>🖼</span> Smart Media Backup
+    </div>
+    <div class="nav-links">
+        <a href="#how">怎么用</a>
+        <a href="#features">功能</a>
+        <a href="#download">下载</a>
+        <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank">GitHub</a>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="hero-badge">📸 摄影师必备 · 免费开源</div>
+    <h1>
+        插卡到电脑<br>
+        <span class="highlight">剩下的交给它</span>
+    </h1>
+    <p>
+        自动读取相机型号、拍摄日期、GPS 位置，按设备→事件→照片/视频分类整理。
+        Web 面板可视化进度，插卡即备份。
+    </p>
+    <div class="hero-buttons">
+        <a href="#download" class="btn-primary">⬇ 免费下载</a>
+        <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" class="btn-secondary">📂 GitHub</a>
+    </div>
+    <div class="hero-meta">
+        支持 macOS · Windows (即将推出) · 树莓派
+    </div>
+</section>
+
+<!-- Dashboard Mockup -->
+<div class="mockup">
+    <div class="mockup-placeholder">
+        <div class="top-bar">
+            <div class="dots">
+                <div class="dot r"></div>
+                <div class="dot y"></div>
+                <div class="dot g"></div>
+            </div>
+            <span>🖼 Smart Media Backup — localhost:8080</span>
+        </div>
+        <div class="mockup-body">
+            <div class="left">
+                <div class="mu-card">
+                    <div class="mu-title">检测结果</div>
+                    <div class="mu-device"><span>📷</span><span class="name">Sony ILCE-7M4</span><span class="count">298 文件</span></div>
+                    <div class="mu-device"><span>🛸</span><span class="name">DJI Mavic 3</span><span class="count">27 文件</span></div>
+                </div>
+                <div class="mu-card">
+                    <div class="mu-title">事件文件夹名</div>
+                    <div style="padding:8px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:0.9em;">2025年8月漫展</div>
+                </div>
+                <div class="mu-card" style="background:var(--accent);color:#0b0d14;border-color:var(--accent);font-weight:700;text-align:center;padding:14px;">
+                    ▶ 开始备份
+                </div>
+            </div>
+            <div class="right">
+                <div class="mu-card">
+                    <div class="mu-title">备份进度</div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span style="font-size:0.9em;">42%</span>
+                        <span style="font-size:0.8em;color:var(--text-dim);">48 MB/s</span>
+                    </div>
+                    <div class="mu-bar"><div class="fill"></div></div>
+                    <div class="mu-stats">
+                        <span>DSC01234.ARW</span>
+                        <span>135 / 325</span>
+                    </div>
+                </div>
+                <div class="mu-card">
+                    <div class="mu-title">队列</div>
+                    <div class="mu-device"><span style="color:var(--accent);">▶</span><span class="name">Sony → 照片</span><span class="count">✅ 完成</span></div>
+                    <div class="mu-device"><span style="color:#fbbf24;">▶</span><span class="name">Sony → 视频</span><span class="count">进行中</span></div>
+                    <div class="mu-device"><span style="color:var(--text-dim);">⏳</span><span class="name">DJI → 视频</span><span class="count">等待中</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- How it works -->
+<section id="how">
+    <h2 class="section-title">三步完成备份</h2>
+    <p class="section-sub">你只需要做 3 件事，其余全自动</p>
+    <div class="steps">
+        <div class="step">
+            <div class="step-num">1</div>
+            <h3>📥 插卡</h3>
+            <p>SD 卡插入读卡器，程序自动检测。支持 Sony、DJI、GoPro、iPhone 等主流设备。</p>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <h3>📝 命名</h3>
+            <p>输入事件名，比如"2025年8月漫展"。日期和设备型号程序自动读取。</p>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <h3>▶ 开始</h3>
+            <p>点一下按钮，自动分类整理到目标磁盘。完事后会通知你。</p>
+        </div>
+    </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+    <h2 class="section-title">功能特性</h2>
+    <p class="section-sub">摄影师需要的，这里都有</p>
+    <div class="features">
+        <div class="feature">
+            <div class="feature-icon">📷</div>
+            <h4>自动读取元数据</h4>
+            <p>相机型号、拍摄日期、GPS 坐标自动提取，不需要你手动填。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">📁</div>
+            <h4>智能分类整理</h4>
+            <p>按设备→事件→照片/视频三层目录，文件井井有条。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🔒</div>
+            <h4>SHA256 校验</h4>
+            <p>每个文件拷贝后进行完整性校验，保证备份零错误。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">📊</div>
+            <h4>实时可视化</h4>
+            <p>进度条、拷贝速度、剩余时间一目了然。Web 面板即开即用。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">📋</div>
+            <h4>备份历史</h4>
+            <p>每次备份记录在案，随时可查详细的文件列表和校验结果。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">💾</div>
+            <h4>任意目标位置</h4>
+            <p>本地磁盘、外置硬盘、NAS 都可以作为备份目标。</p>
+        </div>
+    </div>
+</section>
+
+<!-- Directory Structure -->
+<section>
+    <h2 class="section-title">备份目录长这样</h2>
+    <p class="section-sub">设备分开、事件分开、照片和视频分开，一目了然</p>
+    <div class="tree">
+        <span class="highlight">外置盘/</span><br>
+        ├── <span class="highlight">Sony ILCE-7M4/</span><span class="dim">  ← 自动设备分类</span><br>
+        │&nbsp;&nbsp; └── <span class="highlight">2025年8月漫展/</span><span class="dim">  ← 你输入的事件名</span><br>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="highlight">照片/</span><span class="dim">  ← 自动照片/视频分流</span><br>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │&nbsp;&nbsp; ├── <span class="leaf">DSC01234.ARW</span><span class="dim">  ← 保留原始文件名</span><br>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │&nbsp;&nbsp; ├── <span class="leaf">DSC01235.ARW</span><br>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │&nbsp;&nbsp; └── <span class="leaf">checksums.json</span><span class="dim">  ← SHA256 校验清单</span><br>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="highlight">视频/</span><br>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="leaf">C0001.MP4</span><br>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="leaf">checksums.json</span><br>
+        └── <span class="highlight">DJI Mavic 3/</span><br>
+        &nbsp;&nbsp;&nbsp; └── <span class="highlight">2025年8月漫展/</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="highlight">视频/</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="leaf">DJI_0001.MP4</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="leaf">checksums.json</span>
+    </div>
+</section>
+
+<!-- Download -->
+<section id="download">
+    <h2 class="section-title">下载</h2>
+    <p class="section-sub">免费开源，现在就用上</p>
+    <div class="download-box">
+        <h3>🖼 Smart Media Backup v1.0</h3>
+        <p>macOS 11.0+ · Apple Silicon & Intel</p>
+        <div class="download-grid">
+            <a href="#" class="download-card" onclick="alert('下载链接准备中，请先从 GitHub 获取。\n稍后会上传到官网。');return false;">
+                <div class="os-icon">🍎</div>
+                <div class="os-name">macOS</div>
+                <div class="os-size">.app · 21 MB</div>
+                <div class="dl-btn">⬇ 下载</div>
+            </a>
+            <a href="#" class="download-card" onclick="alert('Windows 版本即将推出！');return false;">
+                <div class="os-icon">🪟</div>
+                <div class="os-name">Windows</div>
+                <div class="os-size">.exe · 即将推出</div>
+                <div class="dl-btn" style="background:var(--border);color:var(--text-dim);">敬请期待</div>
+            </a>
+            <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" class="download-card">
+                <div class="os-icon">📂</div>
+                <div class="os-name">源代码</div>
+                <div class="os-size">GitHub · MIT 协议</div>
+                <div class="dl-btn">查看源码</div>
+            </a>
+        </div>
+        <div class="download-meta">
+            也可通过 <code>pip install smart-media-backup</code> 安装 ·
+            <a href="https://github.com/luguanlin20050927/smart-media-backup/releases">GitHub Releases</a>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <p>
+        🖼 Smart Media Backup · 以 MIT 协议开源<br>
+        作者 <a href="https://github.com/luguanlin20050927" target="_blank">陆冠霖</a>
+        · 上海立达学院 计算机科学与技术
+    </p>
+</footer>
+
+</body>
+</html>
