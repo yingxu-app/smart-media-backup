@@ -1,0 +1,44 @@
+name: Build Windows .exe
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["smb/**", "desktop/smb-win.spec", "requirements.txt", "setup.py"]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build .exe with PyInstaller
+        run: |
+          pyinstaller desktop/smb-win.spec --noconfirm
+          dir dist\
+
+      - name: Upload to Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "v1.0.0"
+          $asset = "SmartMediaBackup-Windows.exe"
+          Copy-Item "dist/Smart Media Backup.exe" $asset
+          $uploadUrl = (gh release view $tag --json uploadUrl --jq .uploadUrl) 2>$null
+          if (-not $uploadUrl) {
+            gh release create $tag --title $tag --notes "Windows build" 2>$null
+            $uploadUrl = (gh release view $tag --json uploadUrl --jq .uploadUrl)
+          }
+          gh release upload $tag $asset --clobber
+          echo "✅ Windows .exe uploaded to release"
