@@ -69,6 +69,110 @@ def settings():
     return render_template("settings.html")
 
 
+@app.route("/website")
+def website():
+    """产品官网 landing page"""
+    return flask.send_from_directory(
+        os.path.join(_base, "website"), "index.html"
+    )
+
+
+@app.route("/download/macos")
+def download_macos():
+    """下载 macOS .app"""
+    zip_path = os.path.join(_base, "desktop", "dist")
+    # 如果 dist 下有 zip 就提供，否则提示
+    zip_file = os.path.join(zip_path, "SmartMediaBackup-macOS.zip")
+    if os.path.exists(zip_file):
+        return flask.send_file(zip_file, as_attachment=True,
+                               download_name="SmartMediaBackup-macOS.zip")
+    return jsonify({"error": "下载文件未就绪"}), 404
+
+
+# ====== 百度网盘 API ======
+
+@app.route("/api/baidu/status")
+def api_baidu_status():
+    """百度网盘配置和授权状态"""
+    from .baidu import baidu
+    return jsonify({
+        "configured": baidu.is_configured(),
+        "authorized": baidu.is_authorized(),
+        "api_key": baidu.api_key[:6] + "..." if baidu.api_key else "",
+    })
+
+
+@app.route("/api/baidu/settings", methods=["POST"])
+def api_baidu_settings():
+    """保存百度网盘 API 配置"""
+    from .baidu import baidu
+    data = request.get_json(silent=True) or {}
+    baidu.configure(
+        api_key=data.get("api_key", ""),
+        secret_key=data.get("secret_key", ""),
+        app_id=data.get("app_id", ""),
+    )
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/baidu/auth_url")
+def api_baidu_auth_url():
+    """获取授权 URL"""
+    from .baidu import baidu
+    if not baidu.is_configured():
+        return jsonify({"error": "请先配置 API Key"}), 400
+    return jsonify({"url": baidu.get_auth_url()})
+
+
+@app.route("/api/baidu/exchange", methods=["POST"])
+def api_baidu_exchange():
+    """兑换授权码"""
+    from .baidu import baidu
+    data = request.get_json(silent=True) or {}
+    code = data.get("code", "").strip()
+    if not code:
+        return jsonify({"error": "请输入授权码"}), 400
+    ok = baidu.exchange_code(code)
+    return jsonify({"ok": ok})
+
+
+@app.route("/api/baidu/quota")
+def api_baidu_quota():
+    """网盘容量信息"""
+    from .baidu import baidu
+    quota = baidu.get_quota()
+    return jsonify(quota)
+
+
+# ====== AI 命名 API ======
+
+@app.route("/api/ai/status")
+def api_ai_status():
+    """AI 命名配置状态"""
+    from .ai_namer import ai_namer
+    return jsonify({
+        "enabled": ai_namer.is_enabled(),
+        "backend": ai_namer.backend,
+        "ollama_model": ai_namer.ollama_model,
+        "openai_model": ai_namer.openai_model,
+    })
+
+
+@app.route("/api/ai/settings", methods=["POST"])
+def api_ai_settings():
+    """保存 AI 命名配置"""
+    from .ai_namer import ai_namer
+    data = request.get_json(silent=True) or {}
+    ai_namer.backend = data.get("backend", ai_namer.backend)
+    ai_namer.ollama_model = data.get("ollama_model", ai_namer.ollama_model)
+    ai_namer.ollama_url = data.get("ollama_url", ai_namer.ollama_url)
+    ai_namer.openai_key = data.get("openai_key", ai_namer.openai_key)
+    ai_namer.openai_model = data.get("openai_model", ai_namer.openai_model)
+    ai_namer.openai_base = data.get("openai_base", ai_namer.openai_base)
+    ai_namer.save()
+    return jsonify({"status": "ok"})
+
+
 # ====== API ======
 
 @app.route("/api/status")
@@ -160,12 +264,21 @@ def api_scan():
     global _scan_cache
     _scan_cache = {"files": raw, "devices": device_list}
 
+    # AI 自动命名建议
+    suggested_name = ""
+    if files:
+        from .ai_namer import ai_namer
+        sample_paths = [f["path"] for f in files[:5] if f.get("media_type") in ("photo", "raw")]
+        if sample_paths:
+            suggested_name = ai_namer.suggest_event_name(sample_paths) or ""
+
     return jsonify({
         "devices": device_list,
         "files": file_list,
         "total_files": len(files),
         "total_size": sum(f.get("size", 0) for f in files),
         "mount_point": mount_point,
+        "suggested_name": suggested_name,
     })
 
 

@@ -36,6 +36,90 @@
     <div id="saveMsg" class="save-msg" style="display:none;"></div>
 </div>
 
+<!-- 百度网盘设置 -->
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>☁️ 百度网盘</h3></div>
+    <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:16px;">
+        备份完成后自动上传到百度网盘。需在 <a href="https://pan.baidu.com/union/home" target="_blank" style="color:var(--accent);">百度网盘开放平台</a> 注册应用获取 API Key。
+    </p>
+    <div class="form-row">
+        <label for="bdApiKey">API Key (App Key)</label>
+        <input type="text" id="bdApiKey" placeholder="填写你的百度网盘 App Key">
+    </div>
+    <div class="form-row">
+        <label for="bdSecretKey">Secret Key</label>
+        <input type="password" id="bdSecretKey" placeholder="填写你的 Secret Key">
+    </div>
+    <div class="form-row">
+        <label for="bdAppId">App ID (选填)</label>
+        <input type="text" id="bdAppId" placeholder="应用 ID">
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveBaiduSettings()">💾 保存凭证</button>
+        <button class="btn-secondary" onclick="authorizeBaidu()" id="btnBaiduAuth">🔗 授权百度网盘</button>
+    </div>
+    <div id="baiduStatus" class="save-msg" style="margin-top:12px;display:none;"></div>
+    <div id="baiduAuthPanel" style="display:none;margin-top:16px;padding:16px;background:var(--bg);border-radius:8px;">
+        <p style="margin-bottom:8px;">1. 点击下方按钮，在打开的页面中授权</p>
+        <button class="btn-secondary" onclick="openBaiduAuthUrl()" id="btnOpenAuth">🔗 打开授权页面</button>
+        <p style="margin:12px 0 8px;">2. 授权成功后，把页面显示的授权码粘贴过来</p>
+        <div style="display:flex;gap:8px;">
+            <input type="text" id="bdAuthCode" placeholder="粘贴授权码" style="flex:1;">
+            <button class="btn-primary" onclick="exchangeBaiduCode()">确认</button>
+        </div>
+    </div>
+</div>
+
+<!-- AI 自动命名设置 -->
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>🤖 AI 自动命名</h3></div>
+    <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:16px;">
+        插入 SD 卡后自动识别照片内容，建议事件文件夹名。
+    </p>
+    <div class="form-row">
+        <label>启用 AI 命名</label>
+        <label class="toggle">
+            <input type="checkbox" id="aiEnabled" checked>
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    <div class="form-row">
+        <label for="aiBackend">后端</label>
+        <select id="aiBackend">
+            <option value="ollama">Ollama (本地，免费)</option>
+            <option value="openai">OpenAI 兼容 API</option>
+        </select>
+    </div>
+    <div id="aiOllamaSettings">
+        <div class="form-row">
+            <label for="aiOllamaModel">Ollama 模型</label>
+            <input type="text" id="aiOllamaModel" value="llava">
+        </div>
+        <div class="form-row">
+            <label for="aiOllamaUrl">Ollama 地址</label>
+            <input type="text" id="aiOllamaUrl" value="http://localhost:11434">
+        </div>
+    </div>
+    <div id="aiOpenaiSettings" style="display:none;">
+        <div class="form-row">
+            <label for="aiOpenaiKey">API Key</label>
+            <input type="password" id="aiOpenaiKey" placeholder="sk-...">
+        </div>
+        <div class="form-row">
+            <label for="aiOpenaiModel">模型</label>
+            <input type="text" id="aiOpenaiModel" value="gpt-4o-mini">
+        </div>
+        <div class="form-row">
+            <label for="aiOpenaiBase">API 地址</label>
+            <input type="text" id="aiOpenaiBase" value="https://api.openai.com/v1">
+        </div>
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveAISettings()">💾 保存 AI 设置</button>
+    </div>
+    <div id="aiSaveMsg" class="save-msg" style="display:none;"></div>
+</div>
+
 <div class="card" style="margin-top:16px;">
     <h4 style="margin-bottom:12px;">📊 存储概览</h4>
     <canvas id="storageChart" height="200"></canvas>
@@ -52,6 +136,8 @@
 document.addEventListener("DOMContentLoaded", function() {
     loadSettings();
     loadStorageChart();
+    loadBaiduStatus();
+    loadAIStatus();
 });
 
 function loadSettings() {
@@ -149,6 +235,141 @@ function formatSize(bytes) {
     while (s >= 1024 && i < units.length-1) { s /= 1024; i++; }
     return s.toFixed(i > 0 ? 1 : 0) + " " + units[i];
 }
+
+// ====== 百度网盘 ======
+
+function loadBaiduStatus() {
+    fetch("/api/baidu/status")
+        .then(r => r.json())
+        .then(s => {
+            if (s.configured) {
+                document.getElementById("bdApiKey").value = s.api_key || "";
+                document.getElementById("btnBaiduAuth").disabled = false;
+            }
+            const st = document.getElementById("baiduStatus");
+            if (s.authorized) {
+                st.style.display = "block";
+                st.innerHTML = "✅ 已授权百度网盘";
+                st.style.color = "#4ade80";
+            } else if (s.configured) {
+                st.style.display = "block";
+                st.innerHTML = "⚠️ 已配置，尚未授权";
+                st.style.color = "#fbbf24";
+            }
+        });
+}
+
+function saveBaiduSettings() {
+    const apiKey = document.getElementById("bdApiKey").value.trim();
+    const secretKey = document.getElementById("bdSecretKey").value.trim();
+    const appId = document.getElementById("bdAppId").value.trim();
+    if (!apiKey || !secretKey) {
+        alert("请填写 API Key 和 Secret Key");
+        return;
+    }
+    fetch("/api/baidu/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({api_key: apiKey, secret_key: secretKey, app_id: appId})
+    })
+    .then(r => r.json())
+    .then(d => {
+        const st = document.getElementById("baiduStatus");
+        st.style.display = "block";
+        st.innerHTML = "✅ 凭证已保存";
+        st.style.color = "#4ade80";
+        document.getElementById("btnBaiduAuth").disabled = false;
+        setTimeout(() => st.style.display = "none", 3000);
+    });
+}
+
+function authorizeBaidu() {
+    document.getElementById("baiduAuthPanel").style.display = "block";
+    document.getElementById("btnBaiduAuth").disabled = true;
+}
+
+function openBaiduAuthUrl() {
+    fetch("/api/baidu/auth_url")
+        .then(r => r.json())
+        .then(d => {
+            if (d.url) {
+                window.open(d.url, "_blank");
+            } else {
+                alert("获取授权链接失败");
+            }
+        });
+}
+
+function exchangeBaiduCode() {
+    const code = document.getElementById("bdAuthCode").value.trim();
+    if (!code) { alert("请粘贴授权码"); return; }
+    fetch("/api/baidu/exchange", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({code: code})
+    })
+    .then(r => r.json())
+    .then(d => {
+        const st = document.getElementById("baiduStatus");
+        st.style.display = "block";
+        if (d.ok) {
+            st.innerHTML = "✅ 授权成功！备份完成后将自动上传到百度网盘";
+            st.style.color = "#4ade80";
+            document.getElementById("baiduAuthPanel").style.display = "none";
+        } else {
+            st.innerHTML = "❌ 授权失败，请检查授权码是否正确";
+            st.style.color = "#ff4444";
+        }
+        document.getElementById("btnBaiduAuth").disabled = false;
+    });
+}
+
+// ====== AI 命名设置 ======
+
+function loadAIStatus() {
+    fetch("/api/ai/status")
+        .then(r => r.json())
+        .then(s => {
+            document.getElementById("aiEnabled").checked = s.enabled;
+            document.getElementById("aiBackend").value = s.backend || "ollama";
+            document.getElementById("aiOllamaModel").value = s.ollama_model || "llava";
+            document.getElementById("aiOllamaUrl").value = s.ollama_url || "http://localhost:11434";
+            document.getElementById("aiOpenaiModel").value = s.openai_model || "gpt-4o-mini";
+            document.getElementById("aiOpenaiBase").value = s.openai_base || "https://api.openai.com/v1";
+            toggleAIBackend();
+        });
+}
+
+function toggleAIBackend() {
+    const v = document.getElementById("aiBackend").value;
+    document.getElementById("aiOllamaSettings").style.display = v === "ollama" ? "block" : "none";
+    document.getElementById("aiOpenaiSettings").style.display = v === "openai" ? "block" : "none";
+}
+
+function saveAISettings() {
+    fetch("/api/ai/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            backend: document.getElementById("aiBackend").value,
+            ollama_model: document.getElementById("aiOllamaModel").value.trim(),
+            ollama_url: document.getElementById("aiOllamaUrl").value.trim(),
+            openai_key: document.getElementById("aiOpenaiKey").value.trim(),
+            openai_model: document.getElementById("aiOpenaiModel").value.trim(),
+            openai_base: document.getElementById("aiOpenaiBase").value.trim(),
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById("aiSaveMsg");
+        msg.style.display = "block";
+        msg.textContent = "✅ AI 设置已保存";
+        msg.style.color = "#4ade80";
+        setTimeout(() => msg.style.display = "none", 3000);
+    });
+}
+
+document.getElementById("aiBackend").addEventListener("change", toggleAIBackend);
 </script>
 
 <style>

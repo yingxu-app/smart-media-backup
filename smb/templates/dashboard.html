@@ -221,6 +221,11 @@ function showScanResult(result) {
         dl.appendChild(div);
     });
 
+    // AI 自动填入事件名
+    if (result.suggested_name) {
+        document.getElementById("eventName").value = result.suggested_name;
+    }
+
     // 统计
     document.getElementById("totalFilesInfo").textContent = `共 ${result.total_files} 个文件`;
     document.getElementById("totalSizeInfo").textContent = formatSize(result.total_size);

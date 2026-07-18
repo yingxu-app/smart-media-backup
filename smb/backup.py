@@ -240,9 +240,39 @@ class BackupEngine:
             self.progress.status = "done"
             self.progress.notify()
 
+            # 后台触发百度网盘上传
+            self._trigger_baidu_upload(backup_root, event_name)
+
         except Exception as e:
             db.finish_backup(backup_id, "error", str(e))
             self.progress.status = "error"
             self.progress.error_message = str(e)
             self.progress.notify()
             raise
+
+    def _trigger_baidu_upload(self, backup_root: str, event_name: str):
+        """后台线程触发百度网盘上传"""
+        from .baidu import baidu
+        if not baidu.is_configured() or not baidu.is_authorized():
+            return  # 用户没配置百度网盘
+
+        def _upload():
+            try:
+                print(f"[百度] 开始上传 {event_name} ...")
+                baidu.mkdir(f"/{event_name}")
+                for root, dirs, files in os.walk(backup_root):
+                    for fname in files:
+                        if fname == "checksums.json":
+                            continue
+                        local = os.path.join(root, fname)
+                        rel_path = os.path.relpath(root, backup_root)
+                        remote_dir = f"/{event_name}/{rel_path.replace(os.sep, '/')}"
+                        baidu.mkdir(remote_dir)
+                        ok = baidu.upload_file(local, remote_dir)
+                        print(f"[百度] {'✅' if ok else '❌'} {fname} → {remote_dir}")
+                print(f"[百度] 上传完成: {event_name}")
+            except Exception as e:
+                print(f"[百度] 上传失败: {e}")
+
+        t = threading.Thread(target=_upload, daemon=True)
+        t.start()
