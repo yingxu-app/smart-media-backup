@@ -22,12 +22,16 @@ jobs:
           git push -f gitee main
           echo "✅ Synced to Gitee"
 
-      - name: Refresh Gitee Pages
-        uses: okou19900722/gitee-pages@v1
-        with:
-          username: "luguanlin"
-          password: ${{ secrets.GITEE_PASSWORD }}
-          repository: "luguanlin/smart-media-backup"
-          branch: "main"
-          directory: "/website"
-          https: false
+      - name: Refresh Gitee Pages via API
+        env:
+          GITEE_PASSWORD: ${{ secrets.GITEE_PASSWORD }}
+        run: |
+          # Login and refresh Gitee Pages via API
+          TOKEN="${{ secrets.GITEE_TOKEN }}"
+          curl -s -X PUT \
+            "https://gitee.com/api/v5/repos/luguanlin/smart-media-backup/pages" \
+            -d "access_token=${TOKEN}" \
+            -d "branch=main" \
+            -d "directory=/website" \
+            -d "https=false" || true
+          echo "✅ Gitee Pages refresh attempted"

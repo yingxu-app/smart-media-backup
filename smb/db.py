@@ -29,10 +29,14 @@ def init_db():
             total_files INTEGER DEFAULT 0,
             total_size INTEGER DEFAULT 0,
             verified_files INTEGER DEFAULT 0,
+            skipped_files INTEGER DEFAULT 0,
+            reviewed_files INTEGER DEFAULT 0,
+            preview_files INTEGER DEFAULT 0,
             failed_files INTEGER DEFAULT 0,
             duration_seconds REAL,
             status TEXT DEFAULT 'running',
             devices_json TEXT DEFAULT '{}',
+            report_path TEXT,
             error TEXT
         );
 
@@ -53,6 +57,23 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_backup_history_started
             ON backup_history(started_at DESC);
     """)
+
+    def ensure_column(table: str, column: str, ddl: str):
+        cols = {
+            row["name"]
+            for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+
+    ensure_column("backup_history", "skipped_files", "INTEGER DEFAULT 0")
+    ensure_column("backup_history", "reviewed_files", "INTEGER DEFAULT 0")
+    ensure_column("backup_history", "preview_files", "INTEGER DEFAULT 0")
+    ensure_column("backup_history", "report_path", "TEXT")
+    ensure_column("backup_files", "source_hash", "TEXT")
+    ensure_column("backup_files", "source_mtime", "REAL")
+    ensure_column("backup_files", "preview_path", "TEXT")
+
     conn.commit()
     conn.close()
 
@@ -97,19 +118,58 @@ def add_files(backup_id: int, files: list[dict]):
 
 
 def update_file_status(backup_id: int, source_path: str, status: str, dest_path: str = "",
-                       verified: bool = False, error: str = ""):
+                       verified: bool = False, error: str = "",
+                       source_hash: str = "", source_mtime: Optional[float] = None):
     """更新单个文件状态"""
     conn = get_conn()
+    params = [status, dest_path, 1 if verified else 0, error, backup_id, source_path]
+    sql = (
+        "UPDATE backup_files SET status=?, dest_path=?, verified=?, error=?"
+    )
+    if source_hash:
+        sql += ", source_hash=?"
+        params.insert(4, source_hash)
+    if source_mtime is not None:
+        sql += ", source_mtime=?"
+        params.insert(5 if source_hash else 4, source_mtime)
+    sql += " WHERE backup_id=? AND source_path=?"
+    conn.execute(sql, tuple(params))
+    conn.commit()
+    conn.close()
+
+
+def update_file_preview(backup_id: int, source_path: str, preview_path: str):
+    """更新单个文件的预览路径"""
+    conn = get_conn()
     conn.execute(
-        "UPDATE backup_files SET status=?, dest_path=?, verified=?, error=? "
-        "WHERE backup_id=? AND source_path=?",
-        (status, dest_path, 1 if verified else 0, error, backup_id, source_path)
+        "UPDATE backup_files SET preview_path=? WHERE backup_id=? AND source_path=?",
+        (preview_path, backup_id, source_path)
     )
     conn.commit()
     conn.close()
 
 
-def finish_backup(backup_id: int, status: str = "completed", error: str = ""):
+def get_known_hashes(backup_root: str) -> set[str]:
+    """获取指定备份目标下已完成备份的文件哈希集合"""
+    conn = get_conn()
+    rows = conn.execute(
+        """
+        SELECT DISTINCT bf.source_hash
+        FROM backup_files bf
+        JOIN backup_history bh ON bh.id = bf.backup_id
+        WHERE bh.backup_root = ?
+          AND bh.status = 'completed'
+          AND bf.source_hash IS NOT NULL
+          AND bf.source_hash != ''
+        """,
+        (backup_root,)
+    ).fetchall()
+    conn.close()
+    return {row["source_hash"] for row in rows if row["source_hash"]}
+
+
+def finish_backup(backup_id: int, status: str = "completed", error: str = "",
+                  report_path: str = ""):
     """完成备份记录"""
     conn = get_conn()
     now = datetime.now().isoformat()
@@ -118,8 +178,11 @@ def finish_backup(backup_id: int, status: str = "completed", error: str = ""):
         SELECT
             COUNT(*) as total,
             COALESCE(SUM(file_size), 0) as total_size,
-            SUM(CASE WHEN verified=1 THEN 1 ELSE 0 END) as verified,
-            SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) as failed
+            COALESCE(SUM(CASE WHEN verified=1 THEN 1 ELSE 0 END), 0) as verified,
+            COALESCE(SUM(CASE WHEN status='skipped' THEN 1 ELSE 0 END), 0) as skipped,
+            COALESCE(SUM(CASE WHEN status='reviewed' THEN 1 ELSE 0 END), 0) as reviewed,
+            COALESCE(SUM(CASE WHEN preview_path IS NOT NULL AND preview_path != '' THEN 1 ELSE 0 END), 0) as previewed,
+            COALESCE(SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END), 0) as failed
         FROM backup_files WHERE backup_id=?
     """, (backup_id,)).fetchone()
 
@@ -146,9 +209,9 @@ def finish_backup(backup_id: int, status: str = "completed", error: str = ""):
 
     conn.execute(
         "UPDATE backup_history SET finished_at=?, total_files=?, total_size=?, "
-        "verified_files=?, failed_files=?, duration_seconds=?, status=?, error=?, devices_json=? WHERE id=?",
+        "verified_files=?, skipped_files=?, reviewed_files=?, preview_files=?, failed_files=?, duration_seconds=?, status=?, error=?, devices_json=?, report_path=? WHERE id=?",
         (now, stats["total"], stats["total_size"], stats["verified"],
-         stats["failed"], duration, status, error, json.dumps(devices_dict, ensure_ascii=False),
+         stats["skipped"], stats["reviewed"], stats["previewed"], stats["failed"], duration, status, error, json.dumps(devices_dict, ensure_ascii=False), report_path,
          backup_id)
     )
     conn.commit()
@@ -165,15 +228,85 @@ def get_backup(backup_id: int) -> Optional[dict]:
     return None
 
 
-def get_backups(limit: int = 20, offset: int = 0) -> list[dict]:
-    """查询备份历史"""
+def get_backups(
+    limit: int = 20,
+    offset: int = 0,
+    query: str = "",
+    status: str = "",
+    device: str = "",
+    date_from: str = "",
+    date_to: str = "",
+) -> list[dict]:
+    """查询备份历史，支持关键词/设备/状态/日期过滤"""
     conn = get_conn()
-    rows = conn.execute(
-        "SELECT * FROM backup_history ORDER BY started_at DESC LIMIT ? OFFSET ?",
-        (limit, offset)
-    ).fetchall()
+    sql = "SELECT * FROM backup_history WHERE 1=1"
+    params: list = []
+
+    if query:
+        sql += " AND (event_name LIKE ? OR backup_root LIKE ? OR devices_json LIKE ?)"
+        like = f"%{query}%"
+        params.extend([like, like, like])
+
+    if status:
+        sql += " AND status = ?"
+        params.append(status)
+
+    if device:
+        sql += " AND EXISTS (SELECT 1 FROM backup_files bf WHERE bf.backup_id = backup_history.id AND bf.camera LIKE ?)"
+        params.append(f"%{device}%")
+
+    if date_from:
+        sql += " AND started_at >= ?"
+        params.append(date_from)
+
+    if date_to:
+        sql += " AND started_at <= ?"
+        params.append(date_to)
+
+    sql += " ORDER BY started_at DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def count_backups(
+    query: str = "",
+    status: str = "",
+    device: str = "",
+    date_from: str = "",
+    date_to: str = "",
+) -> int:
+    """统计符合条件的历史数量"""
+    conn = get_conn()
+    sql = "SELECT COUNT(*) AS cnt FROM backup_history WHERE 1=1"
+    params: list = []
+
+    if query:
+        sql += " AND (event_name LIKE ? OR backup_root LIKE ? OR devices_json LIKE ?)"
+        like = f"%{query}%"
+        params.extend([like, like, like])
+
+    if status:
+        sql += " AND status = ?"
+        params.append(status)
+
+    if device:
+        sql += " AND EXISTS (SELECT 1 FROM backup_files bf WHERE bf.backup_id = backup_history.id AND bf.camera LIKE ?)"
+        params.append(f"%{device}%")
+
+    if date_from:
+        sql += " AND started_at >= ?"
+        params.append(date_from)
+
+    if date_to:
+        sql += " AND started_at <= ?"
+        params.append(date_to)
+
+    row = conn.execute(sql, params).fetchone()
+    conn.close()
+    return int(row["cnt"] if row else 0)
 
 
 def get_backup_files(backup_id: int, limit: int = 100) -> list[dict]:

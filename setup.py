@@ -24,6 +24,7 @@ setup(
         "python-dateutil>=2.8",
         "psutil>=5.9",
         "humanize>=4.9",
+        "Pillow>=10.0",
     ],
     extras_require={
         "dev": ["pytest", "black"],

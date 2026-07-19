@@ -159,7 +159,8 @@ function loadSettings() {
     // 备份总数
     fetch("/api/history?limit=1000")
         .then(r => r.json())
-        .then(records => {
+        .then(payload => {
+            const records = payload.items || [];
             const total = records.reduce((sum, r) => sum + (r.total_files || 0), 0);
             document.getElementById("totalBackups").textContent = total + " 个";
         });

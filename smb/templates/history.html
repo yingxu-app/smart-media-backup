@@ -4,6 +4,42 @@
 {% block content %}
 <div class="page-header">
     <h2>📋 备份历史</h2>
+    <div id="historyCount" class="history-count">—</div>
+</div>
+
+<div class="card history-search">
+    <div class="search-grid">
+        <div class="form-row">
+            <label for="historyQuery">搜索关键词</label>
+            <input type="text" id="historyQuery" placeholder="事件名 / 目标盘 / 设备">
+        </div>
+        <div class="form-row">
+            <label for="historyStatus">状态</label>
+            <select id="historyStatus">
+                <option value="">全部</option>
+                <option value="completed">成功</option>
+                <option value="running">进行中</option>
+                <option value="cancelled">已取消</option>
+                <option value="error">失败</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="historyDevice">设备名</label>
+            <input type="text" id="historyDevice" placeholder="Sony / DJI / iPhone">
+        </div>
+        <div class="form-row">
+            <label for="historyDateFrom">开始日期</label>
+            <input type="datetime-local" id="historyDateFrom">
+        </div>
+        <div class="form-row">
+            <label for="historyDateTo">结束日期</label>
+            <input type="datetime-local" id="historyDateTo">
+        </div>
+    </div>
+    <div class="search-actions">
+        <button class="btn-primary" onclick="loadHistory()">🔎 搜索</button>
+        <button class="btn-secondary" onclick="clearHistorySearch()">清空</button>
+    </div>
 </div>
 
 <div class="history-list card" id="historyList">
@@ -22,14 +58,38 @@
 {% block scripts %}
 <script>
 document.addEventListener("DOMContentLoaded", loadHistory);
+document.addEventListener("DOMContentLoaded", function() {
+    ["historyQuery", "historyDevice"].forEach(id => {
+        document.getElementById(id).addEventListener("keydown", function(e) {
+            if (e.key === "Enter") loadHistory();
+        });
+    });
+});
 
 function loadHistory() {
-    fetch("/api/history")
+    const params = new URLSearchParams();
+    params.set("limit", "50");
+
+    const query = document.getElementById("historyQuery").value.trim();
+    const status = document.getElementById("historyStatus").value.trim();
+    const device = document.getElementById("historyDevice").value.trim();
+    const dateFrom = document.getElementById("historyDateFrom").value;
+    const dateTo = document.getElementById("historyDateTo").value;
+
+    if (query) params.set("query", query);
+    if (status) params.set("status", status);
+    if (device) params.set("device", device);
+    if (dateFrom) params.set("date_from", new Date(dateFrom).toISOString());
+    if (dateTo) params.set("date_to", new Date(dateTo).toISOString());
+
+    fetch(`/api/history?${params.toString()}`)
         .then(r => r.json())
-        .then(records => {
+        .then(payload => {
+            const records = payload.items || [];
+            document.getElementById("historyCount").textContent = `找到 ${payload.total || 0} 条记录`;
             const container = document.getElementById("historyList");
             if (!records || records.length === 0) {
-                container.innerHTML = '<div class="empty-state">还没有备份记录</div>';
+                container.innerHTML = '<div class="empty-state">没有找到匹配的备份记录</div>';
                 return;
             }
             container.innerHTML = records.map(r => `
@@ -52,6 +112,15 @@ function loadHistory() {
         });
 }
 
+function clearHistorySearch() {
+    document.getElementById("historyQuery").value = "";
+    document.getElementById("historyStatus").value = "";
+    document.getElementById("historyDevice").value = "";
+    document.getElementById("historyDateFrom").value = "";
+    document.getElementById("historyDateTo").value = "";
+    loadHistory();
+}
+
 function showDetail(id) {
     document.getElementById("historyList").style.display = "none";
     const detail = document.getElementById("historyDetail");
@@ -69,6 +138,10 @@ function showDetail(id) {
                     <div class="ds-item"><label>目标位置</label><span>${rec.backup_root || ''}</span></div>
                     <div class="ds-item"><label>总文件</label><span>${rec.total_files || 0}</span></div>
                     <div class="ds-item"><label>校验通过</label><span>${rec.verified_files || 0}</span></div>
+                    <div class="ds-item"><label>跳过重复</label><span>${rec.skipped_files || 0}</span></div>
+                    <div class="ds-item"><label>待确认废片</label><span>${rec.reviewed_files || 0}</span></div>
+                    <div class="ds-item"><label>Windows预览</label><span>${rec.preview_files || 0}</span></div>
+                    <div class="ds-item"><label>报告文件</label><span>${rec.report_path || '--'}</span></div>
                     <div class="ds-item"><label>耗时</label><span>${rec.duration_seconds ? Math.round(rec.duration_seconds) + 's' : '--'}</span></div>
                     <div class="ds-item"><label>开始</label><span>${formatDateTime(rec.started_at)}</span></div>
                     ${rec.finished_at ? `<div class="ds-item"><label>完成</label><span>${formatDateTime(rec.finished_at)}</span></div>` : ''}
@@ -79,11 +152,12 @@ function showDetail(id) {
                 html += `<h4 style="margin-top:20px;">文件列表 (前 ${data.files.length} 个)</h4>
                     <div class="file-list">`;
                 data.files.forEach(f => {
+                    const icon = f.status === 'skipped' ? '⏭️' : f.status === 'reviewed' ? '🧹' : (f.media_type === 'video' ? '🎬' : '📸');
                     html += `<div class="file-item ${f.status}">
-                        <span class="f-icon">${f.media_type === 'video' ? '🎬' : '📸'}</span>
+                        <span class="f-icon">${icon}</span>
                         <span class="f-name">${f.source_path.split('/').pop()}</span>
                         <span class="f-cam">${f.camera || ''}</span>
-                        <span class="f-status ${f.status}">${f.status === 'completed' ? '✅' : f.status === 'failed' ? '❌' : '⏳'}</span>
+                        <span class="f-status ${f.status}">${f.status === 'completed' ? '✅' : f.status === 'failed' ? '❌' : f.status === 'skipped' ? '⏭️' : f.status === 'reviewed' ? '🧹' : '⏳'}</span>
                     </div>`;
                 });
                 html += `</div>`;
@@ -115,6 +189,31 @@ function formatDateTime(iso) {
     transition: background 0.2s;
 }
 .history-item:hover { background: var(--hover); }
+.history-count { color: var(--text-dim); font-size: 0.9em; margin-top: 4px; }
+.history-search { margin-bottom: 16px; }
+.search-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+.search-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 14px;
+}
+.search-grid .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.search-grid label {
+    font-size: 0.85em;
+    color: var(--text-dim);
+}
+.search-grid input, .search-grid select {
+    width: 100%;
+}
 .h-left { display: flex; align-items: center; gap: 12px; }
 .h-icon { font-size: 1.3em; }
 .h-event { font-weight: 600; margin-bottom: 4px; }
@@ -128,9 +227,21 @@ function formatDateTime(iso) {
 .file-list { margin-top: 12px; max-height: 400px; overflow-y: auto; }
 .file-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--border); font-size: 0.9em; }
 .file-item.failed { background: rgba(255,68,68,0.05); }
+.file-item.skipped { background: rgba(251,191,36,0.06); }
+.file-item.reviewed { background: rgba(96,165,250,0.06); }
 .f-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .f-cam { color: var(--text-dim); font-size: 0.85em; min-width: 80px; }
+.f-status.skipped { color: #fbbf24; }
+.f-status.reviewed { color: #60a5fa; }
 .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
 .loading { text-align: center; padding: 40px; color: var(--text-dim); }
+
+@media (max-width: 1100px) {
+    .search-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+    .search-grid { grid-template-columns: 1fr; }
+}
 </style>
 {% endblock %}

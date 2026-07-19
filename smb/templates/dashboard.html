@@ -28,6 +28,17 @@
 <!-- 操作面板 -->
 <div class="action-panel card" id="actionPanel" style="display:none;">
     <div class="form-row">
+        <label for="eventTemplate">🧩 事件模板</label>
+        <select id="eventTemplate" onchange="applyEventTemplate()">
+            <option value="">手动输入</option>
+            <option value="旅行">旅行</option>
+            <option value="婚礼">婚礼</option>
+            <option value="日常">日常</option>
+            <option value="商拍">商拍</option>
+            <option value="活动">活动</option>
+        </select>
+    </div>
+    <div class="form-row">
         <label for="eventName">📁 事件文件夹名</label>
         <input type="text" id="eventName" placeholder="例: 2025年8月漫展" autofocus>
     </div>
@@ -71,6 +82,18 @@
             <span class="detail-value" id="copiedInfo">0 / 0</span>
         </div>
         <div class="detail-row">
+            <span class="detail-label">已跳过</span>
+            <span class="detail-value" id="skippedInfo">0</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">待确认废片</span>
+            <span class="detail-value" id="reviewedInfo">0</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Windows预览</span>
+            <span class="detail-value" id="previewInfo">0</span>
+        </div>
+        <div class="detail-row">
             <span class="detail-label">已用时间</span>
             <span class="detail-value" id="elapsedTime">0s</span>
         </div>
@@ -102,6 +125,7 @@
 {% block scripts %}
 <script>
 let currentScan = null;
+let eventNameTouched = false;
 
 // === SocketIO 实时连接 ===
 const socket = io();
@@ -120,6 +144,8 @@ document.addEventListener("DOMContentLoaded", function() {
     checkStatus();
     // 自动检测 SD 卡
     startPolling();
+    const eventInput = document.getElementById("eventName");
+    eventInput.addEventListener("input", () => { eventNameTouched = true; });
 });
 
 // === 磁盘列表 ===
@@ -224,6 +250,7 @@ function showScanResult(result) {
     // AI 自动填入事件名
     if (result.suggested_name) {
         document.getElementById("eventName").value = result.suggested_name;
+        eventNameTouched = false;
     }
 
     // 统计
@@ -239,6 +266,26 @@ function showScanResult(result) {
     if (result.mount_point) {
         const sel = document.getElementById("backupTarget");
         // 不强制选择，但高亮提示
+    }
+}
+
+function formatChineseDate(date = new Date()) {
+    const y = date.getFullYear();
+    const m = date.getMonth() + 1;
+    const d = date.getDate();
+    return `${y}年${m}月${d}日`;
+}
+
+function applyEventTemplate() {
+    const tpl = document.getElementById("eventTemplate").value;
+    if (!tpl) return;
+
+    const eventInput = document.getElementById("eventName");
+    const base = `${formatChineseDate()}${tpl}`;
+
+    if (!eventInput.value || !eventNameTouched || eventInput.value.includes("年") || eventInput.value === "例: 2025年8月漫展") {
+        eventInput.value = base;
+        eventNameTouched = false;
     }
 }
 
@@ -311,6 +358,10 @@ function updateProgress(data) {
             data.status === "scanning" ? "📂 扫描 SD 卡中..." : "📋 读取文件元数据...";
     } else if (data.status === "copying") {
         document.getElementById("progressTitle").textContent = "📤 正在备份...";
+    } else if (data.status === "reviewing") {
+        document.getElementById("progressTitle").textContent = "🧹 正在筛选废片...";
+    } else if (data.status === "previewing") {
+        document.getElementById("progressTitle").textContent = "🖼 正在生成 Windows 预览...";
     } else if (data.status === "verifying") {
         document.getElementById("progressTitle").textContent = "🔒 校验文件中...";
     }
@@ -324,6 +375,9 @@ function updateProgress(data) {
     document.getElementById("currentFile").textContent = data.current_file || "—";
     document.getElementById("currentSpeed").textContent = data.current_speed ? data.current_speed.toFixed(1) + " MB/s" : "—";
     document.getElementById("copiedInfo").textContent = `${data.copied_files || 0} / ${data.total_files || 0}`;
+    document.getElementById("skippedInfo").textContent = `${data.skipped_files || 0}`;
+    document.getElementById("reviewedInfo").textContent = `${data.reviewed_files || 0}`;
+    document.getElementById("previewInfo").textContent = `${data.preview_files || 0}`;
 
     const secs = data.elapsed_seconds || 0;
     document.getElementById("elapsedTime").textContent =
@@ -385,7 +439,7 @@ function showDone() {
             </div>`
         ).join("") + `
             <div class="done-total">
-                总计: ${p.total_files || 0} 个文件 | ${formatSize(p.total_bytes || 0)} | ${Math.round(p.elapsed_seconds || 0)}s
+                总计: ${p.total_files || 0} 个文件 | 已拷贝 ${p.copied_files || 0} | 跳过 ${p.skipped_files || 0} | 待确认废片 ${p.reviewed_files || 0} | 预览 ${p.preview_files || 0} | ${formatSize(p.total_bytes || 0)} | ${Math.round(p.elapsed_seconds || 0)}s
             </div>`;
     });
 }
@@ -407,7 +461,9 @@ function resetUI() {
     document.getElementById("donePanel").style.display = "none";
     document.getElementById("errorPanel").style.display = "none";
     document.getElementById("eventName").value = "";
+    document.getElementById("eventTemplate").value = "";
     document.getElementById("btnStart").disabled = true;
+    eventNameTouched = false;
     showWaiting();
 }
 

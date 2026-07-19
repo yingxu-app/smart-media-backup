@@ -12,6 +12,10 @@ class ChecksumVerifier:
     def __init__(self):
         pass
 
+    def hash_file(self, filepath: str) -> str:
+        """计算文件 SHA256"""
+        return self._hash_file(filepath)
+
     def _hash_file(self, filepath: str) -> str:
         sha = hashlib.sha256()
         try:
@@ -44,9 +48,10 @@ class ChecksumVerifier:
         )
         return manifest_path
 
-    def verify_single(self, src: str, dst: str) -> tuple:
+    def verify_single(self, src: str, dst: str, src_hash: str = "") -> tuple:
         """验证单个源→目标文件，返回 (是否通过, 信息)"""
-        src_hash = self._hash_file(src)
+        if not src_hash:
+            src_hash = self._hash_file(src)
         dst_hash = self._hash_file(dst)
         if not src_hash or not dst_hash:
             return False, "无法读取文件"

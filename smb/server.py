@@ -4,6 +4,7 @@ import sys
 import json
 import threading
 import webbrowser
+import subprocess
 from pathlib import Path
 
 import flask
@@ -87,6 +88,27 @@ def download_macos():
         return flask.send_file(zip_file, as_attachment=True,
                                download_name="SmartMediaBackup-macOS.zip")
     return jsonify({"error": "下载文件未就绪"}), 404
+
+
+@app.route("/api/open_folder", methods=["POST"])
+def api_open_folder():
+    """打开目标文件夹"""
+    data = request.get_json(silent=True) or {}
+    path = data.get("path", "").strip()
+    if not path:
+        return jsonify({"error": "路径不能为空"}), 400
+    if not os.path.exists(path):
+        return jsonify({"error": "路径不存在"}), 404
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", path])
+        elif sys.platform.startswith("win"):
+            os.startfile(path)  # type: ignore[attr-defined]
+        else:
+            subprocess.Popen(["xdg-open", path])
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ====== 百度网盘 API ======
@@ -334,8 +356,26 @@ def api_history():
     """获取历史记录"""
     limit = request.args.get("limit", 20, type=int)
     offset = request.args.get("offset", 0, type=int)
-    records = db.get_backups(limit, offset)
-    return jsonify(records)
+    query = request.args.get("query", "", type=str).strip()
+    status = request.args.get("status", "", type=str).strip()
+    device = request.args.get("device", "", type=str).strip()
+    date_from = request.args.get("date_from", "", type=str).strip()
+    date_to = request.args.get("date_to", "", type=str).strip()
+    records = db.get_backups(limit, offset, query, status, device, date_from, date_to)
+    total = db.count_backups(query, status, device, date_from, date_to)
+    return jsonify({
+        "items": records,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "filters": {
+            "query": query,
+            "status": status,
+            "device": device,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
+    })
 
 
 @app.route("/api/history/<int:backup_id>")
