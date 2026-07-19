@@ -70,6 +70,8 @@ def init_db():
     ensure_column("backup_history", "reviewed_files", "INTEGER DEFAULT 0")
     ensure_column("backup_history", "preview_files", "INTEGER DEFAULT 0")
     ensure_column("backup_history", "report_path", "TEXT")
+    ensure_column("backup_history", "backup_targets", "TEXT DEFAULT '[]'")
+
     ensure_column("backup_files", "source_hash", "TEXT")
     ensure_column("backup_files", "source_mtime", "REAL")
     ensure_column("backup_files", "preview_path", "TEXT")
@@ -78,13 +80,14 @@ def init_db():
     conn.close()
 
 
-def create_backup(event_name: str, backup_root: str) -> int:
+def create_backup(event_name: str, backup_root: str, backup_targets: list | None = None) -> int:
     """创建备份记录，返回 backup_id"""
     conn = get_conn()
     now = datetime.now().isoformat()
+    targets_json = json.dumps(backup_targets or [])
     cur = conn.execute(
-        "INSERT INTO backup_history (event_name, backup_root, started_at, status) VALUES (?, ?, ?, 'running')",
-        (event_name, backup_root, now)
+        "INSERT INTO backup_history (event_name, backup_root, backup_targets, started_at, status) VALUES (?, ?, ?, ?, 'running')",
+        (event_name, backup_root, targets_json, now)
     )
     backup_id = cur.lastrowid
     conn.commit()

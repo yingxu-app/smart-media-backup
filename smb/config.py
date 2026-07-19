@@ -35,6 +35,9 @@ class AppConfig:
         ".wav", ".aac", ".mp3", ".flac", ".ogg", ".wma",
     ])
 
+    # === 多目标备份 ===
+    backup_targets: list = field(default_factory=list)
+
     # === 校验 ===
     verify_method: str = "sha256"     # "sha256" | "skip"
 

@@ -314,10 +314,11 @@ def api_start_backup():
     mount_point = data.get("mount_point", "")
     event_name = data.get("event_name", "").strip()
     backup_root = data.get("backup_root", "")
+    backup_targets = data.get("backup_targets") or []
 
     if not event_name:
         return jsonify({"error": "请输入事件文件夹名"})
-    if not backup_root:
+    if not backup_root and not backup_targets:
         return jsonify({"error": "请选择备份目标位置"})
     if not mount_point:
         vols = list_removable_volumes()
@@ -328,13 +329,16 @@ def api_start_backup():
 
     # 保存配置
     config.last_backup_root = backup_root
-    config.save()
+    if backup_targets:
+        config.backup_targets = list(dict.fromkeys(backup_targets))
+        config.save()
 
     # 在新线程运行备份
     def _run():
         try:
             engine.run(mount_point, event_name, backup_root,
-                       enable_verify=config.verify_method == "sha256")
+                       enable_verify=config.verify_method == "sha256",
+                       backup_targets=backup_targets or None)
         except Exception as e:
             print(f"[SMB] 备份失败: {e}", file=sys.stderr)
 

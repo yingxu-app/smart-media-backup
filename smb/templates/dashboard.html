@@ -47,7 +47,10 @@
         <div class="target-selector">
             <select id="backupTarget"></select>
             <button class="btn-refresh" onclick="refreshTargets()" title="刷新磁盘列表">🔄</button>
+            <button class="btn-add-target" onclick="addTarget()" title="添加为额外目标">＋</button>
         </div>
+        <div id="targetTags" class="target-tags"></div>
+        <small class="hint">主目标必选，点 ＋ 添加额外位置同步备份</small>
     </div>
     <button class="btn-start" id="btnStart" onclick="startBackup()" disabled>
         ▶ 开始备份
@@ -301,6 +304,29 @@ function formatSize(bytes) {
     return size.toFixed(i > 0 ? 1 : 0) + " " + units[i];
 }
 
+// === 多目标备份 ===
+let extraTargets = [];
+
+function addTarget() {
+    const sel = document.getElementById("backupTarget");
+    const val = sel.value;
+    if (!val) return;
+    if (extraTargets.includes(val)) return;
+    extraTargets.push(val);
+    renderTargetTags();
+}
+
+function removeTarget(val) {
+    extraTargets = extraTargets.filter(t => t !== val);
+    renderTargetTags();
+}
+
+function renderTargetTags() {
+    document.getElementById("targetTags").innerHTML = extraTargets.map(t =>
+        `<span class="target-tag">${t.replace(/^.*?\//, '')} <button onclick="removeTarget('${t}')" class="tag-remove">✕</button></span>`
+    ).join("");
+}
+
 // === 备份控制 ===
 
 function startBackup() {
@@ -325,6 +351,7 @@ function startBackup() {
             mount_point: currentScan?.mount_point || "",
             event_name: eventName,
             backup_root: backupRoot,
+            backup_targets: extraTargets,
         })
     })
     .then(r => r.json())

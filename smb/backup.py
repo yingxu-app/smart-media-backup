@@ -357,8 +357,52 @@ class BackupEngine:
 
         return previewed_count
 
+    def _copy_to_target(
+        self, files: list[dict], target: str, event_name: str,
+        backup_id: int, enable_verify: bool,
+    ) -> dict:
+        """拷贝文件到单个目标路径，返回 {copied, skipped, bytes, errors}"""
+        known_hashes = db.get_known_hashes(target)
+        hashes: set[str] = set(known_hashes)
+        copied = skipped = 0
+        copied_bytes = 0
+
+        for f in files:
+            if self._cancel_flag.is_set():
+                break
+            camera = f.get("camera", "Unknown")
+            media_type = f.get("media_type", "other")
+            dest_dir = get_dest_dir(target, camera, event_name, media_type)
+            dest_path = os.path.join(dest_dir, f["filename"])
+            os.makedirs(dest_dir, exist_ok=True)
+
+            source_hash = f.get("source_hash") or self._verifier.hash_file(f["path"])
+            if not source_hash or source_hash in hashes:
+                skipped += 1
+                self.progress.current_file = f"[跳过] {f['filename']}"
+                self.progress.notify()
+                continue
+
+            hashes.add(source_hash)
+            ok, _ = self._copy_and_verify_with_retry(
+                f["path"], dest_path, source_hash, enable_verify
+            )
+            if ok:
+                copied += 1
+                copied_bytes += f.get("size", 0)
+                self.progress.current_file = f"✅ {f['filename']}"
+            else:
+                self.progress.current_file = f"❌ {f['filename']}"
+
+            self.progress.bytes_copied += f.get("size", 0)
+            self.progress.copied_files = copied
+            self.progress.skipped_files += skipped
+            self.progress.notify()
+
+        return {"copied": copied, "skipped": skipped, "bytes": copied_bytes}
+
     def run(self, mount_point: str, event_name: str, backup_root: str,
-            enable_verify: bool = True):
+            enable_verify: bool = True, backup_targets: list[str] | None = None):
         """
         执行一次完整备份流程。
         mount_point: SD 卡挂载点
@@ -371,7 +415,7 @@ class BackupEngine:
         self.progress.notify()
 
         # ---- step 1: 备份对象创建 ----
-        backup_id = db.create_backup(event_name, backup_root)
+        backup_id = db.create_backup(event_name, backup_root, backup_targets)
 
         try:
             # ---- step 2: 扫描 SD 卡 ----
@@ -432,130 +476,49 @@ class BackupEngine:
             ]
             self.progress.notify()
 
-            # ---- step 4: 拷贝文件 ----
+            # ---- step 4: 多目标拷贝 ----
+            targets = [backup_root] + (backup_targets or [])
+            targets = list(dict.fromkeys(t for t in targets if t.strip()))  # dedup + clean
             self.progress.status = "copying"
-            self.progress.copied_files = 0
-            self.progress.skipped_files = 0
-            self.progress.reviewed_files = 0
-            self.progress.preview_files = 0
-            self.progress.processed_files = 0
-            self.progress.bytes_copied = 0
             self.progress.notify()
 
-            copied_bytes = 0
-            verified_ok = 0
-            copied_ok = 0
-            skipped_count = 0
-            reviewed_count = 0
-            processed_count = 0
+            # 一次性计算源文件哈希
+            for f in files:
+                f["source_hash"] = self._verifier.hash_file(f["path"])
 
-            for i, f in enumerate(files, start=1):
+            all_copied = all_skipped = 0
+            all_bytes = 0
+            for ti, target in enumerate(targets):
                 if self._cancel_flag.is_set():
-                    db.finish_backup(backup_id, "cancelled")
-                    self.progress.status = "cancelled"
-                    self.progress.notify()
-                    return
-
-                camera = f.get("camera", "Unknown")
-                media_type = f.get("media_type", "other")
-                self.progress.current_device = camera
-                self.progress.current_media_type = "照片" if media_type in ("photo", "raw") else "视频"
-                self.progress.copied_files = copied_ok
-                self.progress.skipped_files = skipped_count
-                self.progress.reviewed_files = reviewed_count
-                self.progress.processed_files = processed_count
-
-                # 目标路径
-                dest_dir = get_dest_dir(backup_root, camera, event_name, media_type)
-                dest_path = os.path.join(dest_dir, f["filename"])
-
-                os.makedirs(dest_dir, exist_ok=True)
-
-                # 进度
-                self.progress.current_file = f["filename"]
-                self.progress.bytes_copied = copied_bytes
-                self.progress.phase_progress = (processed_count / total) * 100 if total else 0
-
-                # 速度计算
-                elapsed = time.time() - self.progress.start_time
-                self.progress.elapsed_seconds = elapsed
-                if elapsed > 0:
-                    self.progress.current_speed = (copied_bytes / elapsed) / (1024 * 1024)
-
+                    break
+                label = f"[{ti+1}/{len(targets)}] {os.path.basename(target.rstrip('/'))}"
+                self.progress.current_file = f"拷贝到 {label}"
                 self.progress.notify()
 
-                source_hash = self._verifier.hash_file(f["path"])
-                source_mtime = os.path.getmtime(f["path"]) if os.path.exists(f["path"]) else None
-                if not source_hash:
-                    db.update_file_status(
-                        backup_id, f["path"], "failed",
-                        error="无法计算文件哈希",
-                        source_mtime=source_mtime
-                    )
-                    processed_count += 1
-                    self.progress.processed_files = processed_count
-                    self.progress.phase_progress = (processed_count / total) * 100 if total else 0
-                    self.progress.current_file = f"[失败] {f['filename']}"
-                    self.progress.notify()
-                    continue
-
-                if source_hash in current_hashes:
-                    skipped_count += 1
-                    db.update_file_status(
-                        backup_id, f["path"], "skipped",
-                        error="duplicate",
-                        source_hash=source_hash,
-                        source_mtime=source_mtime,
-                    )
-                    processed_count += 1
-                    self.progress.current_file = f"[跳过] {f['filename']}"
-                    self.progress.copied_files = copied_ok
-                    self.progress.skipped_files = skipped_count
-                    self.progress.processed_files = processed_count
-                    self.progress.phase_progress = (processed_count / total) * 100 if total else 0
-                    self.progress.notify()
-                    continue
-
-                current_hashes.add(source_hash)
-                f["source_hash"] = source_hash
-
-                # 带重试的拷贝 + 校验
-                ok, error = self._copy_and_verify_with_retry(
-                    f["path"], dest_path, source_hash, enable_verify
+                result = self._copy_to_target(
+                    files, target, event_name, backup_id, enable_verify
                 )
+                all_copied += result["copied"]
+                all_skipped += result["skipped"]
+                all_bytes += result["bytes"]
 
-                if ok:
-                    copied_bytes += f.get("size", 0)
-                    copied_ok += 1
-                    if enable_verify:
-                        verified_ok += 1
-                    db.update_file_status(
-                        backup_id, f["path"], "completed", dest_path,
-                        verified=enable_verify, source_hash=source_hash,
-                        source_mtime=source_mtime
-                    )
-                    f["dest_path"] = dest_path
-                else:
-                    self.progress.current_file = f"[失败] {f['filename']}"
-                    self.progress.notify()
-                    db.update_file_status(
-                        backup_id, f["path"], "failed",
-                        error=error,
-                        source_hash=source_hash, source_mtime=source_mtime
-                    )
+                # 为目标生成校验清单
+                if enable_verify:
+                    for cam in devices:
+                        cam_dir = os.path.join(target, cam, event_name)
+                        if os.path.exists(cam_dir):
+                            flist = []
+                            for root, _, fnames in os.walk(cam_dir):
+                                for fn in fnames:
+                                    if fn != "checksums.json":
+                                        flist.append(os.path.join(root, fn))
+                            if flist:
+                                self._verifier.generate_manifest(flist, cam_dir)
 
-                processed_count += 1
-                self.progress.copied_files = copied_ok
-                self.progress.skipped_files = skipped_count
-                self.progress.reviewed_files = reviewed_count
-                self.progress.processed_files = processed_count
-                self.progress.bytes_copied = copied_bytes
-                self.progress.phase_progress = (processed_count / total) * 100 if total else 0
-                elapsed = time.time() - self.progress.start_time
-                self.progress.elapsed_seconds = elapsed
-                if elapsed > 0:
-                    self.progress.current_speed = (copied_bytes / elapsed) / (1024 * 1024)
-                self.progress.notify()
+            self.progress.copied_files = all_copied
+            self.progress.skipped_files = all_skipped
+            self.progress.bytes_copied = all_bytes
+            self.progress.notify()
 
             # ---- step 5: 废片审片并隔离 ----
             reviewed_count, label_counts = self._review_and_quarantine(
@@ -591,27 +554,27 @@ class BackupEngine:
             # ---- step 8: 完成 ----
             elapsed = time.time() - self.progress.start_time
             self.progress.elapsed_seconds = elapsed
-            self.progress.copied_files = copied_ok
-            self.progress.skipped_files = skipped_count
+            self.progress.copied_files = all_copied
+            self.progress.skipped_files = all_skipped
             self.progress.reviewed_files = reviewed_count
             self.progress.preview_files = previewed_count
-            self.progress.processed_files = processed_count
-            self.progress.bytes_copied = copied_bytes
+            self.progress.processed_files = all_copied + all_skipped
+            self.progress.bytes_copied = all_bytes
             self.progress.phase_progress = 100
 
-            failed_count = max(total - copied_ok - skipped_count, 0)
+            failed_count = max(total - all_copied - all_skipped, 0)
             report_path = self._write_backup_report(
                 backup_id=backup_id,
                 event_name=event_name,
                 backup_root=backup_root,
                 devices=devices,
                 total_files=total,
-                copied_files=copied_ok,
-                skipped_files=skipped_count,
+                copied_files=all_copied,
+                skipped_files=all_skipped,
                 reviewed_files=reviewed_count,
                 preview_files=previewed_count,
                 failed_files=failed_count,
-                verified_files=verified_ok,
+                verified_files=all_copied,
                 total_size=self.progress.total_bytes,
                 elapsed_seconds=elapsed,
                 status="completed",
