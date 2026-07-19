@@ -213,10 +213,12 @@ class BaiduPan:
         """获取网盘容量信息"""
         result = self._api_get({"method": "info"})
         if result:
+            quota = result.get("quota", 0)
+            used = result.get("used", 0)
             return {
-                "total": result.get("total", 0),
-                "used": result.get("used", 0),
-                "free": result.get("total", 0) - result.get("used", 0),
+                "total": quota,
+                "used": used,
+                "free": quota - used,
             }
         return {"total": 0, "used": 0, "free": 0}
 
