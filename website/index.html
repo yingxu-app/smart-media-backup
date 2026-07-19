@@ -216,8 +216,8 @@
         <span class="highlight">剩下的交给它</span>
     </h1>
     <p>
-        自动读取相机型号、拍摄日期、GPS 位置，按设备→事件→照片/视频分类整理。
-        Web 面板可视化进度，插卡即备份。
+        自动读取相机型号、拍摄日期、GPS 位置。按设备→事件→照片/视频分类整理。
+        AI 废片筛选、百度网盘自动上传、多目标同时备份。Web 面板可视化进度，插卡即备份。
     </p>
     <div class="hero-buttons">
         <a href="#download" class="btn-primary">⬇ 免费下载</a>
@@ -287,17 +287,17 @@
         <div class="step">
             <div class="step-num">1</div>
             <h3>📥 插卡</h3>
-            <p>SD 卡插入读卡器，程序自动检测。支持 Sony、DJI、GoPro、iPhone 等主流设备。</p>
+            <p>SD 卡插入读卡器，程序自动检测并打开仪表盘。支持 Sony、DJI、GoPro、iPhone、Nikon、Canon 等主流设备。</p>
         </div>
         <div class="step">
             <div class="step-num">2</div>
             <h3>📝 命名</h3>
-            <p>输入事件名，比如"2025年8月漫展"。日期和设备型号程序自动读取。</p>
+            <p>输入事件名，比如"2025年8月漫展"。AI 会自动分析照片内容给出建议名。多个活动用逗号分隔即可分批备份。</p>
         </div>
         <div class="step">
             <div class="step-num">3</div>
             <h3>▶ 开始</h3>
-            <p>点一下按钮，自动分类整理到目标磁盘。完事后会通知你。</p>
+            <p>点一下按钮，自动分类整理到目标磁盘（支持同时备份到多个盘）。完事后自动校验、筛选废片、上传百度网盘、推送通知。</p>
         </div>
     </div>
 </section>
@@ -306,36 +306,139 @@
 <section id="features">
     <h2 class="section-title">功能特性</h2>
     <p class="section-sub">摄影师需要的，这里都有</p>
+
+    <h3 style="font-size:1.2em;margin-bottom:16px;color:var(--accent);">⚡ 核心流程</h3>
     <div class="features">
         <div class="feature">
             <div class="feature-icon">📷</div>
             <h4>自动读取元数据</h4>
-            <p>相机型号、拍摄日期、GPS 坐标自动提取，不需要你手动填。</p>
+            <p>相机型号、拍摄日期、GPS 坐标自动提取，不需要你手动填。支持 RAW(JPG/ARW/CR3/DNG等) + 视频(MP4/MOV/MXF等)。</p>
         </div>
         <div class="feature">
             <div class="feature-icon">📁</div>
             <h4>智能分类整理</h4>
-            <p>按设备→事件→照片/视频三层目录，文件井井有条。</p>
+            <p>按设备→事件→照片/视频三层目录，文件井井有条。一张卡多个活动？逗号分隔事件名即可分批备份。</p>
         </div>
         <div class="feature">
             <div class="feature-icon">🔒</div>
             <h4>SHA256 校验</h4>
-            <p>每个文件拷贝后进行完整性校验，保证备份零错误。</p>
+            <p>每个文件拷贝后进行完整性校验，保证备份零错误。每目录自动生成 checksums.json。</p>
         </div>
         <div class="feature">
             <div class="feature-icon">📊</div>
-            <h4>实时可视化</h4>
-            <p>进度条、拷贝速度、剩余时间一目了然。Web 面板即开即用。</p>
+            <h4>实时可视化仪表盘</h4>
+            <p>进度条、拷贝速度、剩余时间一目了然。Web 面板即开即用，SocketIO 实时推送进度。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">⏳</div>
+            <h4>失败自动重试</h4>
+            <p>拷贝失败、校验失败自动重试 3 次，确保每个文件安全到达。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🔄</div>
+            <h4>增量备份</h4>
+            <p>基于 SHA256 哈希去重，已备份过的文件自动跳过。第二次插同样的卡只需几秒。</p>
+        </div>
+    </div>
+
+    <h3 style="font-size:1.2em;margin:32px 0 16px;color:var(--accent);">📦 多目标 & 同步</h3>
+    <div class="features">
+        <div class="feature">
+            <div class="feature-icon">💾</div>
+            <h4>多目标备份</h4>
+            <p>同时备份到多个位置：外置硬盘 + NAS + 本地磁盘。一次扫描，多处写入。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">☁️</div>
+            <h4>百度网盘自动上传</h4>
+            <p>备份完成后后台自动上传到百度网盘。支持断点续传、大文件分片。配置一次永久有效。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🔄</div>
+            <h4>跨电脑同步</h4>
+            <p>多台电脑运行 SMB，备份历史自动同步。家里和工作室各一台，进度共享。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">📤</div>
+            <h4>通知推送</h4>
+            <p>备份完成后通过 Webhook 推送通知到微信/Telegram/任意服务，不守着也知道。</p>
+        </div>
+    </div>
+
+    <h3 style="font-size:1.2em;margin:32px 0 16px;color:var(--accent);">🤖 AI 智能</h3>
+    <div class="features">
+        <div class="feature">
+            <div class="feature-icon">🧹</div>
+            <h4>废片筛选</h4>
+            <p>自动识别过曝、过暗、模糊、黑图、白图、闭眼、构图差。废片不删除，移到「废片待确认」文件夹你自己决定。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🏷️</div>
+            <h4>AI 自动命名</h4>
+            <p>扫描 SD 卡后自动分析照片内容，给出 2-6 字中文事件名建议。支持 Ollama 本地模型或 OpenAI 云端。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🎯</div>
+            <h4>感知哈希去重</h4>
+            <p>连拍场景下，内容几乎相同的照片自动分组标记。基于 imagehash 感知哈希算法，可调敏感度。</p>
+        </div>
+    </div>
+
+    <h3 style="font-size:1.2em;margin:32px 0 16px;color:var(--accent);">🖥️ 平台 & 体验</h3>
+    <div class="features">
+        <div class="feature">
+            <div class="feature-icon">🍎</div>
+            <h4>macOS + Windows</h4>
+            <p>macOS 原生 App（.dmg 28MB），Windows .exe 由 GitHub Actions 自动构建。均支持 Intel 和 ARM。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🪟</div>
+            <h4>Windows 缩略图</h4>
+            <p>备份完成的照片在 Windows 资源管理器里直接显示缩略图，不用逐个打开查看。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🌙</div>
+            <h4>亮/暗主题</h4>
+            <p>侧边栏一键切换亮色/暗色主题，偏好自动保存到本地存储。</p>
         </div>
         <div class="feature">
             <div class="feature-icon">📋</div>
-            <h4>备份历史</h4>
-            <p>每次备份记录在案，随时可查详细的文件列表和校验结果。</p>
+            <h4>备份历史 + 搜索</h4>
+            <p>每次备份记录在案，按时间/设备/事件名/状态筛选，详细文件列表和校验结果一键可查。</p>
         </div>
         <div class="feature">
-            <div class="feature-icon">💾</div>
-            <h4>任意目标位置</h4>
-            <p>本地磁盘、外置硬盘、NAS 都可以作为备份目标。</p>
+            <div class="feature-icon">🐢</div>
+            <h4>速度限制</h4>
+            <p>设置最大拷贝速度，备份时不影响同时运行的 Lightroom 或 PS。不限速时全速拷贝。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">📸</div>
+            <h4>Lightroom 集成</h4>
+            <p>备份完成后自动生成 Lightroom 导入指南和元数据 JSON，方便导入到 LR 目录。</p>
+        </div>
+    </div>
+
+    <h3 style="font-size:1.2em;margin:32px 0 16px;color:var(--accent);">🔧 安全 & 控制</h3>
+    <div class="features">
+        <div class="feature">
+            <div class="feature-icon">🗑️</div>
+            <h4>备份后清理 SD 卡</h4>
+            <p>备份完成后询问是否删除 SD 卡文件。选「删除」则移到废纸篓，不彻底删除，给一次后悔机会。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">📋</div>
+            <h4>事件模板</h4>
+            <p>旅行、婚礼、日常、商拍、活动等预设事件模板，一键填名不用打字。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">📝</div>
+            <h4>备份报告</h4>
+            <p>每次备份生成详细 JSON 报告：成功/跳过/失败文件数、各设备统计、耗时、废片筛选结果。</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🖼️</div>
+            <h4>插卡即弹窗</h4>
+            <p>SD 卡插入后自动打开浏览器到仪表盘，2 秒间隔扫描 /Volumes 检测新设备。</p>
         </div>
     </div>
 </section>
