@@ -1,580 +1,437 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Media Backup — 智能 SD 卡备份工具</title>
-    <meta name="description" content="插卡到电脑，自动读取设备/日期，按设备→事件→照片/视频分类整理。Web 面板可视化进度。免费开源。">
-    <style>
-        :root {
-            --bg: #0b0d14;
-            --bg-card: #131620;
-            --bg-elevated: #1a1e2d;
-            --border: #252a3a;
-            --text: #e8edf5;
-            --text-dim: #6b728d;
-            --accent: #4ade80;
-            --accent-hover: #22c55e;
-            --radius: 14px;
-            --max-w: 1100px;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            -webkit-font-smoothing: antialiased;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Media Backup — 智能 SD 卡备份工具</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181b28;
+    --border: #1e2030;
+    --text: #e8edf5;
+    --dim: #5a5f7a;
+    --accent: #4ade80;
+    --accent2: #22d3ee;
+    --radius: 16px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+}
+body { font-family:var(--font); background:var(--bg); color:var(--text); overflow-x:hidden; line-height:1.6; -webkit-font-smoothing:antialiased; }
 
-        /* Nav */
-        nav {
-            display: flex; justify-content: space-between; align-items: center;
-            max-width: var(--max-w); margin: 0 auto; padding: 20px 24px;
-        }
-        .nav-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.1em; }
-        .nav-brand span { color: var(--accent); }
-        .nav-links { display: flex; gap: 24px; align-items: center; }
-        .nav-links a { color: var(--text-dim); text-decoration: none; font-size: 0.9em; transition: color 0.2s; }
-        .nav-links a:hover { color: var(--text); }
+/* === Nav === */
+nav {
+    display:flex; justify-content:space-between; align-items:center;
+    max-width:1100px; margin:0 auto; padding:20px 24px;
+}
+.nav-brand { display:flex; align-items:center; gap:8px; font-weight:800; font-size:1.05em; }
+.nav-brand span { color:var(--accent); }
+.nav-links { display:flex; gap:24px; align-items:center; }
+.nav-links a { color:var(--dim); text-decoration:none; font-size:0.88em; font-weight:500; transition:color 0.2s; }
+.nav-links a:hover { color:var(--text); }
+.nav-cta {
+    padding:7px 18px; border-radius:8px; background:var(--accent); color:#0a0c10;
+    font-weight:700; font-size:0.85em; text-decoration:none; transition:all 0.2s;
+}
+.nav-cta:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(74,222,128,0.25); }
 
-        /* Hero */
-        .hero {
-            max-width: var(--max-w); margin: 60px auto 80px; padding: 0 24px;
-            text-align: center;
-        }
-        .hero-badge {
-            display: inline-block; padding: 6px 14px; border-radius: 20px;
-            background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.2);
-            color: var(--accent); font-size: 0.8em; font-weight: 600;
-            margin-bottom: 24px;
-        }
-        .hero h1 { font-size: 3.2em; font-weight: 800; line-height: 1.15; margin-bottom: 20px; letter-spacing: -0.02em; }
-        .hero h1 .highlight { background: linear-gradient(135deg, var(--accent), #22d3ee); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .hero p { font-size: 1.2em; color: var(--text-dim); max-width: 640px; margin: 0 auto 40px; }
-        .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-        .btn-primary, .btn-secondary {
-            display: inline-flex; align-items: center; gap: 8px;
-            padding: 14px 32px; border-radius: 12px; font-size: 1em; font-weight: 600;
-            text-decoration: none; transition: all 0.25s;
-        }
-        .btn-primary {
-            background: var(--accent); color: #0b0d14;
-        }
-        .btn-primary:hover {
-            background: var(--accent-hover); transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(74, 222, 128, 0.3);
-        }
-        .btn-secondary {
-            background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
-        }
-        .btn-secondary:hover { border-color: var(--accent); transform: translateY(-2px); }
-        .btn-small { font-size: 0.85em; padding: 10px 20px; }
-        .hero-meta { margin-top: 16px; font-size: 0.85em; color: var(--text-dim); }
+/* === Hero === */
+.hero {
+    max-width:1100px; margin:0 auto; padding:60px 24px 80px;
+    display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center;
+}
+.hero-left h1 {
+    font-size:clamp(2.2em,4vw,3.2em); font-weight:900; line-height:1.1;
+    letter-spacing:-0.02em; margin-bottom:16px;
+}
+.hero-left h1 .g { background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.hero-left p { color:var(--dim); font-size:1.05em; max-width:440px; line-height:1.7; margin-bottom:28px; }
+.hero-badge {
+    display:inline-block; padding:5px 14px; border-radius:20px;
+    background:rgba(74,222,128,0.07); border:1px solid rgba(74,222,128,0.12);
+    color:var(--accent); font-size:0.78em; font-weight:600; margin-bottom:20px;
+}
+.hero-btns { display:flex; gap:12px; }
+.btn-p, .btn-s {
+    display:inline-flex; align-items:center; gap:6px; padding:13px 28px;
+    border-radius:12px; font-size:0.95em; font-weight:700; text-decoration:none; transition:all 0.25s;
+}
+.btn-p { background:var(--accent); color:#0a0c10; }
+.btn-p:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(74,222,128,0.25); }
+.btn-s { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+.btn-s:hover { border-color:var(--accent); transform:translateY(-2px); }
 
-        /* Dashboard Mockup */
-        .mockup {
-            max-width: 860px; margin: 0 auto 80px; padding: 0 24px;
-        }
-        .mockup img {
-            width: 100%; border-radius: 16px; border: 1px solid var(--border);
-            box-shadow: 0 20px 80px rgba(0,0,0,0.5);
-        }
-        .mockup-placeholder {
-            width: 100%; aspect-ratio: 16/10; border-radius: 16px;
-            background: var(--bg-card); border: 1px solid var(--border);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: var(--text-dim); font-size: 0.95em; gap: 4px;
-            box-shadow: 0 20px 80px rgba(0,0,0,0.3);
-            overflow: hidden;
-        }
-        .mockup-placeholder .top-bar {
-            width: 100%; padding: 16px 24px; display: flex; align-items: center; gap: 8px;
-            border-bottom: 1px solid var(--border);
-        }
-        .mockup-placeholder .top-bar .dots { display: flex; gap: 6px; }
-        .mockup-placeholder .top-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .mockup-placeholder .top-bar .dot.r { background: #ff5f57; }
-        .mockup-placeholder .top-bar .dot.y { background: #ffbd2e; }
-        .mockup-placeholder .top-bar .dot.g { background: #28c840; }
-        .mockup-placeholder .top-bar span { color: var(--text-dim); font-size: 0.8em; margin-left: 12px; }
-        .mockup-body {
-            flex: 1; width: 100%; padding: 24px;
-            display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-        }
-        .mockup-body .left { display: flex; flex-direction: column; gap: 16px; }
-        .mockup-body .right { display: flex; flex-direction: column; gap: 16px; }
-        .mu-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-        .mu-card .mu-title { font-size: 0.75em; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .mu-device { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .mu-device:last-child { border: none; }
-        .mu-device .name { flex: 1; font-weight: 500; font-size: 0.9em; }
-        .mu-device .count { font-size: 0.8em; color: var(--text-dim); }
-        .mu-bar { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
-        .mu-bar .fill { height: 100%; width: 62%; background: linear-gradient(90deg, var(--accent), #22d3ee); border-radius: 3px; }
-        .mu-stats { display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-dim); }
+/* === Mockup === */
+.mockup {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,0.4);
+}
+.mockup-bar {
+    display:flex; align-items:center; gap:8px; padding:12px 16px;
+    border-bottom:1px solid var(--border); background:var(--surface2);
+}
+.dot { width:9px; height:9px; border-radius:50%; }
+.dr { background:#ff5f57; } .dy { background:#ffbd2e; } .dg { background:#28c840; }
+.mockup-title { font-size:0.78em; color:var(--dim); margin-left:8px; }
+.mockup-body { padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.mc {
+    background:rgba(255,255,255,0.02); border:1px solid var(--border);
+    border-radius:10px; padding:14px;
+}
+.mc-lbl { font-size:0.68em; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+.mc-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.03); font-size:0.85em; }
+.mc-row:last-child { border:none; }
+.mc-bar { height:5px; background:rgba(255,255,255,0.04); border-radius:3px; overflow:hidden; }
+.mc-bar .f { height:100%; width:55%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px; }
 
-        /* Sections */
-        section { max-width: var(--max-w); margin: 0 auto 80px; padding: 0 24px; }
-        .section-title { text-align: center; font-size: 2em; font-weight: 700; margin-bottom: 12px; }
-        .section-sub { text-align: center; color: var(--text-dim); margin-bottom: 48px; font-size: 1.05em; }
+/* === Sections === */
+section { max-width:1100px; margin:0 auto; padding:80px 24px; }
+.section-label { font-size:0.75em; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
+.section-title { font-size:clamp(1.6em,3vw,2.2em); font-weight:800; letter-spacing:-0.02em; margin-bottom:40px; }
 
-        /* How it works */
-        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-        .step {
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 32px 24px; text-align: center; position: relative;
-        }
-        .step-num {
-            width: 40px; height: 40px; border-radius: 50%;
-            background: rgba(74, 222, 128, 0.1); color: var(--accent);
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 800; font-size: 1.1em; margin: 0 auto 16px;
-        }
-        .step h3 { margin-bottom: 8px; font-size: 1.1em; }
-        .step p { color: var(--text-dim); font-size: 0.9em; }
+/* === Value Props === */
+.values { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-bottom:80px; }
+.value-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:28px 24px; text-align:center; transition:border-color 0.2s, transform 0.2s;
+}
+.value-card:hover { border-color:var(--accent); transform:translateY(-4px); }
+.value-card .icon { font-size:2.2em; margin-bottom:10px; }
+.value-card h3 { font-size:1.1em; margin-bottom:6px; }
+.value-card p { color:var(--dim); font-size:0.85em; }
 
-        /* Features */
-        .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .feature {
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 28px 24px;
-        }
-        .feature-icon { font-size: 2em; margin-bottom: 12px; }
-        .feature h4 { margin-bottom: 6px; }
-        .feature p { color: var(--text-dim); font-size: 0.9em; }
+/* === Feature Blocks === */
+.fb {
+    display:grid; grid-template-columns:1fr 1fr; gap:50px; align-items:center;
+    padding:60px 0; border-bottom:1px solid var(--border);
+}
+.fb:last-of-type { border:none; }
+.fb.r { direction:rtl; }
+.fb.r > * { direction:ltr; }
+.fb .num { font-size:0.7em; font-weight:700; color:var(--accent); opacity:0.35; margin-bottom:6px; }
+.fb h3 { font-size:1.4em; font-weight:800; letter-spacing:-0.02em; margin-bottom:10px; }
+.fb p { color:var(--dim); font-size:0.9em; line-height:1.7; max-width:420px; }
+.fb-img {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    aspect-ratio:16/10; display:flex; align-items:center; justify-content:center;
+    font-size:3em; overflow:hidden;
+}
 
-        /* Directory Tree */
-        .tree {
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 32px; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.85em;
-            line-height: 2;
-        }
-        .tree .highlight { color: var(--accent); }
-        .tree .dim { color: var(--text-dim); }
-        .tree .leaf { color: #94a3b8; }
+/* === Collapsible Tree === */
+.tree-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    overflow:hidden;
+}
+.tree-header {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 20px; cursor:pointer; user-select:none;
+}
+.tree-header:hover { background:var(--surface2); }
+.tree-header h3 { font-size:1em; font-weight:600; }
+.tree-body {
+    padding:0 20px; max-height:0; overflow:hidden;
+    transition:max-height 0.3s ease, padding 0.3s ease;
+}
+.tree-body.open { max-height:800px; padding:0 20px 20px; }
+.tree-code {
+    font-family:"SF Mono","Fira Code",monospace; font-size:0.82em; line-height:2;
+    color:var(--dim); background:rgba(0,0,0,0.2); border-radius:8px; padding:16px;
+}
+.tree-code .hl { color:var(--accent); }
+.tree-code .leaf { color:#94a3b8; }
 
-        /* Download */
-        .download-box {
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 48px; text-align: center;
-        }
-        .download-box h3 { font-size: 1.4em; margin-bottom: 8px; }
-        .download-box p { color: var(--text-dim); margin-bottom: 32px; }
-        .download-grid { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
-        .download-card {
-            background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
-            padding: 32px 40px; text-align: center; min-width: 200px;
-            transition: border-color 0.2s; text-decoration: none; color: inherit;
-        }
-        .download-card:hover { border-color: var(--accent); }
-        .download-card .os-icon { font-size: 2.5em; margin-bottom: 12px; }
-        .download-card .os-name { font-weight: 700; font-size: 1.1em; }
-        .download-card .os-size { font-size: 0.8em; color: var(--text-dim); margin: 4px 0 12px; }
-        .download-card .dl-btn {
-            display: inline-block; padding: 8px 20px; border-radius: 8px;
-            background: var(--accent); color: #0b0d14; font-weight: 700; font-size: 0.85em;
-        }
-        .download-meta { margin-top: 20px; font-size: 0.85em; color: var(--text-dim); }
-        .download-meta a { color: var(--accent); }
+/* === Features Grid === */
+.feat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+.feat-item {
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:16px; text-align:center; font-size:0.85em;
+}
+.feat-item .fi { font-size:1.4em; margin-bottom:4px; }
 
-        /* Footer */
-        footer {
-            border-top: 1px solid var(--border); padding: 40px 24px;
-            text-align: center; color: var(--text-dim); font-size: 0.85em;
-        }
-        footer a { color: var(--accent); text-decoration: none; }
+/* === Download === */
+.dl-box {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:48px; text-align:center;
+}
+.dl-grid { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:24px; }
+.dl-card {
+    background:var(--bg); border:1px solid var(--border); border-radius:12px;
+    padding:28px 32px; text-decoration:none; color:inherit; min-width:170px;
+    transition:border-color 0.2s;
+}
+.dl-card:hover { border-color:var(--accent); }
+.dl-card .di { font-size:2em; margin-bottom:8px; }
+.dl-card .dn { font-weight:700; }
+.dl-card .ds { font-size:0.78em; color:var(--dim); margin:4px 0 12px; }
+.dl-card .db { display:inline-block; padding:7px 18px; border-radius:8px; background:var(--accent); color:#0a0c10; font-weight:700; font-size:0.82em; }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 2em; }
-            .steps, .features { grid-template-columns: 1fr; }
-            .mockup-body { grid-template-columns: 1fr; }
-            .download-grid { flex-direction: column; align-items: center; }
-        }
-    </style>
+/* === Tutorial === */
+.tut-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.tut-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px;
+}
+.tut-card h4 { margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.tut-card ol { padding-left:18px; color:var(--dim); font-size:0.88em; line-height:2; }
+.tut-warn {
+    margin-top:12px; padding:12px 14px; border-radius:8px; font-size:0.85em;
+}
+.tut-warn.w { background:rgba(255,68,68,0.07); }
+.tut-warn.g { background:rgba(74,222,128,0.07); }
+
+/* === Footer === */
+footer { border-top:1px solid var(--border); padding:40px 24px; text-align:center; color:var(--dim); font-size:0.85em; }
+footer a { color:var(--accent); text-decoration:none; }
+footer .fs { display:flex; justify-content:center; gap:20px; margin-bottom:16px; }
+
+/* === Responsive === */
+@media(max-width:768px){
+    .hero { grid-template-columns:1fr; padding:40px 20px 60px; }
+    .values { grid-template-columns:1fr; }
+    .fb { grid-template-columns:1fr; gap:24px; padding:32px 0; }
+    .fb.r { direction:ltr; }
+    .feat-grid { grid-template-columns:repeat(2,1fr); }
+    .tut-grid { grid-template-columns:1fr; }
+    .mockup-body { grid-template-columns:1fr; }
+    .nav-links a:not(.nav-cta) { display:none; }
+}
+</style>
 </head>
 <body>
 
 <nav>
-    <div class="nav-brand">
-        <span>🖼</span> Smart Media Backup
-    </div>
+    <div class="nav-brand"><span>🖼</span> Smart Media Backup</div>
     <div class="nav-links">
-        <a href="#how">怎么用</a>
         <a href="#features">功能</a>
         <a href="#download">下载</a>
-        <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank">GitHub</a>
+        <a href="https://github.com/luguanlin20050927/smart-media-backup">GitHub</a>
+        <a href="#download" class="nav-cta">⬇ 免费下载</a>
     </div>
 </nav>
 
 <!-- Hero -->
-<section class="hero">
-    <div class="hero-badge">📸 摄影师必备 · 免费开源</div>
-    <h1>
-        插卡到电脑<br>
-        <span class="highlight">剩下的交给它</span>
-    </h1>
-    <p>
-        自动读取相机型号、拍摄日期、GPS 位置。按设备→事件→照片/视频分类整理。
-        AI 废片筛选、百度网盘自动上传、多目标同时备份。Web 面板可视化进度，插卡即备份。
-    </p>
-    <div class="hero-buttons">
-        <a href="#download" class="btn-primary">⬇ 免费下载</a>
-        <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" class="btn-secondary">📂 GitHub</a>
+<div class="hero">
+    <div class="hero-left">
+        <div class="hero-badge">📸 摄影师必备 · 免费开源</div>
+        <h1>插卡到电脑<br><span class="g">剩下的交给它</span></h1>
+        <p>自动读取相机型号、拍摄日期、GPS 位置。AI 废片筛选、百度网盘自动上传、多目标同时备份。插卡即备份。</p>
+        <div class="hero-btns">
+            <a href="#download" class="btn-p">⬇ 免费下载</a>
+            <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" class="btn-s">📂 GitHub</a>
+        </div>
     </div>
-    <div class="hero-meta">
-        支持 macOS · Windows (即将推出) · 树莓派<br>
-        <span style="font-size:0.85em;opacity:0.7;">🌏 国内用户: <a href="https://smart-media-backup.vercel.app" style="color:var(--accent);" target="_blank">smart-media-backup.vercel.app</a></span>
-    </div>
-</section>
-
-<!-- Dashboard Mockup -->
-<div class="mockup">
-    <div class="mockup-placeholder">
-        <div class="top-bar">
-            <div class="dots">
-                <div class="dot r"></div>
-                <div class="dot y"></div>
-                <div class="dot g"></div>
-            </div>
-            <span>🖼 Smart Media Backup — localhost:8080</span>
+    <div class="mockup">
+        <div class="mockup-bar">
+            <div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
+            <span class="mockup-title">🖼 Smart Media Backup — localhost:8080</span>
         </div>
         <div class="mockup-body">
-            <div class="left">
-                <div class="mu-card">
-                    <div class="mu-title">检测结果</div>
-                    <div class="mu-device"><span>📷</span><span class="name">Sony ILCE-7M4</span><span class="count">298 文件</span></div>
-                    <div class="mu-device"><span>🛸</span><span class="name">DJI Mavic 3</span><span class="count">27 文件</span></div>
+            <div>
+                <div class="mc">
+                    <div class="mc-lbl">检测结果</div>
+                    <div class="mc-row"><span>📷</span><span style="flex:1;font-weight:500;">Sony ILCE-7M4</span><span style="color:var(--dim);">298 文件</span></div>
+                    <div class="mc-row"><span>🛸</span><span style="flex:1;font-weight:500;">DJI Mavic 3</span><span style="color:var(--dim);">27 文件</span></div>
                 </div>
-                <div class="mu-card">
-                    <div class="mu-title">事件文件夹名</div>
-                    <div style="padding:8px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:0.9em;">2025年8月漫展</div>
-                </div>
-                <div class="mu-card" style="background:var(--accent);color:#0b0d14;border-color:var(--accent);font-weight:700;text-align:center;padding:14px;">
-                    ▶ 开始备份
+                <div class="mc" style="margin-top:12px;">
+                    <div class="mc-lbl">事件文件夹名</div>
+                    <div style="padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:6px;font-size:0.85em;">2025年8月漫展</div>
                 </div>
             </div>
-            <div class="right">
-                <div class="mu-card">
-                    <div class="mu-title">备份进度</div>
-                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                        <span style="font-size:0.9em;">42%</span>
-                        <span style="font-size:0.8em;color:var(--text-dim);">48 MB/s</span>
-                    </div>
-                    <div class="mu-bar"><div class="fill"></div></div>
-                    <div class="mu-stats">
-                        <span>DSC01234.ARW</span>
-                        <span>135 / 325</span>
-                    </div>
+            <div>
+                <div class="mc">
+                    <div class="mc-lbl">备份进度</div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.82em;margin-bottom:4px;"><span>42%</span><span style="color:var(--dim);">48 MB/s</span></div>
+                    <div class="mc-bar"><div class="f"></div></div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.78em;color:var(--dim);margin-top:6px;"><span>DSC01234.ARW</span><span>135 / 325</span></div>
                 </div>
-                <div class="mu-card">
-                    <div class="mu-title">队列</div>
-                    <div class="mu-device"><span style="color:var(--accent);">▶</span><span class="name">Sony → 照片</span><span class="count">✅ 完成</span></div>
-                    <div class="mu-device"><span style="color:#fbbf24;">▶</span><span class="name">Sony → 视频</span><span class="count">进行中</span></div>
-                    <div class="mu-device"><span style="color:var(--text-dim);">⏳</span><span class="name">DJI → 视频</span><span class="count">等待中</span></div>
+                <div class="mc" style="margin-top:12px;">
+                    <div class="mc-lbl">队列</div>
+                    <div class="mc-row"><span style="color:var(--accent);">▶</span><span style="flex:1;">Sony → 照片</span><span style="color:var(--dim);">✅ 完成</span></div>
+                    <div class="mc-row"><span style="color:#fbbf24;">▶</span><span style="flex:1;">Sony → 视频</span><span style="color:var(--dim);">进行中</span></div>
+                    <div class="mc-row"><span style="color:var(--dim);">⏳</span><span style="flex:1;">DJI → 视频</span><span style="color:var(--dim);">等待中</span></div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- How it works -->
-<section id="how">
-    <h2 class="section-title">三步完成备份</h2>
-    <p class="section-sub">你只需要做 3 件事，其余全自动</p>
-    <div class="steps">
-        <div class="step">
-            <div class="step-num">1</div>
-            <h3>📥 插卡</h3>
-            <p>SD 卡插入读卡器，程序自动检测并打开仪表盘。支持 Sony、DJI、GoPro、iPhone、Nikon、Canon 等主流设备。</p>
+<!-- Value Props -->
+<section>
+    <div class="values">
+        <div class="value-card">
+            <div class="icon">📥</div>
+            <h3>插卡即用</h3>
+            <p>SD 卡插入自动检测，2 秒弹浏览器。支持主流相机。</p>
         </div>
-        <div class="step">
-            <div class="step-num">2</div>
-            <h3>📝 命名</h3>
-            <p>输入事件名，比如"2025年8月漫展"。AI 会自动分析照片内容给出建议名。多个活动用逗号分隔即可分批备份。</p>
+        <div class="value-card">
+            <div class="icon">🤖</div>
+            <h3>AI 全自动</h3>
+            <p>AI 命名、AI 废片筛选、AI 感知哈希去重。你只需打字。</p>
         </div>
-        <div class="step">
-            <div class="step-num">3</div>
-            <h3>▶ 开始</h3>
-            <p>点一下按钮，自动分类整理到目标磁盘（支持同时备份到多个盘）。完事后自动校验、筛选废片、上传百度网盘、推送通知。</p>
+        <div class="value-card">
+            <div class="icon">🔒</div>
+            <h3>零错误保障</h3>
+            <p>SHA256 校验 + 失败重试 + 增量去重。数据安全。</p>
         </div>
     </div>
 </section>
 
-<!-- Features -->
+<!-- Feature Showcase -->
 <section id="features">
-    <h2 class="section-title">功能特性</h2>
-    <p class="section-sub">摄影师需要的，这里都有</p>
+    <div class="section-label">功能介绍</div>
+    <h2 class="section-title">插卡、打字、点一下，<br>剩下全自动</h2>
 
-    <h3 style="font-size:1.2em;margin-bottom:16px;color:var(--accent);">⚡ 核心流程</h3>
-    <div class="features">
-        <div class="feature">
-            <div class="feature-icon">📷</div>
-            <h4>自动读取元数据</h4>
-            <p>相机型号、拍摄日期、GPS 坐标自动提取，不需要你手动填。支持 RAW(JPG/ARW/CR3/DNG等) + 视频(MP4/MOV/MXF等)。</p>
+    <div class="fb">
+        <div>
+            <div class="num">01</div>
+            <h3>插卡即弹窗</h3>
+            <p>SD 卡插入读卡器，后台 2 秒轮询 /Volumes。检测到新设备自动打开浏览器到仪表盘。支持 Sony、DJI、Canon、Nikon、GoPro 等主流相机。RAW、JPG、MP4、MOV、HEIC 全格式识别。</p>
         </div>
-        <div class="feature">
-            <div class="feature-icon">📁</div>
-            <h4>智能分类整理</h4>
-            <p>按设备→事件→照片/视频三层目录，文件井井有条。一张卡多个活动？逗号分隔事件名即可分批备份。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">🔒</div>
-            <h4>SHA256 校验</h4>
-            <p>每个文件拷贝后进行完整性校验，保证备份零错误。每目录自动生成 checksums.json。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">📊</div>
-            <h4>实时可视化仪表盘</h4>
-            <p>进度条、拷贝速度、剩余时间一目了然。Web 面板即开即用，SocketIO 实时推送进度。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">⏳</div>
-            <h4>失败自动重试</h4>
-            <p>拷贝失败、校验失败自动重试 3 次，确保每个文件安全到达。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">🔄</div>
-            <h4>增量备份</h4>
-            <p>基于 SHA256 哈希去重，已备份过的文件自动跳过。第二次插同样的卡只需几秒。</p>
-        </div>
+        <div class="fb-img">📥 → 🌐</div>
     </div>
 
-    <h3 style="font-size:1.2em;margin:32px 0 16px;color:var(--accent);">📦 多目标 & 同步</h3>
-    <div class="features">
-        <div class="feature">
-            <div class="feature-icon">💾</div>
-            <h4>多目标备份</h4>
-            <p>同时备份到多个位置：外置硬盘 + NAS + 本地磁盘。一次扫描，多处写入。</p>
+    <div class="fb r">
+        <div>
+            <div class="num">02</div>
+            <h3>AI 智能分类</h3>
+            <p>每张照片的相机型号、拍摄日期、GPS 坐标自动提取。按设备→事件→照片/视频三层分类。目录层级你可自由排序：设备优先、日期优先还是地点优先，随你设。AI 自动建议事件名。</p>
         </div>
-        <div class="feature">
-            <div class="feature-icon">☁️</div>
-            <h4>百度网盘自动上传</h4>
-            <p>备份完成后后台自动上传到百度网盘。支持断点续传、大文件分片。配置一次永久有效。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">🔄</div>
-            <h4>跨电脑同步</h4>
-            <p>多台电脑运行 SMB，备份历史自动同步。家里和工作室各一台，进度共享。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">📤</div>
-            <h4>通知推送</h4>
-            <p>备份完成后通过 Webhook 推送通知到微信/Telegram/任意服务，不守着也知道。</p>
-        </div>
+        <div class="fb-img">📷 → 📁</div>
     </div>
 
-    <h3 style="font-size:1.2em;margin:32px 0 16px;color:var(--accent);">🤖 AI 智能</h3>
-    <div class="features">
-        <div class="feature">
-            <div class="feature-icon">🧹</div>
-            <h4>废片筛选</h4>
-            <p>自动识别过曝、过暗、模糊、黑图、白图、闭眼、构图差。废片不删除，移到「废片待确认」文件夹你自己决定。</p>
+    <div class="fb">
+        <div>
+            <div class="num">03</div>
+            <h3>多目标 + 云同步</h3>
+            <p>同时备份到外置硬盘 + NAS + 本地磁盘。百度网盘后台自动上传（分片+断点续传）。多台电脑可同步备份历史。完成后 Webhook 推微信/Telegram 通知你。</p>
         </div>
-        <div class="feature">
-            <div class="feature-icon">🏷️</div>
-            <h4>AI 自动命名</h4>
-            <p>扫描 SD 卡后自动分析照片内容，给出 2-6 字中文事件名建议。支持 Ollama 本地模型或 OpenAI 云端。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">🎯</div>
-            <h4>感知哈希去重</h4>
-            <p>连拍场景下，内容几乎相同的照片自动分组标记。基于 imagehash 感知哈希算法，可调敏感度。</p>
-        </div>
+        <div class="fb-img">💾 → ☁️</div>
     </div>
 
-    <h3 style="font-size:1.2em;margin:32px 0 16px;color:var(--accent);">🖥️ 平台 & 体验</h3>
-    <div class="features">
-        <div class="feature">
-            <div class="feature-icon">🍎</div>
-            <h4>macOS + Windows</h4>
-            <p>macOS 原生 App（.dmg 28MB），Windows .exe 由 GitHub Actions 自动构建。均支持 Intel 和 ARM。</p>
+    <div class="fb r">
+        <div>
+            <div class="num">04</div>
+            <h3>AI 废片筛选</h3>
+            <p>自动识别过曝、过暗、模糊、黑图、白图、闭眼、构图差。废片不删除，移到「废片待确认」文件夹由你决定。连拍场景感知哈希自动分组相似照片，可调敏感度。</p>
         </div>
-        <div class="feature">
-            <div class="feature-icon">🪟</div>
-            <h4>Windows 缩略图</h4>
-            <p>备份完成的照片在 Windows 资源管理器里直接显示缩略图，不用逐个打开查看。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">🌙</div>
-            <h4>亮/暗主题</h4>
-            <p>侧边栏一键切换亮色/暗色主题，偏好自动保存到本地存储。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">📋</div>
-            <h4>备份历史 + 搜索</h4>
-            <p>每次备份记录在案，按时间/设备/事件名/状态筛选，详细文件列表和校验结果一键可查。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">🐢</div>
-            <h4>速度限制</h4>
-            <p>设置最大拷贝速度，备份时不影响同时运行的 Lightroom 或 PS。不限速时全速拷贝。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">📸</div>
-            <h4>Lightroom 集成</h4>
-            <p>备份完成后自动生成 Lightroom 导入指南和元数据 JSON，方便导入到 LR 目录。</p>
-        </div>
+        <div class="fb-img">🧹 ✅</div>
     </div>
+</section>
 
-    <h3 style="font-size:1.2em;margin:32px 0 16px;color:var(--accent);">🔧 安全 & 控制</h3>
-    <div class="features">
-        <div class="feature">
-            <div class="feature-icon">🗑️</div>
-            <h4>备份后清理 SD 卡</h4>
-            <p>备份完成后询问是否删除 SD 卡文件。选「删除」则移到废纸篓，不彻底删除，给一次后悔机会。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">📋</div>
-            <h4>事件模板</h4>
-            <p>旅行、婚礼、日常、商拍、活动等预设事件模板，一键填名不用打字。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">📝</div>
-            <h4>备份报告</h4>
-            <p>每次备份生成详细 JSON 报告：成功/跳过/失败文件数、各设备统计、耗时、废片筛选结果。</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">🖼️</div>
-            <h4>插卡即弹窗</h4>
-            <p>SD 卡插入后自动打开浏览器到仪表盘，2 秒间隔扫描 /Volumes 检测新设备。</p>
-        </div>
+<!-- Features Grid -->
+<section>
+    <div class="feat-grid">
+        <div class="feat-item"><div class="fi">🔒</div>SHA256 校验</div>
+        <div class="feat-item"><div class="fi">🔄</div>增量去重</div>
+        <div class="feat-item"><div class="fi">⏳</div>失败重试 3 次</div>
+        <div class="feat-item"><div class="fi">🐢</div>速度限制</div>
+        <div class="feat-item"><div class="fi">📋</div>备份历史</div>
+        <div class="feat-item"><div class="fi">📝</div>备份报告</div>
+        <div class="feat-item"><div class="fi">🧩</div>事件模板</div>
+        <div class="feat-item"><div class="fi">🗑️</div>SD 卡清理</div>
+        <div class="feat-item"><div class="fi">🖼️</div>Windows 缩略图</div>
+        <div class="feat-item"><div class="fi">📸</div>Lightroom 集成</div>
+        <div class="feat-item"><div class="fi">🌙</div>亮/暗主题</div>
+        <div class="feat-item"><div class="fi">🔄</div>跨电脑同步</div>
     </div>
 </section>
 
 <!-- Directory Structure -->
 <section>
-    <h2 class="section-title">备份目录长这样</h2>
-    <p class="section-sub">设备分开、事件分开、照片和视频分开，一目了然</p>
-    <div class="tree">
-        <span class="highlight">外置盘/</span><br>
-        ├── <span class="highlight">Sony ILCE-7M4/</span><span class="dim">  ← 层级可自定义（设备/日期/地点/事件/类型自由排序）</span><br>
-        │&nbsp;&nbsp; └── <span class="highlight">2025年8月漫展/</span><span class="dim">  ← 你输入的事件名</span><br>
-        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="highlight">照片/</span><span class="dim">  ← 自动照片/视频分流</span><br>
-        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │&nbsp;&nbsp; ├── <span class="leaf">DSC01234.ARW</span><span class="dim">  ← 保留原始文件名</span><br>
-        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │&nbsp;&nbsp; ├── <span class="leaf">DSC01235.ARW</span><br>
-        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │&nbsp;&nbsp; └── <span class="leaf">checksums.json</span><span class="dim">  ← SHA256 校验清单</span><br>
-        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="highlight">视频/</span><br>
-        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="leaf">C0001.MP4</span><br>
-        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="leaf">checksums.json</span><br>
-        └── <span class="highlight">DJI Mavic 3/</span><br>
-        &nbsp;&nbsp;&nbsp; └── <span class="highlight">2025年8月漫展/</span><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="highlight">视频/</span><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="leaf">DJI_0001.MP4</span><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="leaf">checksums.json</span>
+    <div class="tree-card">
+        <div class="tree-header" onclick="this.nextElementSibling.classList.toggle('open')">
+            <h3>📂 备份目录结构</h3>
+            <span style="color:var(--dim);font-size:0.85em;">点此展开 ▼</span>
+        </div>
+        <div class="tree-body">
+            <div class="tree-code">
+                <span class="hl">外置盘/</span><br>
+                ├── <span class="hl">Sony ILCE-7M4/</span><span style="color:var(--dim);">  ← 层级可自定义</span><br>
+                │&nbsp;&nbsp; └── <span class="hl">2025年8月漫展/</span><span style="color:var(--dim);">  ← 你输入的事件名</span><br>
+                │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="hl">照片/</span><br>
+                │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │&nbsp;&nbsp; ├── <span class="leaf">DSC01234.ARW</span><br>
+                │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │&nbsp;&nbsp; └── <span class="leaf">checksums.json</span><span style="color:var(--dim);">  ← SHA256 校验</span><br>
+                │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="hl">视频/</span><br>
+                │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="leaf">C0001.MP4</span><br>
+                │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="leaf">checksums.json</span><br>
+                └── <span class="hl">DJI Mavic 3/</span><br>
+                &nbsp;&nbsp;&nbsp; └── <span class="hl">2025年8月漫展/</span>
+            </div>
+        </div>
     </div>
 </section>
 
 <!-- Download -->
 <section id="download">
-    <h2 class="section-title">下载</h2>
-    <p class="section-sub">免费开源，现在就用上</p>
-    <div class="download-box">
-        <h3>🖼 Smart Media Backup v1.0</h3>
-        <p>macOS 11.0+ · Apple Silicon & Intel</p>
-        <div class="download-grid">
-            <a href="https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.0/SmartMediaBackup-macOS.dmg" class="download-card">
-                <div class="os-icon">🍎</div>
-                <div class="os-name">macOS</div>
-                <div class="os-size">.dmg · 28 MB</div>
-                <div class="dl-btn">⬇ 下载</div>
+    <div class="dl-box">
+        <h2 style="font-size:1.4em;font-weight:800;">🖼 Smart Media Backup v1.0</h2>
+        <p style="color:var(--dim);margin-top:6px;">macOS 11.0+ · Apple Silicon & Intel</p>
+        <div class="dl-grid">
+            <a href="https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.0/SmartMediaBackup-macOS.dmg" class="dl-card">
+                <div class="di">🍎</div>
+                <div class="dn">macOS</div>
+                <div class="ds">.dmg · 28 MB</div>
+                <div class="db">⬇ 下载</div>
             </a>
-            <a href="https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.0/SmartMediaBackup-Windows.exe" class="download-card">
-                <div class="os-icon">🪟</div>
-                <div class="os-name">Windows</div>
-                <div class="os-size">.exe · GitHub Actions 自动构建</div>
-                <div class="dl-btn">⬇ 下载</div>
+            <a href="https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.0/SmartMediaBackup-Windows.exe" class="dl-card">
+                <div class="di">🪟</div>
+                <div class="dn">Windows</div>
+                <div class="ds">.exe · GitHub Actions</div>
+                <div class="db">⬇ 下载</div>
             </a>
-            <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" class="download-card">
-                <div class="os-icon">📂</div>
-                <div class="os-name">源代码</div>
-                <div class="os-size">GitHub · MIT 协议</div>
-                <div class="dl-btn">查看源码</div>
+            <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" class="dl-card">
+                <div class="di">📂</div>
+                <div class="dn">源代码</div>
+                <div class="ds">MIT 协议</div>
+                <div class="db">查看源码</div>
             </a>
         </div>
-        <div class="download-meta">
-            也可通过 <code>pip install smart-media-backup</code> 安装 ·
-            <a href="https://github.com/luguanlin20050927/smart-media-backup/releases">GitHub Releases</a>
+        <div style="margin-top:16px;font-size:0.82em;color:var(--dim);">
+            pip install smart-media-backup · <a href="https://github.com/luguanlin20050927/smart-media-backup/releases" style="color:var(--accent);">GitHub Releases</a>
         </div>
     </div>
 </section>
 
-<!-- 安装教程 -->
+<!-- Tutorial -->
 <section>
-    <h2 class="section-title">🪜 安装教程</h2>
-    <p class="section-sub">无签名，按下面操作即可打开</p>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px;">
-        <!-- macOS -->
-        <div class="step" style="text-align:left;">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-                <span style="font-size:2em;">🍎</span>
-                <h3 style="margin:0;">macOS 安装</h3>
-            </div>
-            <ol style="padding-left:20px;color:var(--text-dim);font-size:0.9em;line-height:2;">
-                <li>下载 <code>SmartMediaBackup-macOS.dmg</code></li>
-                <li>双击 .dmg → 把 App 拖到 <strong>Applications</strong></li>
+    <div class="section-label">安装教程</div>
+    <h2 class="section-title">无签名，也能用</h2>
+    <div class="tut-grid">
+        <div class="tut-card">
+            <h4>🍎 macOS</h4>
+            <ol>
+                <li>下载 <code>.dmg</code> → 双击 → 拖到 Applications</li>
                 <li>打开启动台 → 点 Smart Media Backup</li>
             </ol>
-            <div style="margin-top:12px;padding:12px;background:rgba(255,68,68,0.08);border-radius:8px;font-size:0.85em;">
-                <strong>⚠️ 首次打开弹「无法验证开发者」</strong><br>
-                这是因为本软件是开源项目，没有花钱买 Apple 开发者证书 ($99/年)。<br><br>
-                <strong>解决办法：</strong>
-                <ol style="padding-left:16px;margin-top:6px;line-height:1.8;">
-                    <li>去 <strong>系统设置 → 隐私与安全性</strong></li>
-                    <li>往下翻，看到 <strong>「Smart Media Backup 被阻止使用」</strong></li>
-                    <li>点 <strong>「仍然打开」</strong></li>
-                    <li>输入密码 → 以后直接双击就能用了</li>
-                </ol>
+            <div class="tut-warn w">
+                ⚠️ 首次弹「无法验证开发者」<br>
+                系统设置 → 隐私与安全性 → 点「仍然打开」
             </div>
-            <div style="margin-top:8px;padding:10px;background:rgba(74,222,128,0.08);border-radius:8px;font-size:0.85em;">
-                💡 <strong>备用方法：</strong>右键 App → 点「打开」→ 弹窗点「打开」，效果一样
-            </div>
+            <div class="tut-warn g">💡 右键 App → 点「打开」→ 弹窗点「打开」，效果一样</div>
         </div>
-
-        <!-- Windows -->
-        <div class="step" style="text-align:left;">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-                <span style="font-size:2em;">🪟</span>
-                <h3 style="margin:0;">Windows 安装</h3>
-            </div>
-            <ol style="padding-left:20px;color:var(--text-dim);font-size:0.9em;line-height:2;">
-                <li>下载 <code>SmartMediaBackup-Windows.exe</code></li>
-                <li>双击运行安装程序</li>
-                <li>安装完成后从桌面快捷方式启动</li>
+        <div class="tut-card">
+            <h4>🪟 Windows</h4>
+            <ol>
+                <li>下载 <code>.exe</code> → 双击运行</li>
+                <li>从桌面快捷方式启动</li>
             </ol>
-            <div style="margin-top:12px;padding:12px;background:rgba(255,68,68,0.08);border-radius:8px;font-size:0.85em;">
-                <strong>⚠️ 首次运行弹「Windows 已保护你的电脑」</strong><br>
-                因为本软件没有购买代码签名证书，Windows Defender 会拦截。<br><br>
-                <strong>解决办法：</strong>
-                <ol style="padding-left:16px;margin-top:6px;line-height:1.8;">
-                    <li>点击 <strong>「更多信息」</strong>（蓝色链接）</li>
-                    <li>底部会出现 <strong>「仍要运行」</strong> 按钮</li>
-                    <li>点 <strong>「仍要运行」</strong></li>
-                    <li>以后就不会再弹了</li>
-                </ol>
+            <div class="tut-warn w">
+                ⚠️ 首次弹「Windows 已保护你的电脑」<br>
+                点击「更多信息」→「仍要运行」
             </div>
-            <div style="margin-top:8px;padding:10px;background:rgba(74,222,128,0.08);border-radius:8px;font-size:0.85em;">
-                💡 <strong>安全说明：</strong>代码完全开源 (MIT)，可在 GitHub 审查源代码。<br>
-                弹窗不是因为软件有问题，只是因为没买签名证书。
-            </div>
+            <div class="tut-warn g">🔒 代码完全开源 (MIT)，弹窗只因没买签名证书，软件安全。</div>
         </div>
-    </div>
-
-    <div style="text-align:center;padding:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);font-size:0.85em;color:var(--text-dim);">
-        🔒 本软件是开源项目，代码在 GitHub 上完全公开。所有弹窗仅因未购买代码签名证书，不影响软件安全性。<br>
-        如果你觉得好用，可以考虑赞助购买证书（$99/年）彻底去掉这些弹窗。
     </div>
 </section>
 
-<!-- Footer -->
 <footer>
-    <p>
-        🖼 Smart Media Backup · 以 MIT 协议开源<br>
-        作者 <a href="https://github.com/luguanlin20050927" target="_blank">陆冠霖</a>
-        · 上海立达学院 计算机科学与技术
-    </p>
+    <div class="fs">
+        <span>⭐ 0 stars</span>
+        <span>🍴 0 forks</span>
+        <span>📦 v1.0.0</span>
+    </div>
+    <p>🖼 Smart Media Backup · MIT 开源<br>作者 <a href="https://github.com/luguanlin20050927" target="_blank">陆冠霖</a> · 上海立达学院</p>
 </footer>
 
 </body>
