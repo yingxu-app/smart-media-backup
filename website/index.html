@@ -503,28 +503,68 @@
 <!-- 安装教程 -->
 <section>
     <h2 class="section-title">🪜 安装教程</h2>
-    <p class="section-sub">一分钟上手</p>
-    <div class="steps">
-        <div class="step">
-            <div class="step-num">1</div>
-            <h3>⬇ 下载安装包</h3>
-            <p>点击上方「下载」按钮，下载 <code>SmartMediaBackup-macOS.dmg</code>（28MB）。</p>
+    <p class="section-sub">无签名，按下面操作即可打开</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px;">
+        <!-- macOS -->
+        <div class="step" style="text-align:left;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <span style="font-size:2em;">🍎</span>
+                <h3 style="margin:0;">macOS 安装</h3>
+            </div>
+            <ol style="padding-left:20px;color:var(--text-dim);font-size:0.9em;line-height:2;">
+                <li>下载 <code>SmartMediaBackup-macOS.dmg</code></li>
+                <li>双击 .dmg → 把 App 拖到 <strong>Applications</strong></li>
+                <li>打开启动台 → 点 Smart Media Backup</li>
+            </ol>
+            <div style="margin-top:12px;padding:12px;background:rgba(255,68,68,0.08);border-radius:8px;font-size:0.85em;">
+                <strong>⚠️ 首次打开弹「无法验证开发者」</strong><br>
+                这是因为本软件是开源项目，没有花钱买 Apple 开发者证书 ($99/年)。<br><br>
+                <strong>解决办法：</strong>
+                <ol style="padding-left:16px;margin-top:6px;line-height:1.8;">
+                    <li>去 <strong>系统设置 → 隐私与安全性</strong></li>
+                    <li>往下翻，看到 <strong>「Smart Media Backup 被阻止使用」</strong></li>
+                    <li>点 <strong>「仍然打开」</strong></li>
+                    <li>输入密码 → 以后直接双击就能用了</li>
+                </ol>
+            </div>
+            <div style="margin-top:8px;padding:10px;background:rgba(74,222,128,0.08);border-radius:8px;font-size:0.85em;">
+                💡 <strong>备用方法：</strong>右键 App → 点「打开」→ 弹窗点「打开」，效果一样
+            </div>
         </div>
-        <div class="step">
-            <div class="step-num">2</div>
-            <h3>📂 安装到电脑</h3>
-            <p>双击 .dmg 文件 → 把 <strong>Smart Media Backup</strong> 拖到 <strong>Applications</strong> 文件夹。</p>
+
+        <!-- Windows -->
+        <div class="step" style="text-align:left;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <span style="font-size:2em;">🪟</span>
+                <h3 style="margin:0;">Windows 安装</h3>
+            </div>
+            <ol style="padding-left:20px;color:var(--text-dim);font-size:0.9em;line-height:2;">
+                <li>下载 <code>SmartMediaBackup-Windows.exe</code></li>
+                <li>双击运行安装程序</li>
+                <li>安装完成后从桌面快捷方式启动</li>
+            </ol>
+            <div style="margin-top:12px;padding:12px;background:rgba(255,68,68,0.08);border-radius:8px;font-size:0.85em;">
+                <strong>⚠️ 首次运行弹「Windows 已保护你的电脑」</strong><br>
+                因为本软件没有购买代码签名证书，Windows Defender 会拦截。<br><br>
+                <strong>解决办法：</strong>
+                <ol style="padding-left:16px;margin-top:6px;line-height:1.8;">
+                    <li>点击 <strong>「更多信息」</strong>（蓝色链接）</li>
+                    <li>底部会出现 <strong>「仍要运行」</strong> 按钮</li>
+                    <li>点 <strong>「仍要运行」</strong></li>
+                    <li>以后就不会再弹了</li>
+                </ol>
+            </div>
+            <div style="margin-top:8px;padding:10px;background:rgba(74,222,128,0.08);border-radius:8px;font-size:0.85em;">
+                💡 <strong>安全说明：</strong>代码完全开源 (MIT)，可在 GitHub 审查源代码。<br>
+                弹窗不是因为软件有问题，只是因为没买签名证书。
+            </div>
         </div>
-        <div class="step">
-            <div class="step-num">3</div>
-            <h3>🚀 首次打开</h3>
-            <p>
-                打开启动台 → 点 Smart Media Backup。<br>
-                <strong>⚠️ 第一次会弹「无法验证开发者」</strong><br>
-                去 <strong>系统设置 → 隐私与安全性</strong> → 点「仍然打开」<br>
-                以后直接双击就能用了。
-            </p>
-        </div>
+    </div>
+
+    <div style="text-align:center;padding:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);font-size:0.85em;color:var(--text-dim);">
+        🔒 本软件是开源项目，代码在 GitHub 上完全公开。所有弹窗仅因未购买代码签名证书，不影响软件安全性。<br>
+        如果你觉得好用，可以考虑赞助购买证书（$99/年）彻底去掉这些弹窗。
     </div>
 </section>
 
