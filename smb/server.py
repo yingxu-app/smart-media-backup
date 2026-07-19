@@ -313,11 +313,16 @@ def api_start_backup():
     data = request.get_json() or {}
     mount_point = data.get("mount_point", "")
     event_name = data.get("event_name", "").strip()
+    event_names = data.get("event_names") or []
+    if not event_names and event_name:
+        event_names = [e.strip() for e in event_name.replace("，", ",").split(",") if e.strip()]
     backup_root = data.get("backup_root", "")
     backup_targets = data.get("backup_targets") or []
 
-    if not event_name:
+    if not event_name and not event_names:
         return jsonify({"error": "请输入事件文件夹名"})
+    if not event_names and event_name:
+        event_names = [e.strip() for e in event_name.replace("，", ",").split(",") if e.strip()]
     if not backup_root and not backup_targets:
         return jsonify({"error": "请选择备份目标位置"})
     if not mount_point:
@@ -338,7 +343,8 @@ def api_start_backup():
         try:
             engine.run(mount_point, event_name, backup_root,
                        enable_verify=config.verify_method == "sha256",
-                       backup_targets=backup_targets or None)
+                       backup_targets=backup_targets or None,
+                       event_names=event_names or None)
         except Exception as e:
             print(f"[SMB] 备份失败: {e}", file=sys.stderr)
 
@@ -469,6 +475,27 @@ def on_connect():
 @socketio.on("request_status")
 def on_request_status():
     emit("backup_progress", engine.progress.to_dict())
+
+
+@app.route("/api/settings", methods=["GET", "POST"])
+def api_settings():
+    """读写高级设置"""
+    from .config import config
+    if request.method == "POST":
+        data = request.get_json() or {}
+        if "webhook_url" in data:
+            config.webhook_url = data["webhook_url"]
+        if "max_speed_mbps" in data:
+            config.max_speed_mbps = int(data["max_speed_mbps"])
+        if "phash_threshold" in data:
+            config.phash_threshold = int(data["phash_threshold"])
+        config.save()
+        return jsonify({"status": "saved"})
+    return jsonify({
+        "webhook_url": config.webhook_url,
+        "max_speed_mbps": config.max_speed_mbps,
+        "phash_threshold": config.phash_threshold,
+    })
 
 
 # ====== 启动 ======

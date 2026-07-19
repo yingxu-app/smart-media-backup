@@ -16,6 +16,21 @@
     --radius: 12px;
 }
 
+[data-theme="light"] {
+    --bg: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-hover: #f1f5f9;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --text-dim: #94a3b8;
+    --accent: #22c55e;
+    --accent-hover: #16a34a;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --pink: #ec4899;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -272,6 +287,15 @@ body {
     transition: opacity 0.2s;
 }
 .btn-danger:hover { opacity: 0.85; }
+
+/* ====== 主题切换 ====== */
+.theme-toggle {
+    background: none; border: none; cursor: pointer;
+    font-size: 1.2em; padding: 4px; line-height: 1;
+    margin-left: auto; transition: transform 0.2s;
+}
+.theme-toggle:hover { transform: scale(1.2); }
+
 .btn-refresh:hover { background: var(--bg-hover); border-color: var(--accent); }
 
 /* ====== 按钮 ====== */

@@ -92,6 +92,22 @@ class BackupEngine:
         self._cancel_flag = threading.Event()
         self._verifier = ChecksumVerifier()
         self._preview_builder = windows_preview
+        self._speed_bucket: list[tuple[float, int]] = []  # (time, bytes)
+
+    def _throttle(self, bytes_copied: int):
+        """根据 max_speed_mbps 限速"""
+        limit = config.max_speed_mbps
+        if limit <= 0:
+            return
+        now = time.time()
+        self._speed_bucket.append((now, bytes_copied))
+        cutoff = now - 1.0
+        self._speed_bucket = [(t, b) for t, b in self._speed_bucket if t > cutoff]
+        total = sum(b for _, b in self._speed_bucket)
+        max_bytes = limit * 1024 * 1024
+        if total > max_bytes:
+            sleep_for = (total - max_bytes) / (limit * 1024 * 1024)
+            time.sleep(min(sleep_for, 0.5))
 
     def cancel(self):
         self._cancel_flag.set()
@@ -395,6 +411,7 @@ class BackupEngine:
                 copied += 1
                 copied_bytes += f.get("size", 0)
                 self.progress.current_file = f"✅ {f['filename']}"
+                self._throttle(f.get("size", 0))
             else:
                 self.progress.current_file = f"❌ {f['filename']}"
 
@@ -406,7 +423,8 @@ class BackupEngine:
         return {"copied": copied, "skipped": skipped, "bytes": copied_bytes}
 
     def run(self, mount_point: str, event_name: str, backup_root: str,
-            enable_verify: bool = True, backup_targets: list[str] | None = None):
+            enable_verify: bool = True, backup_targets: list[str] | None = None,
+            event_names: list[str] | None = None):
         """
         执行一次完整备份流程。
         mount_point: SD 卡挂载点
@@ -418,8 +436,16 @@ class BackupEngine:
         self.progress.start_time = time.time()
         self.progress.notify()
 
-        # ---- step 1: 备份对象创建 ----
-        backup_id = db.create_backup(event_name, backup_root, backup_targets)
+        # ---- step 1: 解析事件名 ----
+        events = event_names or [event_name]
+        total_events = len(events)
+
+        if total_events == 1:
+            backup_id = db.create_backup(events[0], backup_root, backup_targets)
+        else:
+            backup_id = db.create_backup(f"{events[0]}等{total_events}个事件", backup_root, backup_targets)
+            for ename in events:
+                db.create_backup(ename, backup_root, backup_targets)
 
         try:
             # ---- step 2: 扫描 SD 卡 ----
@@ -480,88 +506,89 @@ class BackupEngine:
             ]
             self.progress.notify()
 
-            # ---- step 4: 多目标拷贝 ----
+            # ---- step 4: 逐个事件拷贝 ----
             targets = [backup_root] + (backup_targets or [])
-            targets = list(dict.fromkeys(t for t in targets if t.strip()))  # dedup + clean
-            self.progress.status = "copying"
-            self.progress.notify()
+            targets = list(dict.fromkeys(t for t in targets if t.strip()))
 
             # 一次性计算源文件哈希
             for f in files:
                 f["source_hash"] = self._verifier.hash_file(f["path"])
 
-            all_copied = all_skipped = 0
-            all_bytes = 0
-            for ti, target in enumerate(targets):
-                if self._cancel_flag.is_set():
-                    break
-                label = f"[{ti+1}/{len(targets)}] {os.path.basename(target.rstrip('/'))}"
-                self.progress.current_file = f"拷贝到 {label}"
+            all_copied = all_skipped = 0; all_bytes = 0
+
+            for ei, ename in enumerate(events):
+                cur_id = db.create_backup(ename, backup_root, backup_targets) if total_events > 1 else backup_id
+                label = f"[{ei+1}/{total_events}] {ename}"
+                self.progress.status = "copying"
+                self.progress.current_file = f"事件: {label}"
                 self.progress.notify()
 
-                result = self._copy_to_target(
-                    files, target, event_name, backup_id, enable_verify
-                )
-                all_copied += result["copied"]
-                all_skipped += result["skipped"]
-                all_bytes += result["bytes"]
+                for target in targets:
+                    if self._cancel_flag.is_set():
+                        break
+                    result = self._copy_to_target(
+                        files, target, ename, cur_id, enable_verify
+                    )
+                    all_copied += result["copied"]
+                    all_skipped += result["skipped"]
+                    all_bytes += result["bytes"]
 
-                # 为目标生成校验清单
-                if enable_verify:
-                    for cam in devices:
-                        cam_dir = os.path.join(target, cam, event_name)
-                        if os.path.exists(cam_dir):
-                            flist = []
-                            for root, _, fnames in os.walk(cam_dir):
-                                for fn in fnames:
-                                    if fn != "checksums.json":
-                                        flist.append(os.path.join(root, fn))
-                            if flist:
-                                self._verifier.generate_manifest(flist, cam_dir)
+                    if enable_verify:
+                        for cam in devices:
+                            cam_dir = os.path.join(target, cam, ename)
+                            if os.path.exists(cam_dir):
+                                flist = []
+                                for root, _, fnames in os.walk(cam_dir):
+                                    for fn in fnames:
+                                        if fn != "checksums.json":
+                                            flist.append(os.path.join(root, fn))
+                                if flist:
+                                    self._verifier.generate_manifest(flist, cam_dir)
+
+                # 废片审片
+                reviewed_count, label_counts = self._review_and_quarantine(
+                    files, backup_root, ename, cur_id
+                )
+                # Windows预览（仅第一个事件）
+                if ei == 0:
+                    previewed_count = self._generate_windows_previews(files, backup_root, cur_id)
+
+                db.finish_backup(cur_id, "completed")
 
             self.progress.copied_files = all_copied
             self.progress.skipped_files = all_skipped
             self.progress.bytes_copied = all_bytes
             self.progress.notify()
 
-            # ---- step 5: 废片审片并隔离 ----
-            reviewed_count, label_counts = self._review_and_quarantine(
-                files, backup_root, event_name, backup_id
-            )
-            self.progress.reviewed_files = reviewed_count
-            self.progress.notify()
-
-            # ---- step 6: 生成 Windows 预览 ----
-            previewed_count = self._generate_windows_previews(files, backup_root, backup_id)
-            self.progress.preview_files = previewed_count
-            self.progress.notify()
-
-            # ---- step 7: 生成校验清单 ----
+            # 生成校验清单（所有事件）
             if enable_verify:
                 self.progress.status = "verifying"
                 self.progress.current_file = "生成校验清单..."
                 self.progress.phase_progress = 0
                 self.progress.notify()
 
-                # 按设备目录生成
-                for cam in devices:
-                    cam_dir = os.path.join(backup_root, cam, event_name)
-                    if os.path.exists(cam_dir):
-                        all_files = []
-                        for root, _, fnames in os.walk(cam_dir):
-                            for fn in fnames:
-                                if fn != "checksums.json":
-                                    all_files.append(os.path.join(root, fn))
-                        if all_files:
-                            self._verifier.generate_manifest(all_files, cam_dir)
+                # 按设备+事件目录生成
+                for ei, ename in enumerate(events):
+                    for cam in devices:
+                        cam_dir = os.path.join(backup_root, cam, ename)
+                        if os.path.exists(cam_dir):
+                            all_files = []
+                            for root, _, fnames in os.walk(cam_dir):
+                                for fn in fnames:
+                                    if fn != "checksums.json":
+                                        all_files.append(os.path.join(root, fn))
+                            if all_files:
+                                self._verifier.generate_manifest(all_files, cam_dir)
+                    if ei == 0:
+                        break
 
             # ---- step 8: 完成 ----
             elapsed = time.time() - self.progress.start_time
             self.progress.elapsed_seconds = elapsed
             self.progress.copied_files = all_copied
             self.progress.skipped_files = all_skipped
-            self.progress.reviewed_files = reviewed_count
-            self.progress.preview_files = previewed_count
+            self.progress.reviewed_files = reviewed_count if total_events > 0 else 0
+            self.progress.preview_files = previewed_count if total_events > 0 else 0
             self.progress.processed_files = all_copied + all_skipped
             self.progress.bytes_copied = all_bytes
             self.progress.phase_progress = 100
@@ -569,7 +596,7 @@ class BackupEngine:
             failed_count = max(total - all_copied - all_skipped, 0)
             report_path = self._write_backup_report(
                 backup_id=backup_id,
-                event_name=event_name,
+                event_name=" + ".join(events) if total_events > 1 else events[0],
                 backup_root=backup_root,
                 devices=devices,
                 total_files=total,
@@ -591,6 +618,18 @@ class BackupEngine:
             self.progress.mount_point = mount_point
             self.progress.notify()
 
+            # 通知推送
+            if config.webhook_url:
+                self._send_webhook(total, all_copied, all_skipped, events)
+
+            # Lightroom 目录生成
+            try:
+                from .lightroom import generate_lr_catalog
+                generate_lr_catalog(backup_root, events[0], self.progress.detected_devices,
+                                    total, datetime.now().isoformat())
+            except Exception as e:
+                print(f"[SMB] Lightroom 目录生成失败: {e}")
+
             # 后台触发百度网盘上传
             self._trigger_baidu_upload(backup_root, event_name)
 
@@ -600,6 +639,22 @@ class BackupEngine:
             self.progress.error_message = str(e)
             self.progress.notify()
             raise
+
+    def _send_webhook(self, total, copied, skipped, events):
+        """备份完成后推送通知"""
+        import urllib.request
+        try:
+            payload = json.dumps({
+                "event": "backup_complete",
+                "total_files": total,
+                "copied": copied,
+                "skipped": skipped,
+                "events": events,
+                "time": datetime.now().isoformat(),
+            }).encode()
+            urllib.request.urlopen(config.webhook_url, data=payload, timeout=10)
+        except Exception as e:
+            print(f"[SMB] Webhook 发送失败: {e}")
 
     def _trigger_baidu_upload(self, backup_root: str, event_name: str):
         """后台线程触发百度网盘上传"""

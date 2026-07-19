@@ -35,6 +35,18 @@ class AppConfig:
         ".wav", ".aac", ".mp3", ".flac", ".ogg", ".wma",
     ])
 
+    # === 速度限制 ===
+    max_speed_mbps: int = 0               # 0 = 不限速
+
+    # === 通知推送 ===
+    webhook_url: str = ""
+
+    # === 感知哈希去重 ===
+    phash_threshold: int = 8              # 0=关闭, 1-20敏感度
+
+    # === 亮色主题 ===
+    dark_mode: bool = True
+
     # === 多目标备份 ===
     backup_targets: list = field(default_factory=list)
 

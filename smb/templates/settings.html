@@ -120,6 +120,34 @@
     <div id="aiSaveMsg" class="save-msg" style="display:none;"></div>
 </div>
 
+<!-- 高级设置 -->
+<div class="card" style="margin-top:16px;">
+    <h4 style="margin-bottom:12px;">⚙️ 高级设置</h4>
+    <div class="form-row">
+        <label>🔁 Webhook 通知</label>
+        <input type="url" id="webhookUrl" placeholder="https://example.com/webhook" style="flex:1;">
+    </div>
+    <div class="form-row">
+        <label>🐢 限速 (MB/s)</label>
+        <input type="number" id="maxSpeed" min="0" value="0" style="width:120px;">
+        <small style="color:var(--muted);">0=不限速</small>
+    </div>
+    <div class="form-row">
+        <label>🎯 相似照片去重</label>
+        <select id="phashThreshold" style="width:120px;">
+            <option value="0">关闭</option>
+            <option value="5">严格</option>
+            <option value="8">中等</option>
+            <option value="12">宽松</option>
+            <option value="20">很宽松</option>
+        </select>
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveAdvancedSettings()">💾 保存</button>
+    </div>
+    <div id="advSaveMsg" class="save-msg" style="display:none;"></div>
+</div>
+
 <!-- 远程同步 -->
 <div class="card" style="margin-top:16px;">
     <h4 style="margin-bottom:12px;">🔄 跨电脑同步</h4>
@@ -419,7 +447,37 @@ function showSyncMsg(msg, isError) {
     el.style.color = isError ? "#e74c3c" : "#2ecc71";
 }
 
+// === 高级设置 ===
+function saveAdvancedSettings() {
+    const val = {
+        webhook_url: document.getElementById("webhookUrl").value.trim(),
+        max_speed_mbps: parseInt(document.getElementById("maxSpeed").value) || 0,
+        phash_threshold: parseInt(document.getElementById("phashThreshold").value) || 0,
+    };
+    fetch("/api/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(val),
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById("advSaveMsg");
+        msg.style.display = "block";
+        msg.textContent = d.error ? `❌ ${d.error}` : "✅ 已保存";
+        msg.style.color = d.error ? "#e74c3c" : "#4ade80";
+        setTimeout(() => msg.style.display = "none", 3000);
+    });
+}
+function loadAdvancedSettings() {
+    fetch("/api/settings").then(r => r.json()).then(d => {
+        document.getElementById("webhookUrl").value = d.webhook_url || "";
+        document.getElementById("maxSpeed").value = d.max_speed_mbps || 0;
+        document.getElementById("phashThreshold").value = d.phash_threshold || 0;
+    });
+}
+
 document.getElementById("aiBackend").addEventListener("change", toggleAIBackend);
+document.addEventListener("DOMContentLoaded", function() { loadAdvancedSettings(); });
 </script>
 
 <style>
