@@ -295,6 +295,22 @@ body {
 .setup-card .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .setup-card #setupProgress { margin-top: 10px; font-size: 0.85em; color: var(--text-dim); }
 
+/* ====== 目录层级排序 ====== */
+.sort-order-list { display: flex; flex-direction: column; gap: 4px; max-width: 300px; }
+.sort-order-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; font-size: 0.9em;
+}
+.sort-order-item .sort-order-btns { display: flex; gap: 4px; }
+.sort-order-item button {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 4px; cursor: pointer; padding: 2px 8px; color: var(--text);
+    font-size: 0.8em;
+}
+.sort-order-item button:disabled { opacity: 0.3; cursor: not-allowed; }
+.sort-order-item button:hover:not(:disabled) { border-color: var(--accent); }
+
 /* ====== 主题切换 ====== */
 .theme-toggle {
     background: none; border: none; cursor: pointer;

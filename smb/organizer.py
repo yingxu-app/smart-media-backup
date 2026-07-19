@@ -82,34 +82,40 @@ def get_media_type(ext: str) -> str:
     return "other"
 
 
-def get_dest_dir(backup_root: str, camera_model: str, event_name: str,
-                 media_type: str, sort_mode: str = "device",
-                 file_date: object = None, file_gps: dict = None) -> str:
-    """
-    生成目标目录路径。
-    排序模式:
-      "device"   — {root}/{设备}/{事件}/{类型}
-      "date"     — {root}/{年月}/{设备}/{事件}/{类型}
-      "location" — {root}/{地点}/{设备}/{事件}/{类型}
-    """
-    camera_clean = re.sub(r'[<>:"/\\|?*]', '_', camera_model)
-    event_clean = re.sub(r'[<>:"/\\|?*]', '_', event_name or "未命名事件")
-    media_dir = "照片" if media_type in ("photo", "raw") else "视频"
+def _field_value(field: str, camera: str, event: str, mtype: str,
+                 fdate=None, fgps=None) -> str:
+    """返回单个层级字段的目录名"""
+    if field == "device":
+        return re.sub(r'[<>:"/\\|?*]', '_', camera or "Unknown")
+    if field == "event":
+        return re.sub(r'[<>:"/\\|?*]', '_', event or "未命名事件")
+    if field == "type":
+        return "照片" if mtype in ("photo", "raw") else "视频"
+    if field == "date" and fdate:
+        return fdate.strftime("%Y年%m月")
+    if field == "date":
+        return "未知日期"
+    if field == "location" and fgps:
+        lat = fgps.get("lat", 0)
+        lng = fgps.get("lng", 0)
+        return f"{'北纬' if lat>=0 else '南纬'}{abs(lat):.1f}_{'东经' if lng>=0 else '西经'}{abs(lng):.1f}"
+    if field == "location":
+        return "未知地点"
+    return field
 
-    if sort_mode == "date" and file_date:
-        prefix = file_date.strftime("%Y年%m月")
-    elif sort_mode == "location" and file_gps:
-        lat = file_gps.get("lat", 0)
-        lng = file_gps.get("lng", 0)
-        lat_dir = "北纬" if lat >= 0 else "南纬"
-        lng_dir = "东经" if lng >= 0 else "西经"
-        prefix = f"{lat_dir}{abs(lat):.1f}_{lng_dir}{abs(lng):.1f}"
-    else:
-        prefix = None
 
-    if prefix:
-        return str(Path(backup_root) / prefix / camera_clean / event_clean / media_dir)
-    return str(Path(backup_root) / camera_clean / event_clean / media_dir)
+def get_dest_dir(backup_root: str, camera: str, event: str, mtype: str,
+                 sort_order: list = None, fdate=None, fgps=None) -> str:
+    """
+    按自定义层级顺序生成目标目录路径。
+    sort_order: ["device","event","type"]  # 默认
+    可选字段: device / event / type / date / location
+    """
+    order = sort_order or ["device", "event", "type"]
+    parts = [backup_root.rstrip("/")]
+    for field in order:
+        parts.append(_field_value(field, camera, event, mtype, fdate, fgps))
+    return str(Path(*parts))
 
 
 def scan_sd_card(mount_path: str) -> list[dict]:

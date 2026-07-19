@@ -143,12 +143,11 @@
         </select>
     </div>
     <div class="form-row">
-        <label>📂 目录排序</label>
-        <select id="sortMode" style="width:180px;">
-            <option value="device">按设备（默认）</option>
-            <option value="date">按日期</option>
-            <option value="location">按地点（GPS）</option>
-        </select>
+        <label>📂 目录层级</label>
+        <div style="flex:1;">
+            <div id="sortOrderList" class="sort-order-list"></div>
+            <small style="color:var(--muted);">拖拽或点上下箭头调整顺序</small>
+        </div>
     </div>
     <div class="form-actions">
         <button class="btn-primary" onclick="saveAdvancedSettings()">💾 保存</button>
@@ -456,12 +455,35 @@ function showSyncMsg(msg, isError) {
 }
 
 // === 高级设置 ===
+let currentSortOrder = ["device", "event", "type"];
+const FIELD_NAMES = {device:"📷设备", event:"📁事件", type:"📂类型", date:"📅日期", location:"📍地点"};
+
+function renderSortOrderList() {
+    const el = document.getElementById("sortOrderList");
+    el.innerHTML = currentSortOrder.map((f, i) => `
+        <div class="sort-order-item">
+            <span class="sort-order-label">${FIELD_NAMES[f] || f}</span>
+            <span class="sort-order-btns">
+                <button onclick="moveSortItem(${i},-1)" ${i===0?'disabled':''}>▲</button>
+                <button onclick="moveSortItem(${i},1)" ${i===currentSortOrder.length-1?'disabled':''}>▼</button>
+            </span>
+        </div>
+    `).join("");
+}
+
+function moveSortItem(idx, dir) {
+    const t = currentSortOrder[idx + dir];
+    currentSortOrder[idx + dir] = currentSortOrder[idx];
+    currentSortOrder[idx] = t;
+    renderSortOrderList();
+}
+
 function saveAdvancedSettings() {
     const val = {
         webhook_url: document.getElementById("webhookUrl").value.trim(),
         max_speed_mbps: parseInt(document.getElementById("maxSpeed").value) || 0,
         phash_threshold: parseInt(document.getElementById("phashThreshold").value) || 0,
-        sort_mode: document.getElementById("sortMode").value,
+        sort_order: currentSortOrder,
     };
     fetch("/api/settings", {
         method: "POST",
@@ -482,7 +504,10 @@ function loadAdvancedSettings() {
         document.getElementById("webhookUrl").value = d.webhook_url || "";
         document.getElementById("maxSpeed").value = d.max_speed_mbps || 0;
         document.getElementById("phashThreshold").value = d.phash_threshold || 0;
-        document.getElementById("sortMode").value = d.sort_mode || "device";
+        if (d.sort_order && d.sort_order.length) {
+            currentSortOrder = d.sort_order;
+            renderSortOrderList();
+        }
     });
 }
 
