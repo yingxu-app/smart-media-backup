@@ -24,6 +24,8 @@ a = Analysis(
     hiddenimports=[
         "smb", "smb.config", "smb.detector", "smb.backup",
         "smb.organizer", "smb.verifier", "smb.db", "smb.cli",
+        "smb.phash", "smb.lightroom", "smb.baidu", "smb.ai_namer",
+        "smb.waste_filter", "smb.windows_preview",
         "flask", "flask_socketio", "engineio", "engineio.async_drivers",
         "engineio.async_drivers.threading", "socketio",
         "psutil", "humanize", "dateutil", "dateutil.parser",
@@ -43,10 +45,10 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         "tkinter", "PyQt5", "PySide2", "PySide6",
-        "matplotlib", "scipy", "numpy",
+        "matplotlib",
         "pandas", "notebook", "jupyter",
         "boto3", "botocore",
-        "cv2", "PIL",
+        "cv2",
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
