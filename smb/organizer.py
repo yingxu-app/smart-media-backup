@@ -82,15 +82,33 @@ def get_media_type(ext: str) -> str:
     return "other"
 
 
-def get_dest_dir(backup_root: str, camera_model: str, event_name: str, media_type: str) -> str:
+def get_dest_dir(backup_root: str, camera_model: str, event_name: str,
+                 media_type: str, sort_mode: str = "device",
+                 file_date: object = None, file_gps: dict = None) -> str:
     """
     生成目标目录路径。
-    结构: {backup_root}/{camera_model}/{event_name}/{photo|video}/
+    排序模式:
+      "device"   — {root}/{设备}/{事件}/{类型}
+      "date"     — {root}/{年月}/{设备}/{事件}/{类型}
+      "location" — {root}/{地点}/{设备}/{事件}/{类型}
     """
     camera_clean = re.sub(r'[<>:"/\\|?*]', '_', camera_model)
     event_clean = re.sub(r'[<>:"/\\|?*]', '_', event_name or "未命名事件")
     media_dir = "照片" if media_type in ("photo", "raw") else "视频"
 
+    if sort_mode == "date" and file_date:
+        prefix = file_date.strftime("%Y年%m月")
+    elif sort_mode == "location" and file_gps:
+        lat = file_gps.get("lat", 0)
+        lng = file_gps.get("lng", 0)
+        lat_dir = "北纬" if lat >= 0 else "南纬"
+        lng_dir = "东经" if lng >= 0 else "西经"
+        prefix = f"{lat_dir}{abs(lat):.1f}_{lng_dir}{abs(lng):.1f}"
+    else:
+        prefix = None
+
+    if prefix:
+        return str(Path(backup_root) / prefix / camera_clean / event_clean / media_dir)
     return str(Path(backup_root) / camera_clean / event_clean / media_dir)
 
 

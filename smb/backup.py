@@ -196,7 +196,8 @@ class BackupEngine:
                 break
 
             camera = f.get("camera", "Unknown")
-            dest_dir = get_dest_dir(backup_root, camera, event_name, f.get("media_type", "photo"))
+            dest_dir = get_dest_dir(backup_root, camera, event_name, f.get("media_type", "photo"),
+                                    config.sort_mode, f.get("date"), f.get("gps"))
             dest_path = os.path.join(dest_dir, f["filename"])
             if not os.path.exists(dest_path):
                 processed += 1
@@ -392,7 +393,8 @@ class BackupEngine:
                 break
             camera = f.get("camera", "Unknown")
             media_type = f.get("media_type", "other")
-            dest_dir = get_dest_dir(target, camera, event_name, media_type)
+            dest_dir = get_dest_dir(target, camera, event_name, media_type,
+                                    config.sort_mode, f.get("date"), f.get("gps"))
             dest_path = os.path.join(dest_dir, f["filename"])
             os.makedirs(dest_dir, exist_ok=True)
 

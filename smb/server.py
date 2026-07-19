@@ -489,12 +489,15 @@ def api_settings():
             config.max_speed_mbps = int(data["max_speed_mbps"])
         if "phash_threshold" in data:
             config.phash_threshold = int(data["phash_threshold"])
+        if "sort_mode" in data:
+            config.sort_mode = data["sort_mode"]
         config.save()
         return jsonify({"status": "saved"})
     return jsonify({
         "webhook_url": config.webhook_url,
         "max_speed_mbps": config.max_speed_mbps,
         "phash_threshold": config.phash_threshold,
+        "sort_mode": config.sort_mode,
     })
 
 

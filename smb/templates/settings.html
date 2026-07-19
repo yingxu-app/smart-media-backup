@@ -142,6 +142,14 @@
             <option value="20">很宽松</option>
         </select>
     </div>
+    <div class="form-row">
+        <label>📂 目录排序</label>
+        <select id="sortMode" style="width:180px;">
+            <option value="device">按设备（默认）</option>
+            <option value="date">按日期</option>
+            <option value="location">按地点（GPS）</option>
+        </select>
+    </div>
     <div class="form-actions">
         <button class="btn-primary" onclick="saveAdvancedSettings()">💾 保存</button>
     </div>
@@ -453,6 +461,7 @@ function saveAdvancedSettings() {
         webhook_url: document.getElementById("webhookUrl").value.trim(),
         max_speed_mbps: parseInt(document.getElementById("maxSpeed").value) || 0,
         phash_threshold: parseInt(document.getElementById("phashThreshold").value) || 0,
+        sort_mode: document.getElementById("sortMode").value,
     };
     fetch("/api/settings", {
         method: "POST",
@@ -473,6 +482,7 @@ function loadAdvancedSettings() {
         document.getElementById("webhookUrl").value = d.webhook_url || "";
         document.getElementById("maxSpeed").value = d.max_speed_mbps || 0;
         document.getElementById("phashThreshold").value = d.phash_threshold || 0;
+        document.getElementById("sortMode").value = d.sort_mode || "device";
     });
 }
 

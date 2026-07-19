@@ -50,6 +50,9 @@ class AppConfig:
     # === 多目标备份 ===
     backup_targets: list = field(default_factory=list)
 
+    # === 目录排序 ===
+    sort_mode: str = "device"             # "device" | "date" | "location"
+
     # === 校验 ===
     verify_method: str = "sha256"     # "sha256" | "skip"
 
