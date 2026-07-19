@@ -321,3 +321,52 @@ def get_backup_files(backup_id: int, limit: int = 100) -> list[dict]:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_all_history() -> list[dict]:
+    """获取全部备份历史（供跨电脑同步导出）"""
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM backup_history ORDER BY started_at DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def import_history(records: list[dict]) -> int:
+    """导入备份历史记录，返回新增数"""
+    conn = get_conn()
+    imported = 0
+    existing = {
+        r["id"]
+        for r in conn.execute(
+            "SELECT id FROM backup_history"
+        ).fetchall()
+    }
+    for rec in records:
+        rid = rec.get("id")
+        if rid in existing:
+            continue
+        conn.execute(
+            """INSERT INTO backup_history
+               (id, event_name, backup_root, backup_targets, started_at, finished_at,
+                total_files, total_size, verified_files, skipped_files,
+                reviewed_files, preview_files, failed_files,
+                duration_seconds, status, devices_json, report_path, error)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                rid, rec.get("event_name"), rec.get("backup_root"),
+                rec.get("backup_targets", "[]"), rec.get("started_at"),
+                rec.get("finished_at"), rec.get("total_files", 0),
+                rec.get("total_size", 0), rec.get("verified_files", 0),
+                rec.get("skipped_files", 0), rec.get("reviewed_files", 0),
+                rec.get("preview_files", 0), rec.get("failed_files", 0),
+                rec.get("duration_seconds"), rec.get("status", "completed"),
+                rec.get("devices_json", "{}"), rec.get("report_path"),
+                rec.get("error"),
+            )
+        )
+        imported += 1
+    conn.commit()
+    conn.close()
+    return imported

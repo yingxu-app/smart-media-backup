@@ -120,6 +120,21 @@
     <div id="aiSaveMsg" class="save-msg" style="display:none;"></div>
 </div>
 
+<!-- 远程同步 -->
+<div class="card" style="margin-top:16px;">
+    <h4 style="margin-bottom:12px;">🔄 跨电脑同步</h4>
+    <div class="form-row">
+        <label>远程地址</label>
+        <div style="display:flex;gap:8px;flex:1;">
+            <input type="text" id="syncUrl" placeholder="http://192.168.1.100:8080" style="flex:1;">
+            <button class="btn-secondary" onclick="syncPull()">📥 拉取</button>
+            <button class="btn-secondary" onclick="syncExport()">📤 导出</button>
+        </div>
+    </div>
+    <div id="syncMsg" class="save-msg" style="display:none;"></div>
+    <small style="color:var(--muted);">输入另一台电脑上 SMB 的地址，点击拉取同步备份历史</small>
+</div>
+
 <div class="card" style="margin-top:16px;">
     <h4 style="margin-bottom:12px;">📊 存储概览</h4>
     <canvas id="storageChart" height="200"></canvas>
@@ -368,6 +383,40 @@ function saveAISettings() {
         msg.style.color = "#4ade80";
         setTimeout(() => msg.style.display = "none", 3000);
     });
+}
+
+// === 跨电脑同步 ===
+function syncPull() {
+    const url = document.getElementById("syncUrl").value.trim();
+    if (!url) { showSyncMsg("请输入远程地址", true); return; }
+    showSyncMsg("同步中...");
+    fetch("/api/sync/pull", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({url}),
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.error) { showSyncMsg(`❌ ${d.error}`, true); return; }
+        showSyncMsg(`✅ 已同步 ${d.imported} 条记录`);
+    });
+}
+function syncExport() {
+    fetch("/api/sync/export")
+    .then(r => r.json())
+    .then(d => {
+        const blob = new Blob([JSON.stringify(d, null, 2)], {type: "application/json"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `smb-sync-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        showSyncMsg(`✅ 已导出 ${d.history.length} 条记录`);
+    });
+}
+function showSyncMsg(msg, isError) {
+    const el = document.getElementById("syncMsg");
+    el.textContent = msg; el.style.display = "block";
+    el.style.color = isError ? "#e74c3c" : "#2ecc71";
 }
 
 document.getElementById("aiBackend").addEventListener("change", toggleAIBackend);

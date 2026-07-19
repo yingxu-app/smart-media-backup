@@ -355,6 +355,75 @@ def api_cancel_backup():
     return jsonify({"status": "cancelling"})
 
 
+@app.route("/api/cleanup_sd", methods=["POST"])
+def api_cleanup_sd():
+    """备份完成后删除SD卡文件（移到废纸篓）"""
+    mp = engine.progress.mount_point
+    if not mp:
+        return jsonify({"error": "没有可清理的SD卡"})
+    if not engine.progress.can_cleanup:
+        return jsonify({"error": "备份未完成，不能清理"})
+    try:
+        deleted = []
+        for root, dirs, files in os.walk(mp):
+            for f in files:
+                fp = os.path.join(root, f)
+                try:
+                    if sys.platform == "darwin":
+                        import subprocess
+                        subprocess.run(["osascript", "-e",
+                            f'tell app "Finder" to delete (POSIX file "{fp}" as alias)'],
+                            capture_output=True, timeout=30)
+                    else:
+                        os.remove(fp)
+                    deleted.append(f)
+                except Exception:
+                    pass
+        engine.progress.can_cleanup = False
+        engine.progress.notify()
+        return jsonify({"status": "cleaned", "deleted": len(deleted)})
+    except Exception as e:
+        return jsonify({"error": f"清理失败: {e}"})
+
+
+@app.route("/api/sync/export")
+def api_sync_export():
+    """导出备份历史（供其他实例同步）"""
+    history = db.get_all_history()
+    db_path = str(db.DB_PATH)
+    return jsonify({
+        "version": "1.0",
+        "exported_at": datetime.now().isoformat(),
+        "history": history,
+    })
+
+
+@app.route("/api/sync/import", methods=["POST"])
+def api_sync_import():
+    """导入外部备份历史记录"""
+    data = request.get_json() or {}
+    records = data.get("history", [])
+    imported = db.import_history(records)
+    return jsonify({"imported": imported})
+
+
+@app.route("/api/sync/pull", methods=["POST"])
+def api_sync_pull():
+    """从远程实例拉取备份历史"""
+    data = request.get_json() or {}
+    remote_url = data.get("url", "").strip().rstrip("/")
+    if not remote_url:
+        return jsonify({"error": "请输入远程地址"})
+    try:
+        import urllib.request
+        resp = urllib.request.urlopen(f"{remote_url}/api/sync/export", timeout=15)
+        remote_data = json.loads(resp.read().decode())
+        imported = db.import_history(remote_data.get("history", []))
+        return jsonify({"imported": imported, "source": remote_url})
+    except Exception as e:
+        return jsonify({"error": f"同步失败: {e}"})
+
+
 @app.route("/api/history")
 def api_history():
     """获取历史记录"""

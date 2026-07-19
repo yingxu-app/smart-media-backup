@@ -116,6 +116,22 @@
     </div>
 </div>
 
+<!-- 清理SD卡确认框 -->
+<div class="cleanup-dialog card" id="cleanupDialog" style="display:none;">
+    <div class="cleanup-body">
+        <span class="cleanup-icon">🗑️</span>
+        <div class="cleanup-text">
+            <strong>备份完成！</strong><br>
+            <span>是否删除 SD 卡中的原始文件？</span>
+            <small>文件会移到废纸篓，不会彻底删除</small>
+        </div>
+        <div class="cleanup-actions">
+            <button class="btn-danger" onclick="cleanupSD(true)">🗑️ 删除</button>
+            <button class="btn-secondary" onclick="cleanupSD(false)">保留</button>
+        </div>
+    </div>
+</div>
+
 <!-- 错误面板 -->
 <div class="error-panel card" id="errorPanel" style="display:none;">
     <div class="error-icon">❌</div>
@@ -431,6 +447,10 @@ function updateProgress(data) {
     // 完成
     if (data.status === "done") {
         showDone();
+        // 显示清理SD卡提示
+        if (data.can_cleanup && data.mount_point) {
+            document.getElementById("cleanupDialog").style.display = "block";
+        }
     } else if (data.status === "error") {
         showError(data.error_message);
     } else if (data.status === "cancelled") {
@@ -468,7 +488,26 @@ function showDone() {
             <div class="done-total">
                 总计: ${p.total_files || 0} 个文件 | 已拷贝 ${p.copied_files || 0} | 跳过 ${p.skipped_files || 0} | 待确认废片 ${p.reviewed_files || 0} | 预览 ${p.preview_files || 0} | ${formatSize(p.total_bytes || 0)} | ${Math.round(p.elapsed_seconds || 0)}s
             </div>`;
+        });
+
+    // 显示清理SD卡按钮
+    fetch("/api/status").then(r => r.json()).then(d2 => {
+        const p = d2.progress;
+        if (p.can_cleanup && p.mount_point) {
+            document.getElementById("cleanupDialog").style.display = "block";
+        }
     });
+}
+
+function cleanupSD(deleteFiles) {
+    document.getElementById("cleanupDialog").style.display = "none";
+    if (!deleteFiles) return;
+    fetch("/api/cleanup_sd", {method: "POST"})
+        .then(r => r.json())
+        .then(d => {
+            if (d.error) { alert(d.error); return; }
+            alert(`✅ 已删除 ${d.deleted} 个文件`);
+        });
 }
 
 function showError(msg) {

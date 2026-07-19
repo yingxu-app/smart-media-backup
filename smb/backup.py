@@ -41,6 +41,8 @@ class BackupProgress:
         self.current_device = ""
         self.current_media_type = ""
         self.preview_files = 0
+        self.can_cleanup = False       # 备份完成可清理SD卡
+        self.mount_point = ""          # SD卡挂载点
 
         self._callbacks: list[Callable] = []
 
@@ -63,6 +65,8 @@ class BackupProgress:
             "current_device": self.current_device,
             "current_media_type": self.current_media_type,
             "detected_devices": self.detected_devices,
+            "can_cleanup": self.can_cleanup,
+            "mount_point": self.mount_point,
         }
 
     def notify(self):
@@ -583,6 +587,8 @@ class BackupEngine:
 
             db.finish_backup(backup_id, "completed", report_path=report_path)
             self.progress.status = "done"
+            self.progress.can_cleanup = True
+            self.progress.mount_point = mount_point
             self.progress.notify()
 
             # 后台触发百度网盘上传
