@@ -288,6 +288,13 @@ body {
 }
 .btn-danger:hover { opacity: 0.85; }
 
+/* ====== AI 设置引导 ====== */
+.setup-card { padding: 20px; margin-bottom: 16px; }
+.setup-card h4 { margin-bottom: 8px; }
+.setup-card p { color: var(--text-dim); font-size: 0.9em; margin-bottom: 14px; }
+.setup-card .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.setup-card #setupProgress { margin-top: 10px; font-size: 0.85em; color: var(--text-dim); }
+
 /* ====== 主题切换 ====== */
 .theme-toggle {
     background: none; border: none; cursor: pointer;

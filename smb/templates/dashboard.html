@@ -106,6 +106,18 @@
 </div>
 
 <!-- 完成面板 (默认隐藏) -->
+
+<!-- AI 设置引导 -->
+<div class="card setup-card" id="setupCard" style="display:none;border:2px solid var(--accent);">
+    <h4>🤖 要不要 AI 帮你自动起名字？</h4>
+    <p>会静默安装 Ollama（后台服务，无桌面图标），下载 AI 模型。不选也能用。</p>
+    <div>
+        <button class="btn-primary" onclick="setupAI()">✅ 启用 AI 命名</button>
+        <button class="btn-secondary" onclick="skipAI()">⏭️ 跳过</button>
+    </div>
+    <div id="setupProgress" style="display:none;"></div>
+</div>
+
 <div class="done-panel card" id="donePanel" style="display:none;">
     <div class="done-icon">✅</div>
     <h2 class="done-title">备份完成！</h2>
@@ -319,6 +331,48 @@ function formatSize(bytes) {
     }
     return size.toFixed(i > 0 ? 1 : 0) + " " + units[i];
 }
+
+// === AI 设置引导 ===
+function setupAI() {
+    const progress = document.getElementById("setupProgress");
+    progress.style.display = "block";
+    progress.textContent = "⏳ 正在安装 Ollama...";
+    document.querySelector(".setup-card .btn-primary").disabled = true;
+
+    fetch("/api/setup/install_ollama", {method: "POST"})
+    .then(r => r.json())
+    .then(d => {
+        if (d.error) { progress.textContent = `❌ ${d.error}`; return; }
+        progress.textContent = "⏳ 正在下载 AI 模型(约 4GB，首次较慢)...";
+        return fetch("/api/setup/pull_ai_model", {method: "POST"});
+    })
+    .then(r => r && r.json())
+    .then(d => {
+        if (!d) return;
+        if (d.error) { progress.textContent = `❌ ${d.error}`; return; }
+        progress.textContent = "✅ AI 命名已启用！";
+        document.getElementById("setupCard").style.borderColor = "var(--accent)";
+        setTimeout(() => { document.getElementById("setupCard").style.display = "none"; }, 2000);
+    });
+}
+
+function skipAI() {
+    document.getElementById("setupCard").style.display = "none";
+    fetch("/api/ai/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({backend: "disabled"}),
+    });
+}
+
+// 首次启动检查
+document.addEventListener("DOMContentLoaded", function() {
+    fetch("/api/setup/status").then(r => r.json()).then(d => {
+        if (d.show_setup) {
+            document.getElementById("setupCard").style.display = "block";
+        }
+    });
+});
 
 // === 多目标备份 ===
 let extraTargets = [];

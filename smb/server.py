@@ -498,6 +498,61 @@ def api_settings():
     })
 
 
+@app.route("/api/setup/status")
+def api_setup_status():
+    """返回当前安装状态（用于首次启动引导）"""
+    import shutil
+    ollama_installed = shutil.which("ollama") is not None
+    from .ai_namer import ai_namer
+    return jsonify({
+        "ollama_installed": ollama_installed,
+        "ai_enabled": ai_namer.is_enabled(),
+        "show_setup": not ollama_installed and not ai_namer.is_enabled(),
+    })
+
+
+@app.route("/api/setup/install_ollama", methods=["POST"])
+def api_setup_install_ollama():
+    """静默安装 Ollama（命令行版，无图标）"""
+    import subprocess, shutil
+    if shutil.which("ollama"):
+        return jsonify({"status": "already_installed"})
+    try:
+        # brew install ollama = CLI only, no GUI icon
+        result = subprocess.run(
+            ["brew", "install", "ollama"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            return jsonify({"error": result.stderr[:200]})
+        # 启动 ollama 后台服务
+        subprocess.run(["ollama", "serve"], capture_output=True, timeout=5)
+        return jsonify({"status": "installed"})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+@app.route("/api/setup/pull_ai_model", methods=["POST"])
+def api_setup_pull_model():
+    """下载 AI 视觉模型（llava）"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["ollama", "pull", "llava"],
+            capture_output=True, text=True, timeout=300,
+        )
+        if result.returncode != 0:
+            return jsonify({"error": result.stderr[:200]})
+        # 自动启用 AI 命名
+        from .ai_namer import ai_namer
+        ai_namer.backend = "ollama"
+        ai_namer.ollama_model = "llava"
+        ai_namer.save()
+        return jsonify({"status": "ready"})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
 # ====== 启动 ======
 
 def main():
