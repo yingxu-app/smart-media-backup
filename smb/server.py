@@ -23,7 +23,7 @@ app = Flask(__name__,
 app.config["SECRET_KEY"] = os.urandom(16).hex()
 
 from .config import config
-from .detector import list_removable_volumes, list_all_volumes
+from .detector import list_removable_volumes, list_all_volumes, SDCardWatcher
 from .backup import BackupEngine
 from . import db
 
@@ -487,6 +487,16 @@ def main():
     # 确保配置目录存在
     from .config import CONFIG_DIR
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 启动 SD 卡监听
+    def _on_sd_insert(volume: dict):
+        import webbrowser
+        if config.auto_open_browser:
+            webbrowser.open(f"http://{host}:{port}")
+        print(f"[SMB] 📸 SD 卡已插入: {volume['name']} ({volume['mount_point']})")
+
+    watcher = SDCardWatcher(on_insert=_on_sd_insert)
+    watcher.start()
 
     print(f"""
 ╔══════════════════════════════════════════╗
