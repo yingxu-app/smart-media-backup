@@ -25,6 +25,20 @@
     </div>
 </div>
 
+<!-- 移动端 Pocket 接力 -->
+<div class="card" id="pocketPanel">
+    <div class="card-header">
+        <h3>📱 影序 Pocket 接力</h3>
+        <span class="card-subtitle">导入手机收集箱清单</span>
+    </div>
+    <p class="hint" style="margin-top:0;line-height:1.6;">从手机 Pocket 导出的 JSON 只包含文件名、类型和大小。导入后可一键带入项目名；原文件仍需要在桌面端选择来源后备份。</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label class="btn-secondary" style="cursor:pointer;margin:0;">导入 Pocket 清单<input id="pocketFileInput" type="file" accept="application/json,.json" style="display:none;"></label>
+        <span id="pocketImportHint" class="hint">尚未导入移动端清单</span>
+    </div>
+    <div id="pocketImportList" style="margin-top:12px;"></div>
+</div>
+
 <!-- 操作面板 -->
 <div class="action-panel card" id="actionPanel" style="display:none;">
     <div class="form-row">
@@ -173,11 +187,89 @@ socket.on("connected", function() {
 document.addEventListener("DOMContentLoaded", function() {
     refreshTargets();
     checkStatus();
+    loadPocketImports();
     // 自动检测 SD 卡
     startPolling();
     const eventInput = document.getElementById("eventName");
     eventInput.addEventListener("input", () => { eventNameTouched = true; });
 });
+
+// === 影序 Pocket 导入 ===
+document.getElementById("pocketFileInput").addEventListener("change", function(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function() {
+        let payload;
+        try {
+            payload = JSON.parse(reader.result);
+        } catch (_) {
+            alert("无法读取此 JSON 清单");
+            return;
+        }
+        fetch("/api/pocket/import", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload),
+        }).then(async response => ({ok: response.ok, data: await response.json()}))
+        .then(result => {
+            if (!result.ok) throw new Error(result.data.error || "导入失败");
+            event.target.value = "";
+            loadPocketImports(result.data.import.id);
+        }).catch(error => alert(error.message));
+    };
+    reader.readAsText(file, "utf-8");
+});
+
+function formatPocketSize(bytes) {
+    if (!bytes) return "0 MB";
+    return bytes >= 1024 * 1024 * 1024 ? (bytes / 1024 / 1024 / 1024).toFixed(1) + " GB" : (bytes / 1024 / 1024).toFixed(1) + " MB";
+}
+
+function loadPocketImports(selectId) {
+    fetch("/api/pocket/imports").then(r => r.json()).then(data => {
+        const list = document.getElementById("pocketImportList");
+        const hint = document.getElementById("pocketImportHint");
+        const records = data.imports || [];
+        hint.textContent = records.length ? `已保存 ${records.length} 份移动端清单` : "尚未导入移动端清单";
+        list.innerHTML = "";
+        records.slice(0, 3).forEach(record => {
+            const row = document.createElement("div");
+            row.className = "target-tag";
+            row.style.cssText = "display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:6px;padding:9px 10px;";
+            const text = document.createElement("span");
+            text.textContent = `${record.item_count} 项 · ${record.photo_count} 照片 · ${record.video_count} 视频 · ${formatPocketSize(record.total_bytes)}`;
+            const actions = document.createElement("span");
+            const use = document.createElement("button");
+            use.className = "btn-secondary";
+            use.textContent = "用于本次任务";
+            use.onclick = () => applyPocketImport(record);
+            const remove = document.createElement("button");
+            remove.className = "tag-remove";
+            remove.textContent = "✕";
+            remove.title = "仅删除本地清单记录";
+            remove.onclick = () => deletePocketImport(record.id);
+            actions.append(use, remove); row.append(text, actions); list.append(row);
+            if (record.id === selectId) applyPocketImport(record);
+        });
+    }).catch(() => { document.getElementById("pocketImportHint").textContent = "无法读取 Pocket 清单"; });
+}
+
+function applyPocketImport(record) {
+    const eventInput = document.getElementById("eventName");
+    eventInput.value = record.suggested_event_name || "手机素材";
+    eventNameTouched = true;
+    document.getElementById("actionPanel").style.display = "block";
+    document.getElementById("statusTitle").textContent = "已接力移动端素材清单";
+    document.getElementById("statusDetail").textContent = `${record.item_count} 项元数据已带入；插入来源存储卡后即可开始备份。`;
+    document.getElementById("eventName").focus();
+}
+
+function deletePocketImport(importId) {
+    if (!confirm("只删除桌面端保存的 Pocket 清单，不会删除手机或电脑上的任何原始文件。")) return;
+    fetch(`/api/pocket/imports/${encodeURIComponent(importId)}`, {method: "DELETE"})
+        .then(() => loadPocketImports());
+}
 
 // === 磁盘列表 ===
 function refreshTargets() {

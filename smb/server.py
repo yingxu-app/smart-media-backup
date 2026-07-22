@@ -5,6 +5,8 @@ import json
 import threading
 import webbrowser
 import subprocess
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import flask
@@ -22,7 +24,7 @@ app = Flask(__name__,
             static_folder=os.path.join(_base, "smb", "static"))
 app.config["SECRET_KEY"] = os.urandom(16).hex()
 
-from .config import config
+from .config import config, CONFIG_DIR
 from .detector import list_removable_volumes, list_all_volumes, SDCardWatcher
 from .backup import BackupEngine
 from . import db
@@ -34,6 +36,53 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 engine = BackupEngine()
 _scan_cache = {"files": [], "volumes": []}
+_pocket_lock = threading.Lock()
+_pocket_imports_file = CONFIG_DIR / "pocket_imports.json"
+
+
+def _load_pocket_imports():
+    """读取移动端导入清单；损坏文件不影响备份主流程。"""
+    try:
+        raw = json.loads(_pocket_imports_file.read_text(encoding="utf-8"))
+        return raw if isinstance(raw, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _save_pocket_imports(records):
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    temporary = _pocket_imports_file.with_suffix(".tmp")
+    temporary.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(_pocket_imports_file)
+
+
+def _validate_pocket_payload(data):
+    """只接收 Pocket 的文件元数据，拒绝路径、二进制内容与超量导入。"""
+    if not isinstance(data, dict) or data.get("app") != "影序 Pocket":
+        raise ValueError("这不是有效的影序 Pocket 导入清单")
+    items = data.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError("导入清单中没有素材")
+    if len(items) > 10000:
+        raise ValueError("单次最多导入 10,000 条素材元数据")
+    clean_items = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("素材记录格式无效")
+        name = str(item.get("name", "")).strip()
+        media_type = str(item.get("type", "application/octet-stream")).strip()
+        size = item.get("size", 0)
+        if not name or len(name) > 255 or "/" in name or "\\" in name:
+            raise ValueError("素材文件名无效")
+        if not isinstance(size, (int, float)) or size < 0 or size > 1024 ** 5:
+            raise ValueError("素材大小无效")
+        clean_items.append({
+            "name": name,
+            "type": media_type[:100],
+            "size": int(size),
+            "added_at": str(item.get("addedAt", ""))[:64],
+        })
+    return clean_items
 
 
 # ====== SocketIO 实时推送 ======
@@ -92,20 +141,24 @@ def download_macos():
 
 @app.route("/api/open_folder", methods=["POST"])
 def api_open_folder():
-    """打开目标文件夹"""
+    """打开目录，或在文件管理器中定位单个文件。"""
     data = request.get_json(silent=True) or {}
     path = data.get("path", "").strip()
+    reveal = bool(data.get("reveal", False))
     if not path:
         return jsonify({"error": "路径不能为空"}), 400
     if not os.path.exists(path):
         return jsonify({"error": "路径不存在"}), 404
     try:
         if sys.platform == "darwin":
-            subprocess.Popen(["open", path])
+            subprocess.Popen(["open", "-R", path] if reveal and os.path.isfile(path) else ["open", path])
         elif sys.platform.startswith("win"):
-            os.startfile(path)  # type: ignore[attr-defined]
+            if reveal and os.path.isfile(path):
+                subprocess.Popen(["explorer", "/select,", path])
+            else:
+                os.startfile(path)  # type: ignore[attr-defined]
         else:
-            subprocess.Popen(["xdg-open", path])
+            subprocess.Popen(["xdg-open", os.path.dirname(path) if reveal and os.path.isfile(path) else path])
         return jsonify({"status": "ok"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -308,7 +361,7 @@ def api_scan():
 def api_start_backup():
     """开始备份"""
     if engine.progress.status in ("copying", "verifying"):
-        return jsonify({"error": "正在备份中，请等待完成"})
+        return jsonify({"error": "正在备份中，请等待完成"}), 409
 
     data = request.get_json() or {}
     mount_point = data.get("mount_point", "")
@@ -320,17 +373,40 @@ def api_start_backup():
     backup_targets = data.get("backup_targets") or []
 
     if not event_name and not event_names:
-        return jsonify({"error": "请输入事件文件夹名"})
+        return jsonify({"error": "请输入事件文件夹名"}), 400
     if not event_names and event_name:
         event_names = [e.strip() for e in event_name.replace("，", ",").split(",") if e.strip()]
     if not backup_root and not backup_targets:
-        return jsonify({"error": "请选择备份目标位置"})
+        return jsonify({"error": "请选择备份目标位置"}), 400
     if not mount_point:
         vols = list_removable_volumes()
         if vols:
             mount_point = vols[0]["mount_point"]
     if not mount_point or not os.path.isdir(mount_point):
-        return jsonify({"error": "未检测到 SD 卡"})
+        return jsonify({"error": "未检测到 SD 卡"}), 400
+
+    # 开始前检查目标是否可用、可写且有足够空间，避免进行到一半才发现备份失败。
+    targets = list(dict.fromkeys(t.strip() for t in [backup_root, *backup_targets] if t and t.strip()))
+    if not targets:
+        return jsonify({"error": "请选择至少一个备份目标位置"}), 400
+    from .organizer import scan_sd_card
+    source_files = scan_sd_card(mount_point)
+    required_bytes = sum(item.get("size", 0) for item in source_files)
+    for target in targets:
+        if not os.path.isdir(target):
+            return jsonify({"error": f"备份目标不存在：{target}"}), 400
+        if not os.access(target, os.W_OK):
+            return jsonify({"error": f"备份目标不可写：{target}"}), 400
+        try:
+            free_bytes = os.statvfs(target).f_bavail * os.statvfs(target).f_frsize
+        except OSError as exc:
+            return jsonify({"error": f"无法读取目标盘空间：{target}（{exc}）"}), 400
+        if required_bytes > free_bytes:
+            return jsonify({
+                "error": f"目标盘空间不足：{target}",
+                "required_bytes": required_bytes,
+                "free_bytes": free_bytes,
+            }), 400
 
     # 保存配置
     config.last_backup_root = backup_root
@@ -380,8 +456,21 @@ def api_cleanup_sd():
                         subprocess.run(["osascript", "-e",
                             f'tell app "Finder" to delete (POSIX file "{fp}" as alias)'],
                             capture_output=True, timeout=30)
+                    elif sys.platform.startswith("win"):
+                        # 使用 Windows 回收站，而不是不可恢复的 os.remove。
+                        escaped = fp.replace("'", "''")
+                        command = (
+                            "Add-Type -AssemblyName Microsoft.VisualBasic; "
+                            "[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile("
+                            f"'{escaped}', 'OnlyErrorDialogs', 'SendToRecycleBin')"
+                        )
+                        subprocess.run(
+                            ["powershell", "-NoProfile", "-Command", command],
+                            capture_output=True, text=True, timeout=30, check=True,
+                        )
                     else:
-                        os.remove(fp)
+                        # Linux 桌面环境不保证存在回收站 API；宁可拒绝删除，也不做永久删除。
+                        raise RuntimeError("当前系统未配置安全回收站，已阻止永久删除")
                     deleted.append(f)
                 except Exception:
                     pass
@@ -430,6 +519,56 @@ def api_sync_pull():
         return jsonify({"error": f"同步失败: {e}"})
 
 
+@app.route("/api/pocket/imports")
+def api_pocket_imports():
+    """列出由影序 Pocket 导入的移动端素材清单。"""
+    with _pocket_lock:
+        records = _load_pocket_imports()
+    return jsonify({"imports": records})
+
+
+@app.route("/api/pocket/import", methods=["POST"])
+def api_pocket_import():
+    """导入移动端导出的 JSON 元数据清单，不上传、不复制原始文件。"""
+    data = request.get_json(silent=True)
+    try:
+        items = _validate_pocket_payload(data)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    photos = sum(item["type"].startswith("image/") for item in items)
+    videos = sum(item["type"].startswith("video/") for item in items)
+    imported_at = datetime.now(timezone.utc).isoformat()
+    record = {
+        "id": uuid.uuid4().hex,
+        "created_at": str(data.get("createdAt", ""))[:64],
+        "imported_at": imported_at,
+        "item_count": len(items),
+        "photo_count": photos,
+        "video_count": videos,
+        "total_bytes": sum(item["size"] for item in items),
+        "suggested_event_name": f"手机素材_{datetime.now().strftime('%Y%m%d_%H%M')}",
+        "items": items,
+    }
+    with _pocket_lock:
+        records = _load_pocket_imports()
+        records.insert(0, record)
+        _save_pocket_imports(records[:100])
+    return jsonify({"import": record}), 201
+
+
+@app.route("/api/pocket/imports/<import_id>", methods=["DELETE"])
+def api_delete_pocket_import(import_id):
+    """仅移除本地元数据记录，绝不影响手机或桌面的原始文件。"""
+    with _pocket_lock:
+        records = _load_pocket_imports()
+        updated = [record for record in records if record.get("id") != import_id]
+        if len(updated) == len(records):
+            return jsonify({"error": "导入记录不存在"}), 404
+        _save_pocket_imports(updated)
+    return jsonify({"status": "deleted"})
+
+
 @app.route("/api/history")
 def api_history():
     """获取历史记录"""
@@ -461,8 +600,124 @@ def api_history():
 def api_history_detail(backup_id):
     """获取单条历史详情"""
     record = db.get_backup(backup_id)
+    if not record:
+        return jsonify({"error": "未找到这条备份记录"}), 404
     files = db.get_backup_files(backup_id, 500)
-    return jsonify({"record": record, "files": files})
+    target_results = {}
+    report_path = record.get("report_path") or ""
+    if report_path and os.path.isfile(report_path):
+        try:
+            with open(report_path, "r", encoding="utf-8") as report_file:
+                target_results = json.load(report_file).get("target_results", {})
+        except (OSError, json.JSONDecodeError):
+            pass
+    return jsonify({"record": record, "files": files, "target_results": target_results})
+
+
+@app.route("/api/history/<int:backup_id>/report")
+def api_history_report(backup_id):
+    """下载或查看某次备份的 JSON 报告。"""
+    record = db.get_backup(backup_id)
+    if not record:
+        return jsonify({"error": "未找到这条备份记录"}), 404
+    report_path = record.get("report_path") or ""
+    if not report_path or not os.path.isfile(report_path):
+        return jsonify({"error": "这次备份尚未生成报告"}), 404
+    return flask.send_file(report_path, as_attachment=True, download_name=os.path.basename(report_path))
+
+
+@app.route("/api/history/<int:backup_id>/reverify", methods=["POST"])
+def api_history_reverify(backup_id):
+    """用存档中的 SHA256 再次核验文件，确认归档盘内容仍然完整。"""
+    record = db.get_backup(backup_id)
+    if not record:
+        return jsonify({"error": "未找到这条备份记录"}), 404
+    from .verifier import ChecksumVerifier
+    verifier = ChecksumVerifier()
+    checked = passed = missing = mismatched = unavailable = 0
+    failures = []
+    for item in db.get_backup_files(backup_id, 500):
+        if item.get("status") not in ("completed", "reviewed"):
+            continue
+        dest_path = item.get("dest_path") or ""
+        expected_hash = item.get("source_hash") or ""
+        if not dest_path or not expected_hash:
+            unavailable += 1
+            continue
+        checked += 1
+        actual_hash = verifier.hash_file(dest_path)
+        if not actual_hash:
+            missing += 1
+            failures.append({"path": dest_path, "reason": "文件不存在或无法读取"})
+        elif actual_hash != expected_hash:
+            mismatched += 1
+            failures.append({"path": dest_path, "reason": "SHA256 不一致"})
+        else:
+            passed += 1
+    return jsonify({
+        "backup_id": backup_id,
+        "checked": checked,
+        "passed": passed,
+        "missing": missing,
+        "mismatched": mismatched,
+        "unavailable": unavailable,
+        "ok": checked > 0 and missing == 0 and mismatched == 0,
+        "failures": failures[:20],
+    })
+
+
+@app.route("/api/history/<int:backup_id>/retry", methods=["POST"])
+def api_history_retry(backup_id):
+    """用原任务参数重新执行，已完整落盘的文件会自动跳过。"""
+    if engine.progress.status in ("scanning", "metadata", "copying", "verifying", "reviewing"):
+        return jsonify({"error": "当前已有任务在运行"}), 409
+    record = db.get_backup(backup_id)
+    if not record:
+        return jsonify({"error": "未找到这条备份记录"}), 404
+    data = request.get_json(silent=True) or {}
+    mount_point = data.get("mount_point", "").strip()
+    if not mount_point:
+        volumes = list_removable_volumes()
+        if volumes:
+            mount_point = volumes[0]["mount_point"]
+    if not mount_point or not os.path.isdir(mount_point):
+        return jsonify({"error": "请重新插入原始 SD 卡后再重试"}), 400
+    try:
+        backup_targets = json.loads(record.get("backup_targets") or "[]")
+    except (TypeError, json.JSONDecodeError):
+        backup_targets = []
+
+    def _run_retry():
+        try:
+            engine.run(
+                mount_point, record["event_name"], record["backup_root"],
+                enable_verify=config.verify_method == "sha256",
+                backup_targets=backup_targets or None,
+            )
+        except Exception as exc:
+            print(f"[SMB] 重试失败: {exc}", file=sys.stderr)
+
+    threading.Thread(target=_run_retry, daemon=True).start()
+    return jsonify({"status": "started", "message": "已开始重试；完整文件会自动跳过"})
+
+
+@app.route("/api/library/search")
+def api_library_search():
+    """从已完成的备份中检索素材，解决“备份后找不到文件”的问题。"""
+    limit = max(1, min(request.args.get("limit", 100, type=int), 500))
+    offset = max(0, request.args.get("offset", 0, type=int))
+    query = request.args.get("query", "", type=str).strip()
+    device = request.args.get("device", "", type=str).strip()
+    media_type = request.args.get("media_type", "", type=str).strip()
+    items = db.search_library(query, device, media_type, limit, offset)
+    total = db.count_library(query, device, media_type)
+    return jsonify({
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "filters": {"query": query, "device": device, "media_type": media_type},
+    })
 
 
 # ====== SocketIO ======

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 # Paths
-ROOT = Path(os.getcwd()).resolve().parent
+ROOT = Path(SPECPATH).resolve().parent
 SMB = ROOT / "smb"
 
 print(f"[SMB Build] ROOT={ROOT}")
@@ -14,7 +14,7 @@ print(f"[SMB Build] ROOT={ROOT}")
 block_cipher = None
 
 a = Analysis(
-    [str(SMB / "server.py")],
+    [str(ROOT / "desktop" / "app.py")],
     pathex=[str(ROOT)],
     binaries=[],
     datas=[
@@ -61,9 +61,6 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
     name="Smart Media Backup",
     debug=False,
@@ -78,25 +75,37 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    exclude_binaries=True,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name="影序 YINGXU",
 )
 
 app = BUNDLE(
-    exe,
+    coll,
     [],
-    name="Smart Media Backup.app",
-    icon="/Users/nanyu/smart-media-backup/desktop/icon.icns",
+    name="影序 YINGXU.app",
+    icon=str(ROOT / "desktop" / "icon.icns"),
     bundle_identifier="com.luguanlin.smart-media-backup",
     info_plist={
-        "CFBundleName": "Smart Media Backup",
-        "CFBundleDisplayName": "Smart Media Backup",
+        "CFBundleName": "影序 YINGXU",
+        "CFBundleDisplayName": "影序 YINGXU",
         "CFBundleIdentifier": "com.luguanlin.smart-media-backup",
-        "CFBundleVersion": "1.0.0",
-        "CFBundleShortVersionString": "1.0.0",
+        "CFBundleVersion": "1.0.2",
+        "CFBundleShortVersionString": "1.0.2",
         "CFBundleExecutable": "Smart Media Backup",
         "CFBundleInfoDictionaryVersion": "6.0",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
-        "NSHumanReadableCopyright": "© 2025 陆冠霖",
+        "NSHumanReadableCopyright": "© 2026 陆冠霖",
         "NSSupportsAutomaticTermination": False,
         "LSBackgroundOnly": False,
         "CFBundlePackageType": "APPL",
