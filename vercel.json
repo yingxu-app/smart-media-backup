@@ -4,8 +4,8 @@
   "outputDirectory": "website",
   "routes": [
     { "src": "/", "dest": "/index.html" },
-    { "src": "/download/macos", "dest": "https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.0/SmartMediaBackup-macOS.dmg" },
-    { "src": "/download/windows", "dest": "https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.0/SmartMediaBackup-Windows.exe" }
+    { "src": "/download/macos", "dest": "https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.1/YINGXU-macOS-v1.0.1.dmg" },
+    { "src": "/download/windows", "dest": "/download-v19.html#windows" }
   ],
   "trailingSlash": false
 }

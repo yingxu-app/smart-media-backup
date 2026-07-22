@@ -1,0 +1,104 @@
+<!DOCTYPE html><html lang="zh-CN">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title data-i18n="title">摄影师必看：SD 卡自动备份的正确姿势｜Smart Media Backup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0b;--panel:#13161a;--line:rgba(255,255,255,.08);--text:#d7d8e1;--muted:#737786;--brand:#4ade80;--content:800px}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Outfit','Noto Sans SC',sans-serif;color:var(--text);background:var(--bg);overflow-x:hidden}
+a{color:var(--brand);text-decoration:none}
+.wrap{width:min(var(--content),calc(100vw - 48px));margin:0 auto;position:relative;z-index:1}
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(10,10,11,.74);border-bottom:1px solid var(--line)}
+.nav-inner{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:600}
+.brand-mark{width:32px;height:32px;border-radius:10px;border:1px solid rgba(74,222,128,.22);background:linear-gradient(145deg,rgba(74,222,128,.18),rgba(74,222,128,.04))}
+.nav-links{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted)}
+.lang-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);cursor:pointer;font-size:12px;border-radius:6px;padding:4px 10px;font-family:'Outfit','Noto Sans SC',sans-serif;transition:.2s}
+.lang-btn:hover{background:rgba(74,222,128,.12);border-color:rgba(74,222,128,.3);color:var(--brand)}
+.post-header{padding:60px 0 40px;text-align:center}
+.post-header .date{font-size:13px;color:var(--muted);margin-bottom:8px}
+.post-header h1{font-size:36px;margin:0 0 12px;line-height:1.2;font-weight:600}
+.post-header .tag{display:inline-block;padding:3px 12px;border-radius:999px;background:rgba(74,222,128,.1);color:var(--brand);font-size:11px}
+.post-content{font-size:16px;line-height:2;color:var(--muted);padding-bottom:60px}
+.post-content h2{font-size:24px;color:var(--text);margin:40px 0 12px;font-weight:600}
+.post-content p{margin:0 0 16px}
+.post-content ul{padding-left:20px;margin:0 0 16px}
+.post-content li{margin-bottom:6px}
+.footer{padding:24px 0;border-top:1px solid var(--line);text-align:center;font-size:13px;color:var(--muted)}
+@media(max-width:800px){.post-header h1{font-size:28px}}
+.lang-zh,.lang-en{display:none}
+body.lang-zh-active .lang-zh{display:inline}
+body.lang-en-active .lang-en{display:inline}
+body.lang-zh-active .lang-block-zh{display:block}
+body.lang-en-active .lang-block-en{display:block}
+</style>
+</head>
+<body>
+<div class="nav"><div class="wrap nav-inner">
+<a class="brand" href="../smb-website.html"><span class="brand-mark"></span>Smart Media Backup</a>
+<div class="nav-links">
+<a href="../blog/" data-i18n="back"><span class="lang-zh">← 返回博客</span><span class="lang-en">← Back to Blog</span></a>
+<button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
+</div></div></div>
+
+<div class="wrap">
+<div class="post-header">
+<div class="date"><span class="lang-zh">2026-07-20 · 3 分钟阅读</span><span class="lang-en">2026-07-20 · 3 min read</span></div>
+<h1><span class="lang-zh">摄影师必看：SD 卡自动备份的正确姿势</span><span class="lang-en">SD Card Auto Backup: The Right Way</span></h1>
+<span class="tag"><span class="lang-zh">教程</span><span class="lang-en">Tutorial</span></span>
+</div>
+<div class="post-content">
+<p><span class="lang-zh">每次拍完婚礼/漫展/航拍回家，你还在做这三件事吗？</span><span class="lang-en">Still doing these three things every time you get home from a wedding, convention, or aerial shoot?</span></p>
+<ul>
+<li class="lang-zh lang-block-zh">把 SD 卡插到电脑</li><li class="lang-en lang-block-en">Plug SD card into your computer</li>
+<li class="lang-zh lang-block-zh">手动拖文件到外置盘</li><li class="lang-en lang-block-en">Manually drag files to an external drive</li>
+<li class="lang-zh lang-block-zh">手动建文件夹、按日期分类</li><li class="lang-en lang-block-en">Manually create folders and sort by date</li>
+</ul>
+<p><span class="lang-zh">如果是，这篇文章就是为你写的。</span><span class="lang-en">If so, this article is for you.</span></p>
+
+<h2><span class="lang-zh">为什么需要自动备份？</span><span class="lang-en">Why Auto Backup?</span></h2>
+<p><span class="lang-zh">手动拖文件有几个致命问题：第一，拖到一半忘了校验，拷坏了都不知道；第二，不同设备（Sony + DJI）的文件混在一起，后期整理要花额外时间；第三，万一硬盘满了、或者不小心格式化了 SD 卡，数据就丢了。自动备份能解决所有这些问题：插卡、打字、点一下，剩下全自动。</span><span class="lang-en">Manual file dragging has several fatal flaws. First, you might forget to verify copies — corrupted files go unnoticed. Second, files from different devices (Sony + DJI) get mixed together, requiring extra cleanup later. Third, if your drive fills up or you accidentally format the SD card, your data is gone forever. Auto backup solves all of this: insert the card, type an event name, click start — everything else is automatic.</span></p>
+
+<h2><span class="lang-zh">Smart Media Backup 怎么帮你？</span><span class="lang-en">How Smart Media Backup Helps</span></h2>
+<p><span class="lang-zh">这个工具的核心逻辑很简单：</span><span class="lang-en">The core logic is simple:</span></p>
+<ul>
+<li class="lang-zh lang-block-zh"><strong>检测</strong>—SD 卡插入读卡器，程序自动识别</li><li class="lang-en lang-block-en"><strong>Detection</strong>—SD card inserted, the app auto-detects it</li>
+<li class="lang-zh lang-block-zh"><strong>读取</strong>—自动提取相机型号、拍摄日期、GPS 坐标</li><li class="lang-en lang-block-en"><strong>Reading</strong>—Extracts camera model, shooting date, GPS coordinates</li>
+<li class="lang-zh lang-block-zh"><strong>分类</strong>—按设备→事件→照片/视频 自动建文件夹</li><li class="lang-en lang-block-en"><strong>Organizing</strong>—Auto-creates folders by device → event → photos/videos</li>
+<li class="lang-zh lang-block-zh"><strong>校验</strong>—SHA256 检查每份拷贝，保证零错误</li><li class="lang-en lang-block-en"><strong>Verification</strong>—SHA256 checks every copy for zero errors</li>
+<li class="lang-zh lang-block-zh"><strong>同步</strong>—可选百度网盘自动上传，本地云端双保险</li><li class="lang-en lang-block-en"><strong>Sync</strong>—Optional auto-upload to cloud, local + remote redundancy</li>
+</ul>
+
+<h2><span class="lang-zh">使用步骤</span><span class="lang-en">Usage Steps</span></h2>
+<ul>
+<li class="lang-zh lang-block-zh">下载安装（macOS .dmg 或 Windows .exe）</li><li class="lang-en lang-block-en">Download and install (macOS .dmg or Windows .exe)</li>
+<li class="lang-zh lang-block-zh">双击启动，浏览器自动打开 Web 面板</li><li class="lang-en lang-block-en">Launch the app, the Web panel opens automatically</li>
+<li class="lang-zh lang-block-zh">插 SD 卡 → 输事件名 → 选目标盘 → 点开始</li><li class="lang-en lang-block-en">Insert SD card → enter event name → pick target drive → click start</li>
+<li class="lang-zh lang-block-zh">看进度条，备份完拔卡走人</li><li class="lang-en lang-block-en">Watch the progress bar, then eject and go</li>
+</ul>
+
+<h2><span class="lang-zh">适合谁用？</span><span class="lang-en">Who Is This For?</span></h2>
+<p><span class="lang-zh">婚礼摄影师、漫展摄影师、无人机飞手、视频创作者——任何需要频繁从 SD 卡拷贝媒体文件的人。</span><span class="lang-en">Wedding photographers, convention photographers, drone pilots, video creators — anyone who frequently copies media files from SD cards.</span></p>
+</div>
+</div>
+<footer class="footer"><div class="wrap"><span class="lang-zh">Smart Media Backup · v1.0.0 · MIT License</span><span class="lang-en">Smart Media Backup · v1.0.0 · MIT License</span></div></footer>
+<script>
+(function(){
+  function getLang(){return localStorage.getItem('smb-lang')||'zh'}
+  function setLang(l){localStorage.setItem('smb-lang',l)}
+  function applyLang(lang){
+    document.documentElement.lang=lang==='zh'?'zh-CN':'en'
+    document.body.className=lang==='zh'?'lang-zh-active':'lang-en-active'
+    var btn=document.getElementById('langBtn')
+    if(btn)btn.textContent=lang==='zh'?'EN':'中'
+  }
+  function toggleLang(){
+    var cur=getLang()
+    var next=cur==='zh'?'en':'zh'
+    setLang(next)
+    applyLang(next)
+  }
+  window.toggleLang=toggleLang
+  applyLang(getLang())
+})()\nif ('scrollRestoration' in history) history.scrollRestoration = 'manual';\nwindow.scrollTo(0, 0);\n</script>\n</body></html>
