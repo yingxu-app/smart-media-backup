@@ -34,9 +34,14 @@
     <p class="hint" style="margin-top:0;line-height:1.6;">从手机 Pocket 导出的 JSON 只包含文件名、类型和大小。导入后可一键带入项目名；原文件仍需要在桌面端选择来源后备份。</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <label class="btn-secondary" style="cursor:pointer;margin:0;">导入 Pocket 清单<input id="pocketFileInput" type="file" accept="application/json,.json" style="display:none;"></label>
+        <button class="btn-secondary" type="button" onclick="generatePocketPairing()">生成手机配对码</button>
         <span id="pocketImportHint" class="hint">尚未导入移动端清单</span>
     </div>
     <div id="pocketImportList" style="margin-top:12px;"></div>
+    <div id="pocketPairing" style="display:none;margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:12px;align-items:center;gap:14px;flex-wrap:wrap;">
+        <img id="pocketQrImage" alt="影序 Pocket 配对二维码" width="148" height="148" style="background:#fff;border-radius:8px;padding:5px;image-rendering:auto;">
+        <div style="flex:1;min-width:180px;"><strong>扫码连接影序 Pocket</strong><p class="hint" id="pocketPairingDetail" style="margin:6px 0;"></p><div class="hint">配对码 <code id="pocketPairCode"></code> · 5 分钟内有效</div><button class="btn-secondary" type="button" onclick="copyPocketPairUrl()" style="margin-top:9px;">复制连接链接</button></div>
+    </div>
 </div>
 
 <!-- 操作面板 -->
@@ -269,6 +274,30 @@ function deletePocketImport(importId) {
     if (!confirm("只删除桌面端保存的 Pocket 清单，不会删除手机或电脑上的任何原始文件。")) return;
     fetch(`/api/pocket/imports/${encodeURIComponent(importId)}`, {method: "DELETE"})
         .then(() => loadPocketImports());
+}
+
+let pocketPairUrl = "";
+function generatePocketPairing() {
+    const detail = document.getElementById("pocketPairingDetail");
+    detail.textContent = "正在生成一次性配对码…";
+    fetch("/api/pocket/pairing", {method: "POST"}).then(async response => ({ok: response.ok, data: await response.json()}))
+        .then(result => {
+            if (!result.ok) throw new Error(result.data.error || "生成配对码失败");
+            const data = result.data;
+            pocketPairUrl = data.mobile_url;
+            document.getElementById("pocketQrImage").src = data.qr_data_url;
+            document.getElementById("pocketPairCode").textContent = data.code;
+            detail.textContent = `手机和电脑连接同一 Wi‑Fi 后，用相机扫码；桌面地址：${data.desktop_url}`;
+            document.getElementById("pocketPairing").style.display = "flex";
+        }).catch(error => {
+            document.getElementById("pocketPairing").style.display = "none";
+            alert(error.message);
+        });
+}
+
+function copyPocketPairUrl() {
+    if (!pocketPairUrl) return;
+    navigator.clipboard?.writeText(pocketPairUrl).then(() => alert("配对链接已复制")).catch(() => prompt("复制此配对链接", pocketPairUrl));
 }
 
 // === 磁盘列表 ===

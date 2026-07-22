@@ -1,0 +1,37 @@
+name: 影序共创建议
+description: 提交一个真实的素材管理难题或改进建议
+title: "[共创] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢参与影序共创。请只描述公开分享也安全的信息，不要填写客户姓名、拍摄地址、素材链接或隐私数据。
+  - type: dropdown
+    id: scene
+    attributes:
+      label: 发生在哪个场景
+      options:
+        - 婚礼 / 活动
+        - 人像 / 街拍
+        - 风景 / 旅行
+        - 产品 / 电商
+        - 航拍 / 无人机
+        - 多设备混拍
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你遇到的问题
+      description: 它在哪一步发生？你现在如何处理？
+      placeholder: 例如：多张卡积压后，我无法判断哪些已经备份到哪块硬盘。
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 你希望影序替你省掉哪一步
+      placeholder: 例如：自动标记已备份卡，并把每次备份写入可搜索历史。
+    validations:
+      required: true

@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="smart-media-backup",
-    version="1.0.2",
+    version="1.0.4",
     author="Lu Guanlin",
     author_email="luguanlin20050927@icloud.com",
     description="插卡自动备份 → 按设备→事件→照片/视频分类整理 → Web 面板可视化",
@@ -25,6 +25,7 @@ setup(
         "psutil>=5.9",
         "humanize>=4.9",
         "Pillow>=10.0",
+        "qrcode[pil]>=7.4",
     ],
     extras_require={
         "dev": ["pytest", "black"],

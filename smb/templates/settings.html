@@ -143,6 +143,10 @@
         </select>
     </div>
     <div class="form-row">
+        <label for="pocketLanEnabled">📱 允许 Pocket 局域网连接</label>
+        <div style="flex:1;"><label class="toggle"><input type="checkbox" id="pocketLanEnabled"><span class="toggle-slider"></span></label><small style="display:block;color:var(--muted);margin-top:5px;">仅在同一 Wi‑Fi 下配对。保存后需要重启影序才会开始监听局域网。</small></div>
+    </div>
+    <div class="form-row">
         <label>📂 目录层级</label>
         <div style="flex:1;">
             <div id="sortOrderList" class="sort-order-list"></div>
@@ -484,6 +488,7 @@ function saveAdvancedSettings() {
         max_speed_mbps: parseInt(document.getElementById("maxSpeed").value) || 0,
         phash_threshold: parseInt(document.getElementById("phashThreshold").value) || 0,
         sort_order: currentSortOrder,
+        pocket_lan_enabled: document.getElementById("pocketLanEnabled").checked,
     };
     fetch("/api/settings", {
         method: "POST",
@@ -504,6 +509,7 @@ function loadAdvancedSettings() {
         document.getElementById("webhookUrl").value = d.webhook_url || "";
         document.getElementById("maxSpeed").value = d.max_speed_mbps || 0;
         document.getElementById("phashThreshold").value = d.phash_threshold || 0;
+        document.getElementById("pocketLanEnabled").checked = !!d.pocket_lan_enabled;
         if (d.sort_order && d.sort_order.length) {
             currentSortOrder = d.sort_order;
             renderSortOrderList();

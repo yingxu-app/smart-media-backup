@@ -49,7 +49,8 @@ def main():
 ╚══════════════════════════════════════════╝
 """)
 
-    socketio.run(app, host=config.web_host, port=config.web_port,
+    host = "0.0.0.0" if config.pocket_lan_enabled else config.web_host
+    socketio.run(app, host=host, port=config.web_port,
                  debug=False, allow_unsafe_werkzeug=True)
 
 if __name__ == "__main__":

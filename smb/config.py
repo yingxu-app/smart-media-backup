@@ -59,6 +59,7 @@ class AppConfig:
     # === Web 服务 ===
     web_host: str = "127.0.0.1"
     web_port: int = 8080
+    pocket_lan_enabled: bool = False  # 开启后下次启动监听局域网，供已配对手机使用
 
     # === 扫描目录（平台自动探测） ===
     mount_points: list = field(default_factory=lambda: [

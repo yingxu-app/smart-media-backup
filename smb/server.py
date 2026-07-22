@@ -6,7 +6,13 @@ import threading
 import webbrowser
 import subprocess
 import uuid
+import base64
+import io
+import secrets
+import socket
+import time
 from datetime import datetime, timezone
+from urllib.parse import urlencode
 from pathlib import Path
 
 import flask
@@ -38,6 +44,65 @@ engine = BackupEngine()
 _scan_cache = {"files": [], "volumes": []}
 _pocket_lock = threading.Lock()
 _pocket_imports_file = CONFIG_DIR / "pocket_imports.json"
+_pocket_pairings = {}
+_POCKET_PUBLIC_ORIGIN = "https://luguanlin20050927.github.io"
+
+
+def _is_loopback_request():
+    return request.remote_addr in {"127.0.0.1", "::1"}
+
+
+def _local_ipv4_addresses():
+    """返回可供同一局域网设备访问的 IPv4 地址，不暴露公网地址。"""
+    addresses = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if not ip.startswith("127."):
+                addresses.add(ip)
+    except OSError:
+        pass
+    try:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        probe.connect(("192.0.2.1", 9))
+        ip = probe.getsockname()[0]
+        probe.close()
+        if not ip.startswith("127."):
+            addresses.add(ip)
+    except OSError:
+        pass
+    return sorted(addresses)
+
+
+def _cleanup_pocket_pairings():
+    now = time.time()
+    for code, pairing in list(_pocket_pairings.items()):
+        if pairing["expires_at"] <= now:
+            _pocket_pairings.pop(code, None)
+
+
+def _pairing_token_is_valid(token):
+    if not token:
+        return False
+    _cleanup_pocket_pairings()
+    return any(secrets.compare_digest(pairing.get("token", ""), token) for pairing in _pocket_pairings.values())
+
+
+def _is_remote_pocket_request():
+    origin = request.headers.get("Origin", "")
+    return bool(origin and not origin.startswith("http://127.0.0.1") and not origin.startswith("http://localhost"))
+
+
+@app.after_request
+def add_pocket_cors_headers(response):
+    """只允许官网 PWA 跨域访问 Pocket 接口；其余 API 保持本地同源。"""
+    origin = request.headers.get("Origin", "")
+    if request.path.startswith("/api/pocket/") and origin == _POCKET_PUBLIC_ORIGIN:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Yingxu-Pocket-Token"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+    return response
 
 
 def _load_pocket_imports():
@@ -527,9 +592,73 @@ def api_pocket_imports():
     return jsonify({"imports": records})
 
 
+@app.route("/api/pocket/lan-status")
+def api_pocket_lan_status():
+    """供桌面工作台显示局域网配对状态；只允许本机读取。"""
+    if not _is_loopback_request():
+        return jsonify({"error": "此接口仅限桌面端本机访问"}), 403
+    return jsonify({
+        "enabled": config.pocket_lan_enabled,
+        "addresses": _local_ipv4_addresses() if config.pocket_lan_enabled else [],
+        "port": config.web_port,
+        "restart_required": False,
+    })
+
+
+@app.route("/api/pocket/pairing", methods=["POST"])
+def api_pocket_pairing():
+    """在本机生成五分钟有效的扫码配对信息。"""
+    if not _is_loopback_request():
+        return jsonify({"error": "配对码只能在桌面端生成"}), 403
+    if not config.pocket_lan_enabled:
+        return jsonify({"error": "请先在设置中开启“允许影序 Pocket 局域网连接”，然后重启影序"}), 409
+    addresses = _local_ipv4_addresses()
+    if not addresses:
+        return jsonify({"error": "未找到可用局域网地址，请确认电脑已连接 Wi-Fi 或网线"}), 409
+    _cleanup_pocket_pairings()
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    token = secrets.token_urlsafe(32)
+    expires_at = time.time() + 300
+    _pocket_pairings[code] = {"token": token, "expires_at": expires_at}
+    desktop_url = f"http://{addresses[0]}:{config.web_port}"
+    mobile_url = "https://luguanlin20050927.github.io/smart-media-backup/mobile-v22.html?" + urlencode({"desktop": desktop_url, "code": code})
+    try:
+        import qrcode
+        image = qrcode.make(mobile_url)
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        qr_data_url = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+    except Exception as exc:
+        return jsonify({"error": f"二维码生成失败: {exc}"}), 500
+    return jsonify({
+        "code": code,
+        "expires_at": datetime.fromtimestamp(expires_at, timezone.utc).isoformat(),
+        "desktop_url": desktop_url,
+        "mobile_url": mobile_url,
+        "qr_data_url": qr_data_url,
+        "expires_in": 300,
+    })
+
+
+@app.route("/api/pocket/pair", methods=["POST", "OPTIONS"])
+def api_pocket_pair():
+    """PWA 用一次性配对码换取短期令牌；仅返回给已扫码的同一用户。"""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    data = request.get_json(silent=True) or {}
+    code = str(data.get("code", "")).strip()
+    _cleanup_pocket_pairings()
+    pairing = _pocket_pairings.get(code)
+    if not pairing or pairing["expires_at"] <= time.time():
+        return jsonify({"error": "配对码无效或已过期，请回到桌面端重新生成"}), 401
+    return jsonify({"token": pairing["token"], "expires_at": datetime.fromtimestamp(pairing["expires_at"], timezone.utc).isoformat()})
+
+
 @app.route("/api/pocket/import", methods=["POST"])
 def api_pocket_import():
     """导入移动端导出的 JSON 元数据清单，不上传、不复制原始文件。"""
+    if _is_remote_pocket_request() and not _pairing_token_is_valid(request.headers.get("X-Yingxu-Pocket-Token", "")):
+        return jsonify({"error": "请先通过桌面端二维码完成配对"}), 401
     data = request.get_json(silent=True)
     try:
         items = _validate_pocket_payload(data)
@@ -746,6 +875,8 @@ def api_settings():
             config.phash_threshold = int(data["phash_threshold"])
         if "sort_order" in data:
             config.sort_order = data["sort_order"]
+        if "pocket_lan_enabled" in data:
+            config.pocket_lan_enabled = bool(data["pocket_lan_enabled"])
         config.save()
         return jsonify({"status": "saved"})
     return jsonify({
@@ -753,6 +884,7 @@ def api_settings():
         "max_speed_mbps": config.max_speed_mbps,
         "phash_threshold": config.phash_threshold,
         "sort_order": config.sort_order,
+        "pocket_lan_enabled": config.pocket_lan_enabled,
     })
 
 
@@ -819,7 +951,7 @@ def main():
 
     # 找可用端口
     port = config.web_port
-    host = config.web_host
+    host = "0.0.0.0" if config.pocket_lan_enabled else config.web_host
 
     # 数据库初始化
     db.init_db()
@@ -840,7 +972,7 @@ def main():
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║     🖼  Smart Media Backup  v1.0         ║
+║     🖼  影序 YINGXU                      ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║
