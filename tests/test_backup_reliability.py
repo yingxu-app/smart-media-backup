@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+import json
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -58,6 +59,12 @@ class BackupReliabilityTests(unittest.TestCase):
             first.run(str(self.sd), "portrait", str(self.target), enable_verify=True)
             self.assertEqual(first.progress.status, "done")
             self.assertTrue(first.progress.can_cleanup)
+            reports = list((self.target / "_reports" / "portrait").glob("report_*.json"))
+            self.assertTrue(reports)
+            self.assertEqual(json.loads(reports[0].read_text())["status"], "completed")
+            found = db.search_library(query="portrait")
+            self.assertEqual(len(found), 1)
+            self.assertIn("Sony A7M4", found[0]["dest_path"])
 
             second = self.configured_engine()
             second.run(str(self.sd), "portrait", str(self.target), enable_verify=True)
@@ -78,6 +85,26 @@ class BackupReliabilityTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("校验失败", error)
         self.assertEqual(engine._verifier.verify_single.call_count, engine.MAX_RETRIES)
+
+    def test_removed_sd_file_is_retried_and_never_marked_safe(self):
+        engine = self.configured_engine()
+        engine.RETRY_DELAY_SECONDS = 0
+        self.source.unlink()  # 模拟复制期间 SD 卡被拔出或文件不可读取。
+        ok, error = engine._copy_and_verify_with_retry(
+            str(self.source), str(self.target / "missing.jpg"), "source-hash", enable_verify=False
+        )
+        self.assertFalse(ok)
+        self.assertTrue(error)
+
+    def test_network_notification_failure_does_not_interrupt_local_workflow(self):
+        previous_url = backup.config.webhook_url
+        backup.config.webhook_url = "http://127.0.0.1:1/unavailable"
+        try:
+            # _send_webhook catches network errors by design; this must not propagate.
+            engine = self.configured_engine()
+            engine._send_webhook(1, 1, 0, ["offline-test"])
+        finally:
+            backup.config.webhook_url = previous_url
 
     def test_partial_result_never_allows_sd_cleanup(self):
         original_scan = backup.scan_sd_card
