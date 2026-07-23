@@ -1,0 +1,142 @@
+<!DOCTYPE html><html lang="zh-CN">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>影序 YINGXU｜常见问题</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="yingxu-system.css" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0b;--panel:#13161a;--panel2:#171a1f;--line:rgba(255,255,255,.08);--text:#d7d8e1;--muted:#737786;--brand:#4ade80;--cyan:#4fd8ff;--shadow:0 28px 80px rgba(0,0,0,.42);--content:1280px}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Outfit','Noto Sans SC',sans-serif;color:var(--text);background:radial-gradient(1000px 500px at 16% 8%,rgba(74,222,128,.14),transparent 60%),radial-gradient(900px 520px at 84% 20%,rgba(79,216,255,.10),transparent 56%),var(--bg);overflow-x:hidden}
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none}
+body::before{background:radial-gradient(700px 520px at 18% 18%,rgba(74,222,128,.14),transparent 58%),radial-gradient(800px 620px at 82% 20%,rgba(83,212,255,.10),transparent 58%);filter:blur(18px);opacity:.9}
+body::after{background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:112px 112px;opacity:.08;mask-image:radial-gradient(circle at 50% 20%,black 26%,transparent 84%)}
+a{color:inherit;text-decoration:none}
+.wrap{width:min(var(--content),calc(100vw - 48px));margin:0 auto;position:relative;z-index:1}
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(10,10,11,.74);border-bottom:1px solid var(--line)}
+.nav-inner{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600;letter-spacing:-.03em}
+.brand-mark{width:38px;height:38px;border-radius:13px;border:1px solid rgba(74,222,128,.22);background:linear-gradient(145deg,rgba(74,222,128,.18),rgba(74,222,128,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.nav-links{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;letter-spacing:.08em;transition:.2s}
+.btn:hover{border-color:var(--brand);color:var(--brand)}
+.lang-btn{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-size:12px;letter-spacing:.05em;transition:.2s;cursor:pointer;color:var(--muted);font-family:inherit;min-width:48px}
+.lang-btn:hover{border-color:var(--brand);color:var(--brand)}
+.hero{padding:38px 0 20px}
+.hero-card{border:1px solid rgba(255,255,255,.08);border-radius:32px;background:radial-gradient(900px 460px at 70% 20%,rgba(74,222,128,.09),transparent 40%),linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015)),rgba(8,9,11,.92);box-shadow:var(--shadow);overflow:hidden;padding:48px}
+h1{font-size:52px;margin:0 0 32px;font-weight:600;letter-spacing:-.04em;line-height:1}
+h1 span{background:linear-gradient(165deg,var(--brand),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.faq-list{display:flex;flex-direction:column;gap:8px}
+.faq-item{border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:.2s}
+.faq-item:hover{border-color:rgba(74,222,128,.15)}
+.faq-q{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;cursor:pointer;font-weight:500;font-size:15px;user-select:none;gap:12px}
+.faq-q .arrow{color:var(--muted);font-size:12px;transition:transform .25s;flex-shrink:0}
+.faq-item.open .faq-q .arrow{transform:rotate(180deg)}
+.faq-a{padding:0 22px 18px;font-size:14px;color:var(--muted);line-height:1.8;display:none}
+.faq-item.open .faq-a{display:block}
+.footer{padding:32px 0;border-top:1px solid var(--line);margin-top:60px;text-align:center;font-size:13px;color:var(--muted)}
+.footer a{color:var(--brand)}
+@media(max-width:800px){h1{font-size:36px}}
+</style>
+<script src="release-links-v21.js" defer></script>
+<script src="yingxu-site-v24.js"></script>
+</head>
+<body>
+<div class="nav"><div class="wrap nav-inner">
+<a class="brand" href="smb-website-v18.html"><span class="brand-mark"></span>影序</a>
+<div class="nav-links"><a href="features-v18.html" data-i18n="nav_features">功能</a><a href="changelog-v18.html" data-i18n="nav_changelog">更新</a>
+<button class="lang-btn" id="langToggle" onclick="toggleLang()">EN</button>
+<a class="btn" href="https://github.com/luguanlin20050927/smart-media-backup/releases" target="_blank">GitHub</a></div></div></div>
+
+<section class="hero"><div class="wrap hero-card">
+<h1 data-i18n="hero_title">常见<span data-i18n-inner="hero_title_span">问题</span></h1>
+<div class="faq-list">
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="faq1_q">支持哪些相机？</span><span class="arrow">▼</span></div><div class="faq-a" data-i18n="faq1_a">支持 Sony、Canon、Nikon、DJI、GoPro、Fujifilm、Panasonic 等市场主流品牌。只要照片/视频包含 EXIF 元数据即可自动识别设备型号。未识别的设备会归类为「Unknown」。</div></div>
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="faq2_q">备份到 NAS 怎么配置？</span><span class="arrow">▼</span></div><div class="faq-a" data-i18n="faq2_a">在软件设置页的「备份目标」下拉框中，选择已挂载的 NAS 目录即可。SMB/NFS 协议均可，只要操作系统能识别为本地目录。Web 面板会自动列出所有可用存储卷。</div></div>
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="faq3_q">百度网盘怎么授权？</span><span class="arrow">▼</span></div><div class="faq-a" data-i18n="faq3_a">打开设置页 → 百度网盘 → 填 App Key 和 Secret Key（需在百度开放平台注册）→ 点「授权」→ 跳转到百度登录 → 同意授权 → 把授权码粘贴回来即可。之后备份完会自动上传。</div></div>
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="faq4_q">会和 Lightroom / DaVinci 冲突吗？</span><span class="arrow">▼</span></div><div class="faq-a" data-i18n="faq4_a">不会。本工具只读取 SD 卡上的文件并复制到目标目录，不修改源文件、不占用文件锁、不干扰其他软件的正常使用。备份完成后会释放 SD 卡。</div></div>
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="faq5_q">Windows / macOS 都能用吗？</span><span class="arrow">▼</span></div><div class="faq-a" data-i18n="faq5_a">都支持。macOS 提供 .dmg 安装包，Windows 提供 .exe 安装包（GitHub Actions 自动构建）。Linux 可通过 pip 安装。树莓派 Pi Zero 2W 也支持。</div></div>
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="faq6_q">软件会读取我的隐私数据吗？</span><span class="arrow">▼</span></div><div class="faq-a" data-i18n="faq6_a">不会。代码完全开源（MIT 协议），所有数据处理都在本地完成。AI 命名功能如果使用本地 Ollama 模型则完全离线。百度网盘上传需要授权，但只会上传你指定的备份目录内的文件。</div></div>
+</div>
+</div></section>
+<footer class="footer"><div class="wrap"><a href="smb-website-v18.html" data-i18n="footer_back">返回主页</a> <span data-i18n="footer_sep">·</span> v1.0.1 <span data-i18n="footer_sep2">·</span> MIT License</div></footer>
+
+<script>
+const i18n = {
+  'zh-CN': {
+    nav_features: '功能',
+    nav_changelog: '更新',
+    hero_title: '常见<span>问题</span>',
+    hero_title_span: '问题',
+    faq1_q: '支持哪些相机？',
+    faq1_a: '支持 Sony、Canon、Nikon、DJI、GoPro、Fujifilm、Panasonic 等市场主流品牌。只要照片/视频包含 EXIF 元数据即可自动识别设备型号。未识别的设备会归类为「Unknown」。',
+    faq2_q: '备份到 NAS 怎么配置？',
+    faq2_a: '在软件设置页的「备份目标」下拉框中，选择已挂载的 NAS 目录即可。SMB/NFS 协议均可，只要操作系统能识别为本地目录。Web 面板会自动列出所有可用存储卷。',
+    faq3_q: '百度网盘怎么授权？',
+    faq3_a: '打开设置页 → 百度网盘 → 填 App Key 和 Secret Key（需在百度开放平台注册）→ 点「授权」→ 跳转到百度登录 → 同意授权 → 把授权码粘贴回来即可。之后备份完会自动上传。',
+    faq4_q: '会和 Lightroom / DaVinci 冲突吗？',
+    faq4_a: '不会。本工具只读取 SD 卡上的文件并复制到目标目录，不修改源文件、不占用文件锁、不干扰其他软件的正常使用。备份完成后会释放 SD 卡。',
+    faq5_q: 'Windows / macOS 都能用吗？',
+    faq5_a: '都支持。macOS 提供 .dmg 安装包，Windows 提供 .exe 安装包（GitHub Actions 自动构建）。Linux 可通过 pip 安装。树莓派 Pi Zero 2W 也支持。',
+    faq6_q: '软件会读取我的隐私数据吗？',
+    faq6_a: '不会。代码完全开源（MIT 协议），所有数据处理都在本地完成。AI 命名功能如果使用本地 Ollama 模型则完全离线。百度网盘上传需要授权，但只会上传你指定的备份目录内的文件。',
+    footer_back: '返回主页',
+    footer_sep: '·',
+    footer_sep2: '·',
+  },
+  en: {
+    nav_features: 'Features',
+    nav_changelog: 'Changelog',
+    hero_title: 'Frequently Asked <span>Questions</span>',
+    hero_title_span: 'Questions',
+    faq1_q: 'What cameras are supported?',
+    faq1_a: 'Supports mainstream brands including Sony, Canon, Nikon, DJI, GoPro, Fujifilm, Panasonic and more. As long as photos/videos contain EXIF metadata, the device model is automatically identified. Unrecognized devices are categorized as "Unknown".',
+    faq2_q: 'How to configure NAS backup?',
+    faq2_a: 'In the software settings page, select a mounted NAS directory from the "Backup Target" dropdown. Both SMB and NFS protocols work as long as the OS recognizes them as local directories. The web panel will automatically list all available storage volumes.',
+    faq3_q: 'How to authorize Baidu Cloud?',
+    faq3_a: 'Open Settings → Baidu Cloud → fill in App Key and Secret Key (register on Baidu Open Platform first) → click "Authorize" → you will be redirected to Baidu login → approve authorization → paste the authorization code back. Backups will then upload automatically.',
+    faq4_q: 'Will it conflict with Lightroom / DaVinci?',
+    faq4_a: 'No. This tool only reads files from the SD card and copies them to the target directory. It does not modify source files, hold file locks, or interfere with other software. After backup completes, the SD card is released.',
+    faq5_q: 'Is it available on Windows / macOS?',
+    faq5_a: 'Both are supported. macOS provides a .dmg installer, Windows provides a .exe installer (auto-built via GitHub Actions). Linux can be installed via pip. Raspberry Pi Zero 2W is also supported.',
+    faq6_q: 'Will the software read my private data?',
+    faq6_a: 'No. The code is fully open-source (MIT License), and all data processing happens locally. The AI naming feature runs completely offline when using a local Ollama model. Baidu Cloud upload requires authorization, but only files within your designated backup directory are uploaded.',
+    footer_back: 'Back to Home',
+    footer_sep: '·',
+    footer_sep2: '·',
+  }
+};
+
+let currentLang = localStorage.getItem('smb_faq_lang') || 'zh-CN';
+
+function applyLang(lang) {
+  const dict = i18n[lang];
+  if (!dict) return;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) {
+      el.innerHTML = dict[key];
+    }
+  });
+  document.querySelectorAll('[data-i18n-inner]').forEach(el => {
+    const key = el.getAttribute('data-i18n-inner');
+    if (dict[key] !== undefined) {
+      el.textContent = dict[key];
+    }
+  });
+  document.documentElement.lang = lang;
+  document.getElementById('langToggle').textContent = lang === 'zh-CN' ? 'EN' : '中';
+  localStorage.setItem('smb_faq_lang', lang);
+  currentLang = lang;
+}
+
+function toggleLang() {
+  applyLang(currentLang === 'zh-CN' ? 'en' : 'zh-CN');
+}
+
+// Apply saved language on load
+applyLang(currentLang);
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.scrollTo(0, 0);
+</script>
+</body></html>

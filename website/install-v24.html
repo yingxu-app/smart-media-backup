@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="title">Smart Media Backup｜安装指引</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="yingxu-system.css" rel="stylesheet">
+  <style>
+    :root{--bg:#0a0a0b;--line:rgba(255,255,255,.08);--text:#d7d8e1;--muted:#737786;--brand:#4ade80;--shadow:0 28px 80px rgba(0,0,0,.42);--content:1280px}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:'Outfit','Noto Sans SC',sans-serif;color:var(--text);background:radial-gradient(1000px 500px at 16% 8%, rgba(74,222,128,.14), transparent 60%),radial-gradient(900px 520px at 84% 20%, rgba(79,216,255,.10), transparent 56%),var(--bg);overflow-x:hidden}
+    body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none}
+    body::before{background:radial-gradient(700px 520px at 18% 18%, rgba(74,222,128,.14), transparent 58%),radial-gradient(800px 620px at 82% 20%, rgba(83,212,255,.10), transparent 58%);filter:blur(18px);opacity:.9}
+    body::after{background-image:linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);background-size:112px 112px;opacity:.08;mask-image:radial-gradient(circle at 50% 20%, black 26%, transparent 84%)}
+    a{color:inherit;text-decoration:none}
+    .wrap{width:min(var(--content), calc(100vw - 48px));margin:0 auto;position:relative;z-index:1}
+    .nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(10,10,11,.74);border-bottom:1px solid var(--line)}
+    .nav-inner{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600;letter-spacing:-.03em}
+    .brand-mark{width:38px;height:38px;border-radius:13px;border:1px solid rgba(74,222,128,.22);background:linear-gradient(145deg, rgba(74,222,128,.18), rgba(74,222,128,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+    .nav-links{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:14px}
+    .lang-btn{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:48px;padding:0 12px;border-radius:10px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);color:var(--muted);font-size:12px;letter-spacing:.06em;cursor:pointer;font-family:inherit;transition:all .2s}
+    .lang-btn:hover{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:var(--text)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;letter-spacing:.08em}
+    .btn.primary{border-color:rgba(74,222,128,.22);background:rgba(74,222,128,.08);color:#aef0c5}
+    .hero{padding:38px 0 20px}
+    .hero-card{border:1px solid rgba(255,255,255,.08);border-radius:32px;background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)), rgba(8,9,11,.92);box-shadow:var(--shadow);overflow:hidden;padding:38px}
+    .kicker{display:inline-flex;padding:10px 14px;border-radius:999px;border:1px solid rgba(74,222,128,.22);background:rgba(74,222,128,.06);color:#a8f2c0;font-size:12px}
+    h1,h2,h3{margin:0;font-weight:400;letter-spacing:-.05em}
+    h1{font-size:clamp(54px,7vw,112px);line-height:.94;margin-top:16px}
+    .grad{background:linear-gradient(95deg,#8bf5ab 8%,#4ade80 42%,#4fd8ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lead{max-width:44em;color:var(--muted);line-height:1.75;font-size:14px;margin-top:16px}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+    .section{padding:28px 0}
+    .section-head{display:flex;justify-content:space-between;gap:18px;align-items:end;margin-bottom:18px}
+    .section-note{max-width:34em;color:var(--muted);font-size:13px;line-height:1.6}
+    .steps{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:28px;overflow:hidden}
+    .step{background:rgba(255,255,255,.02);padding:24px;min-height:220px}
+    .step .num{color:#9ae8b4;font-size:12px;letter-spacing:.22em;margin-bottom:14px}
+    .step h3{font-size:24px;font-weight:500;margin-bottom:10px}
+    .step p,.step li{color:var(--muted);line-height:1.7;font-size:14px}
+    .notice{margin-top:14px;padding:14px;border-radius:18px;border:1px solid rgba(250,204,21,.22);background:rgba(250,204,21,.06);color:#f3d38a;font-size:13px;line-height:1.5}
+    .footer{padding:28px 0 36px;color:var(--muted);font-size:12px}
+    .footer-inner{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--line)}
+    @media (max-width: 900px){.nav-links{display:none}.steps{grid-template-columns:1fr}}
+    @media (max-width: 768px){.wrap{width:min(100vw - 28px, var(--content))}.hero-card{padding:22px}.hero{padding-top:18px}h1{font-size:clamp(40px,12vw,64px)}}
+  </style>
+<script src="release-links-v21.js" defer></script>
+<script src="yingxu-site-v24.js"></script>
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="smb-website-v18.html" aria-label="返回影序首页"><span class="brand-mark"></span><span>影序</span></a>
+      <nav class="nav-links">
+        <a href="smb-website-v18.html" data-i18n="nav-home">主页</a>
+        <a href="guide-v18.html" data-i18n="nav-guide">导览</a>
+        <a href="download-v18.html" data-i18n="nav-download">下载</a>
+        <button class="lang-btn" id="langBtn" data-lang="zh">EN</button>
+        <a href="https://github.com/luguanlin20050927/smart-media-backup/releases" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="hero-card">
+        <span class="kicker" data-i18n="kicker">安装指引</span>
+        <h1><span data-i18n="hero-line1">按平台拆开，</span><br><span class="grad" data-i18n="hero-line2">一步一步来</span></h1>
+        <p class="lead" data-i18n="hero-lead">当前正式发布 macOS 版。安装步骤只写已经验证过的路径；Windows 发布前会在下载页明确标注状态。</p>
+        <div class="actions">
+          <a class="btn primary" href="download-v18.html#macos" data-i18n="action-macos">下载 macOS</a>
+          <a class="btn" href="download-v18.html#windows" data-i18n="action-windows">Windows 状态</a>
+          <a class="btn" href="smb-website-v18.html" data-i18n="action-home">回到主页</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 data-i18n="section-title">安装步骤</h2>
+        <div class="section-note" data-i18n="section-note">安装包在下载页提供 SHA-256；下载后先校验，再安装。</div>
+      </div>
+      <div class="steps">
+        <article class="step" id="macos">
+          <div class="num">MACOS</div>
+          <h3 data-i18n="step-macos-title">macOS 安装</h3>
+          <ol>
+            <li data-i18n="step-macos-1">下载 v1.0.1 的 .dmg，打开后将「影序 YINGXU」拖入「应用程序」。</li>
+            <li data-i18n="step-macos-2">从 Applications 或启动台启动影序。</li>
+            <li data-i18n="step-macos-3">如被系统拦截，前往「系统设置 → 隐私与安全性」选择「仍要打开」。</li>
+          </ol>
+          <div class="notice" data-i18n="step-macos-notice">这是 macOS 最常见的首次运行提示。</div>
+        </article>
+        <article class="step" id="windows">
+          <div class="num">WINDOWS</div>
+          <h3 data-i18n="step-windows-title">Windows 发布状态</h3>
+          <ol>
+            <li data-i18n="step-windows-1">核心功能与打包配置已准备完成。</li>
+            <li data-i18n="step-windows-2">仍需在 Windows 环境执行构建与实际启动验证。</li>
+            <li data-i18n="step-windows-3">验证完成前，不提供 .exe 下载。</li>
+          </ol>
+          <div class="notice" data-i18n="step-windows-notice">这是为了避免用户下载到未经验证的安装包。</div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span data-i18n="footer-text">Smart Media Backup 安装页</span>
+      <a href="smb-website-v18.html" data-i18n="footer-link">返回主页</a>
+    </div>
+  </footer>
+
+  <script>
+    (function() {
+      const i18n = {
+        zh: {
+          title: 'Smart Media Backup｜安装指引',
+          'nav-home': '主页',
+          'nav-guide': '导览',
+          'nav-download': '下载',
+          kicker: '安装指引',
+          'hero-line1': '按平台拆开，',
+          'hero-line2': '一步一步来',
+          'hero-lead': '当前正式发布 macOS 版。安装步骤只写已经验证过的路径；Windows 发布前会在下载页明确标注状态。',
+          'action-macos': '下载 macOS',
+          'action-windows': 'Windows 状态',
+          'action-home': '回到主页',
+          'section-title': '安装步骤',
+          'section-note': '安装包在下载页提供 SHA-256；下载后先校验，再安装。',
+          'step-macos-title': 'macOS 安装',
+          'step-macos-1': '下载 v1.0.1 的 .dmg，打开后将「影序 YINGXU」拖入「应用程序」。',
+          'step-macos-2': '从 Applications 或启动台启动影序。',
+          'step-macos-3': '如被系统拦截，前往「系统设置 → 隐私与安全性」选择「仍要打开」。',
+          'step-macos-notice': '这是 macOS 最常见的首次运行提示。',
+          'step-windows-title': 'Windows 发布状态',
+          'step-windows-1': '核心功能与打包配置已准备完成。',
+          'step-windows-2': '仍需在 Windows 环境执行构建与实际启动验证。',
+          'step-windows-3': '验证完成前，不提供 .exe 下载。',
+          'step-windows-notice': '这是为了避免用户下载到未经验证的安装包。',
+          'footer-text': 'Smart Media Backup 安装页',
+          'footer-link': '返回主页'
+        },
+        en: {
+          title: 'Smart Media Backup｜Install Guide',
+          'nav-home': 'Home',
+          'nav-guide': 'Guide',
+          'nav-download': 'Download',
+          kicker: 'Install Guide',
+          'hero-line1': 'Platform by platform,',
+          'hero-line2': 'step by step',
+          'hero-lead': 'The macOS release is available now. This page documents only verified steps; Windows will be clearly marked before it ships.',
+          'action-macos': 'macOS',
+          'action-windows': 'Windows status',
+          'action-home': 'Back to Home',
+          'section-title': 'Installation Steps',
+          'section-note': 'The download page includes a SHA-256 hash; verify the file before installing.',
+          'step-macos-title': 'macOS Installation',
+          'step-macos-1': 'Download the v1.0.1 .dmg and drag YINGXU to Applications.',
+          'step-macos-2': 'Launch YINGXU from Applications or Launchpad.',
+          'step-macos-3': 'If blocked, use System Settings → Privacy & Security → Open Anyway.',
+          'step-macos-notice': 'This is the most common first-run prompt on macOS.',
+          'step-windows-title': 'Windows Release Status',
+          'step-windows-1': 'Core functions and packaging configuration are ready.',
+          'step-windows-2': 'A Windows-host build and launch verification are still required.',
+          'step-windows-3': 'No .exe is offered before that validation is complete.',
+          'step-windows-notice': 'This prevents users from receiving an unverified installer.',
+          'footer-text': 'Smart Media Backup Install',
+          'footer-link': 'Back to Home'
+        }
+      };
+
+      const LANG_KEY = 'smb-lang';
+      const btn = document.getElementById('langBtn');
+
+      function getLang() {
+        return localStorage.getItem(LANG_KEY) || 'zh';
+      }
+
+      function applyLang(lang) {
+        const dict = i18n[lang] || i18n.zh;
+        document.querySelectorAll('[data-i18n]').forEach(function(el) {
+          var key = el.getAttribute('data-i18n');
+          if (dict[key] !== undefined) {
+            el.textContent = dict[key];
+          }
+        });
+        document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+        btn.textContent = lang === 'zh' ? 'EN' : '中文';
+        btn.setAttribute('data-lang', lang);
+      }
+
+      function toggleLang() {
+        var current = getLang();
+        var next = current === 'zh' ? 'en' : 'zh';
+        localStorage.setItem(LANG_KEY, next);
+        applyLang(next);
+      }
+
+      btn.addEventListener('click', toggleLang);
+      applyLang(getLang());
+    })();
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  window.scrollTo(0, 0);
+  </script>
+</body>
+</html>
