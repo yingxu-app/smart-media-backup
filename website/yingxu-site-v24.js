@@ -27,6 +27,9 @@
   style.textContent = `
     .brand-mark{background-image:url("yingxu-pwa-icon.svg")!important;background-position:center!important;background-size:72%!important;background-repeat:no-repeat!important}
     .brand-mark::before,.brand-mark::after{content:none!important}
+    .nav-links > a:not(.btn){display:inline-flex;align-items:center;min-height:38px;padding:0 4px;color:var(--text-dim,var(--muted,#aab0bc));text-decoration:none;font:inherit;transition:color .18s ease}
+    .nav-links > a:not(.btn):hover{color:var(--text,#f4f6f8)}
+    .nav-links [data-yingxu-language-toggle]{min-width:50px;min-height:38px;padding:0 13px;border:1px solid var(--border,#2c3238);border-radius:12px;background:rgba(255,255,255,.025);color:var(--text-dim,var(--muted,#aab0bc));font:inherit;cursor:pointer}
   `;
   document.head.appendChild(style);
 
@@ -120,7 +123,7 @@
       <a href="guide-v24.html">${english ? 'Guide' : '导览'}</a>
       <a href="download-v24.html">${english ? 'Download' : '下载'}</a>
       <button class="lang-btn" type="button" data-yingxu-language-toggle aria-label="${english ? 'Switch to Chinese' : '切换到英文'}">${english ? '中' : 'EN'}</button>
-      <a class="btn" href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" rel="noopener noreferrer">GitHub</a>`;
+      <a class="btn nav-gh" href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" rel="noopener noreferrer">GitHub</a>`;
     const toggle = nav.querySelector('[data-yingxu-language-toggle]');
     toggle.addEventListener('click', () => {
       storeLanguage(language === 'en' ? 'zh' : 'en');
