@@ -1,0 +1,139 @@
+<!DOCTYPE html><html lang="zh-CN">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>影序 YINGXU｜功能介绍</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="yingxu-system.css" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0b;--panel:#13161a;--panel2:#171a1f;--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);--text:#d7d8e1;--muted:#737786;--brand:#4ade80;--cyan:#4fd8ff;--shadow:0 28px 80px rgba(0,0,0,.42);--radius:28px;--content:1280px}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Outfit','Noto Sans SC',sans-serif;color:var(--text);background:radial-gradient(1000px 500px at 16% 8%,rgba(74,222,128,.14),transparent 60%),radial-gradient(900px 520px at 84% 20%,rgba(79,216,255,.10),transparent 56%),var(--bg);overflow-x:hidden}
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none}
+body::before{background:radial-gradient(700px 520px at 18% 18%,rgba(74,222,128,.14),transparent 58%),radial-gradient(800px 620px at 82% 20%,rgba(83,212,255,.10),transparent 58%);filter:blur(18px);opacity:.9}
+body::after{background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:112px 112px;opacity:.08;mask-image:radial-gradient(circle at 50% 20%,black 26%,transparent 84%)}
+a{color:inherit;text-decoration:none}
+.wrap{width:min(var(--content),calc(100vw - 48px));margin:0 auto;position:relative;z-index:1}
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(10,10,11,.74);border-bottom:1px solid var(--line)}
+.nav-inner{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600;letter-spacing:-.03em}
+.brand-mark{width:38px;height:38px;border-radius:13px;border:1px solid rgba(74,222,128,.22);background:linear-gradient(145deg,rgba(74,222,128,.18),rgba(74,222,128,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.nav-links{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;letter-spacing:.08em;transition:.2s;cursor:pointer}
+.btn:hover{border-color:var(--brand);color:var(--brand)}
+.btn.primary{border-color:rgba(74,222,128,.22);background:rgba(74,222,128,.08);color:#aef0c5}
+.lang-btn{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:11px;letter-spacing:.06em;color:var(--muted);cursor:pointer;transition:.2s;font-family:inherit}
+.lang-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.lang-btn.active{border-color:var(--brand);color:var(--brand);background:rgba(74,222,128,.08)}
+.hero{padding:38px 0 20px}
+.hero-card{border:1px solid rgba(255,255,255,.08);border-radius:32px;background:radial-gradient(900px 460px at 70% 20%,rgba(74,222,128,.09),transparent 40%),linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015)),rgba(8,9,11,.92);box-shadow:var(--shadow);overflow:hidden;padding:48px}
+h1{font-size:52px;margin:0 0 12px;font-weight:600;letter-spacing:-.04em;line-height:1}
+h1 span{background:linear-gradient(165deg,var(--brand),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.lead{color:var(--muted);font-size:16px;max-width:600px;margin-bottom:40px;line-height:1.7}
+.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.feature-card{border:1px solid var(--line);border-radius:24px;padding:32px;background:rgba(255,255,255,.02);transition:.2s}
+.feature-card:hover{border-color:rgba(74,222,128,.2);background:rgba(74,222,128,.03)}
+.feature-card .icon{font-size:28px;margin-bottom:12px}
+.feature-card h3{margin:0 0 8px;font-size:18px;font-weight:600}
+.feature-card p{margin:0;color:var(--muted);font-size:14px;line-height:1.7}
+.tech-list{border-top:1px solid var(--line);margin-top:40px;padding-top:32px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.tech-item{text-align:center;padding:20px;border:1px solid rgba(255,255,255,.04);border-radius:16px}
+.tech-item strong{display:block;font-size:20px;color:var(--brand);margin-bottom:4px}
+.tech-item span{font-size:12px;color:var(--muted)}
+.footer{padding:32px 0;border-top:1px solid var(--line);margin-top:60px;text-align:center;font-size:13px;color:var(--muted)}
+.footer a{color:var(--brand)}
+@media(max-width:800px){.feature-grid{grid-template-columns:1fr}.tech-list{grid-template-columns:1fr 1fr}h1{font-size:36px}}
+</style>
+<script src="release-links-v26.js" defer></script>
+<script src="yingxu-site-v26.js"></script>
+</head>
+<body>
+<div class="nav"><div class="wrap nav-inner">
+<a class="brand" href="smb-website-v26.html"><span class="brand-mark"></span>影序</a>
+<div class="nav-links">
+<a href="download-v26.html" data-i18n="navDownload">下载</a><a href="guide-v26.html" data-i18n="navGuide">导览</a><button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button><a class="btn" href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" rel="noopener noreferrer">GitHub</a>
+</div></div></div>
+
+<section class="hero"><div class="wrap hero-card">
+<h1 data-i18n="heroTitle">核心<span>功能</span></h1>
+<p class="lead" data-i18n="heroLead">插卡、打字、点一下，剩下全自动。从检测到校验，每个环节都是透明的。</p>
+<div class="feature-grid">
+<div class="feature-card"><div class="icon">🔌</div><h3 data-i18n="card1Title">插卡即检测</h3><p data-i18n="card1Desc">SD 卡插入读卡器，后台每 2 秒自动轮询，弹窗通知。支持 RAW、JPG、MP4、HEIC 等主流格式。</p></div>
+<div class="feature-card"><div class="icon">🏷️</div><h3 data-i18n="card2Title">EXIF 元数据提取</h3><p data-i18n="card2Desc">自动读取相机型号、拍摄日期、GPS 坐标。支持 Sony、Canon、DJI、GoPro、Nikon 等 100+ 设备。</p></div>
+<div class="feature-card"><div class="icon">📂</div><h3 data-i18n="card3Title">智能分类整理</h3><p data-i18n="card3Desc">按设备→事件→照片/视频三层自动分类。目录结构清晰，原始文件名保留不变。</p></div>
+<div class="feature-card"><div class="icon">🔒</div><h3 data-i18n="card4Title">SHA256 校验</h3><p data-i18n="card4Desc">每份文件拷贝后自动计算校验和，与源文件比对。零错误保障，拷贝失败自动重试。</p></div>
+<div class="feature-card"><div class="icon">🤖</div><h3 data-i18n="card5Title">AI 自动命名</h3><p data-i18n="card5Desc">插入 SD 卡后自动识别照片内容，建议事件文件夹名。支持本地 Ollama 或云端 OpenAI。</p></div>
+<div class="feature-card"><div class="icon">☁️</div><h3 data-i18n="card6Title">百度网盘同步</h3><p data-i18n="card6Desc">本地备份完成后自动触发百度网盘上传。OAuth 授权，分片上传，大文件不断连。</p></div>
+<div class="feature-card"><div class="icon">📊</div><h3 data-i18n="card7Title">实时可视化</h3><p data-i18n="card7Desc">Web 面板实时展示进度条、拷贝速度、剩余时间。多设备排队备份，互不影响。</p></div>
+<div class="feature-card"><div class="icon">📋</div><h3 data-i18n="card8Title">完整历史记录</h3><p data-i18n="card8Desc">每次备份写入 SQLite 数据库，可查询每份文件的来源、目标、校验状态和时间。</p></div>
+</div>
+<div class="tech-list">
+<div class="tech-item"><strong data-i18n="tech1Val">100+</strong><span data-i18n="tech1Label">支持相机型号</span></div>
+<div class="tech-item"><strong data-i18n="tech2Val">SHA256</strong><span data-i18n="tech2Label">校验算法</span></div>
+<div class="tech-item"><strong data-i18n="tech3Val">MIT</strong><span data-i18n="tech3Label">开源协议</span></div>
+</div>
+</div></section>
+
+<footer class="footer"><div class="wrap"><a href="smb-website-v26.html" data-i18n="footerBack">返回主页</a> · v1.0.1 · MIT License</div></footer>
+
+<script>
+const i18n = {
+  navDownload: { zh: '下载', en: 'Download' },
+  navGuide: { zh: '导览', en: 'Guide' },
+  heroTitle: { zh: '核心<span>功能</span>', en: 'Core <span>Features</span>' },
+  heroLead: { zh: '插卡、打字、点一下，剩下全自动。从检测到校验，每个环节都是透明的。', en: 'Insert the card, type, click — everything else is automatic. From detection to verification, every step is transparent.' },
+  card1Title: { zh: '插卡即检测', en: 'Plug & Detect' },
+  card1Desc: { zh: 'SD 卡插入读卡器，后台每 2 秒自动轮询，弹窗通知。支持 RAW、JPG、MP4、HEIC 等主流格式。', en: 'Insert an SD card into the reader — the backend polls every 2 seconds and notifies you via popup. Supports RAW, JPG, MP4, HEIC and other major formats.' },
+  card2Title: { zh: 'EXIF 元数据提取', en: 'EXIF Metadata Extraction' },
+  card2Desc: { zh: '自动读取相机型号、拍摄日期、GPS 坐标。支持 Sony、Canon、DJI、GoPro、Nikon 等 100+ 设备。', en: 'Auto-reads camera model, capture date, and GPS coordinates. Supports 100+ devices from Sony, Canon, DJI, GoPro, Nikon, and more.' },
+  card3Title: { zh: '智能分类整理', en: 'Smart Organization' },
+  card3Desc: { zh: '按设备→事件→照片/视频三层自动分类。目录结构清晰，原始文件名保留不变。', en: 'Three-tier auto-classification: device → event → photo/video. Clean directory structure; original filenames preserved.' },
+  card4Title: { zh: 'SHA256 校验', en: 'SHA256 Verification' },
+  card4Desc: { zh: '每份文件拷贝后自动计算校验和，与源文件比对。零错误保障，拷贝失败自动重试。', en: 'Every copied file gets an automatic checksum compared against the source. Zero-error guarantee; auto-retry on failure.' },
+  card5Title: { zh: 'AI 自动命名', en: 'AI Auto-Naming' },
+  card5Desc: { zh: '插入 SD 卡后自动识别照片内容，建议事件文件夹名。支持本地 Ollama 或云端 OpenAI。', en: 'Recognizes photo content after card insertion and suggests event folder names. Supports local Ollama or cloud OpenAI.' },
+  card6Title: { zh: '百度网盘同步', en: 'Baidu Cloud Sync' },
+  card6Desc: { zh: '本地备份完成后自动触发百度网盘上传。OAuth 授权，分片上传，大文件不断连。', en: 'Auto-triggers Baidu Cloud upload after local backup. OAuth authorization, chunked upload, no disconnects for large files.' },
+  card7Title: { zh: '实时可视化', en: 'Real-Time Dashboard' },
+  card7Desc: { zh: 'Web 面板实时展示进度条、拷贝速度、剩余时间。多设备排队备份，互不影响。', en: 'Web dashboard shows real-time progress bars, copy speed, and estimated time. Multiple devices queue without interference.' },
+  card8Title: { zh: '完整历史记录', en: 'Complete History Log' },
+  card8Desc: { zh: '每次备份写入 SQLite 数据库，可查询每份文件的来源、目标、校验状态和时间。', en: 'Every backup writes to a SQLite database — query each file\'s source, destination, checksum status, and timestamp.' },
+  tech1Val: { zh: '100+', en: '100+' },
+  tech1Label: { zh: '支持相机型号', en: 'Cameras Supported' },
+  tech2Val: { zh: 'SHA256', en: 'SHA256' },
+  tech2Label: { zh: '校验算法', en: 'Checksum Algorithm' },
+  tech3Val: { zh: 'MIT', en: 'MIT' },
+  tech3Label: { zh: '开源协议', en: 'Open Source License' },
+  footerBack: { zh: '返回主页', en: 'Back to Home' }
+};
+
+function getCurrentLang() {
+  return localStorage.getItem('smbLang') || 'zh';
+}
+
+function toggleLang() {
+  const current = getCurrentLang();
+  const next = current === 'zh' ? 'en' : 'zh';
+  localStorage.setItem('smbLang', next);
+  applyLang(next);
+}
+
+function applyLang(lang) {
+  const els = document.querySelectorAll('[data-i18n]');
+  els.forEach(el => {
+    const key = el.dataset.i18n;
+    if (i18n[key] && i18n[key][lang]) {
+      el.innerHTML = i18n[key][lang];
+    }
+  });
+  document.getElementById('langBtn').textContent = lang === 'zh' ? 'EN' : '中';
+  document.getElementById('langBtn').classList.toggle('active', lang === 'en');
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  applyLang(getCurrentLang());
+});
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.scrollTo(0, 0);
+</script>
+</body></html>

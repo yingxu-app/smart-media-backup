@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="page-title">Smart Media Backup｜介绍导览</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="yingxu-system.css" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0a0a0b;--panel:#13161a;--panel2:#171a1f;--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);
+      --text:#d7d8e1;--muted:#737786;--brand:#4ade80;--cyan:#4fd8ff;--shadow:0 28px 80px rgba(0,0,0,.42);--radius:28px;--content:1280px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;font-family:'Outfit','Noto Sans SC',sans-serif;color:var(--text);background:
+      radial-gradient(1000px 500px at 16% 8%, rgba(74,222,128,.14), transparent 60%),
+      radial-gradient(900px 520px at 84% 20%, rgba(79,216,255,.10), transparent 56%),
+      var(--bg);overflow-x:hidden
+    }
+    body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none}
+    body::before{
+      background:
+      radial-gradient(700px 520px at 18% 18%, rgba(74,222,128,.14), transparent 58%),
+      radial-gradient(800px 620px at 82% 20%, rgba(83,212,255,.10), transparent 58%);
+      filter:blur(18px);opacity:.9
+    }
+    body::after{
+      background-image:linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+      background-size:112px 112px;opacity:.08;mask-image:radial-gradient(circle at 50% 20%, black 26%, transparent 84%)
+    }
+    a{color:inherit;text-decoration:none}
+    .wrap{width:min(var(--content), calc(100vw - 48px));margin:0 auto;position:relative;z-index:1}
+    .nav{
+      position:sticky;top:0;z-index:50;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+      background:rgba(10,10,11,.74);border-bottom:1px solid var(--line)
+    }
+    .nav-inner{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600;letter-spacing:-.03em}
+    .brand-mark{
+      width:38px;height:38px;border-radius:13px;border:1px solid rgba(74,222,128,.22);
+      background:linear-gradient(145deg, rgba(74,222,128,.18), rgba(74,222,128,.04));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.06)
+    }
+    .nav-links{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:14px}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border-radius:14px;
+      border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;letter-spacing:.08em
+    }
+    .btn.primary{border-color:rgba(74,222,128,.22);background:rgba(74,222,128,.08);color:#aef0c5}
+    .btn.lang-btn{min-width:42px;font-size:11px;letter-spacing:0;cursor:pointer;color:var(--text);border-color:var(--line2)}
+    .hero{padding:38px 0 20px}
+    .hero-card{
+      border:1px solid rgba(255,255,255,.08);border-radius:32px;background:
+      radial-gradient(900px 460px at 70% 20%, rgba(74,222,128,.09), transparent 40%),
+      linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)),
+      rgba(8,9,11,.92);box-shadow:var(--shadow);overflow:hidden;padding:38px
+    }
+    .kicker{display:inline-flex;padding:10px 14px;border-radius:999px;border:1px solid rgba(74,222,128,.22);background:rgba(74,222,128,.06);color:#a8f2c0;font-size:12px}
+    h1,h2{margin:0;font-weight:400;letter-spacing:-.05em;line-height:.94}
+    h1{font-size:clamp(54px,7vw,112px);margin-top:16px}
+    .grad{background:linear-gradient(95deg,#8bf5ab 8%,#4ade80 42%,#4fd8ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lead{max-width:46em;color:var(--muted);line-height:1.75;font-size:14px;margin-top:16px}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+    .section{padding:28px 0}
+    .section-head{display:flex;justify-content:space-between;gap:18px;align-items:end;margin-bottom:18px}
+    .section-note{max-width:34em;color:var(--muted);font-size:13px;line-height:1.6}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:28px;overflow:hidden}
+    .card{background:rgba(255,255,255,.02);padding:24px;min-height:180px}
+    .card strong{display:block;font-size:22px;font-weight:500;margin-bottom:12px}
+    .card p,.card li{color:var(--muted);line-height:1.7;font-size:14px}
+    .workflow{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:28px;overflow:hidden}
+    .step{background:rgba(255,255,255,.02);padding:22px;min-height:160px}
+    .step .num{color:#9ae8b4;font-size:12px;letter-spacing:.22em;margin-bottom:14px}
+    .step h3{margin:0 0 10px;font-size:22px;font-weight:500}
+    .footer{padding:28px 0 36px;color:var(--muted);font-size:12px}
+    .footer-inner{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--line)}
+    @media (max-width: 900px){.nav-links{display:none}.grid3,.workflow{grid-template-columns:1fr}}
+    @media (max-width: 768px){.wrap{width:min(100vw - 28px, var(--content))}.hero-card{padding:22px}.hero{padding-top:18px}h1{font-size:clamp(40px,12vw,64px)}}
+  </style>
+<script src="release-links-v26.js" defer></script>
+<script src="yingxu-site-v26.js"></script>
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="smb-website-v26.html" aria-label="返回影序首页"><span class="brand-mark"></span><span>影序</span></a>
+      <nav class="nav-links">
+        <a href="smb-website-v26.html" data-i18n="nav-home">主页</a>
+        <a href="guide-v26.html" data-i18n="nav-guide">导览</a>
+        <a href="download-v26.html" data-i18n="nav-download">下载</a>
+        <a class="btn lang-btn" href="#" data-i18n="lang-btn" onclick="toggleLang();return false">EN</a>
+        <a href="https://github.com/luguanlin20050927/smart-media-backup/releases" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="hero-card">
+        <span class="kicker" data-i18n="hero-kicker">介绍导览</span>
+        <h1 data-i18n="hero-heading">把整个流程<br><span class="grad">讲清楚</span></h1>
+        <p class="lead" data-i18n="hero-lead">这一页专门展示 Smart Media Backup 的功能结构、使用方式和工作流。点击不同入口后，用户会进入新的界面，而不是一直停留在首页长页里。</p>
+        <div class="actions">
+          <a class="btn primary" href="download-v26.html#macos" data-i18n="hero-download">下载 macOS</a>
+          <a class="btn" href="install-v26.html" data-i18n="hero-install">安装指引</a>
+          <a class="btn" href="smb-website-v26.html" data-i18n="hero-home">回到主页</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="section-head">
+        <h2 data-i18n="features-title">功能介绍</h2>
+        <div class="section-note" data-i18n="features-note">这部分对应顶部"介绍导览"里的功能介绍入口。</div>
+      </div>
+      <div class="grid3">
+        <article class="card"><strong data-i18n="feat1-title">插卡即弹窗</strong><p data-i18n="feat1-desc">插入存储卡后自动检测设备，立刻显示当前状态和待处理素材。</p></article>
+        <article class="card"><strong data-i18n="feat2-title">AI 智能分类</strong><p data-i18n="feat2-desc">自动识别可用素材，帮助你更快筛掉重复或无效文件。</p></article>
+        <article class="card"><strong data-i18n="feat3-title">多目标同步</strong><p data-i18n="feat3-desc">本地盘、归档盘、云端网盘可以同时执行，减少二次整理。</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="workflow">
+      <div class="section-head">
+        <h2 data-i18n="workflow-title">使用方式</h2>
+        <div class="section-note" data-i18n="workflow-note">这是从"介绍导览"进入的第二层页面，适合放使用步骤和导览说明。</div>
+      </div>
+      <div class="workflow">
+        <div class="step"><div class="num">01</div><h3 data-i18n="step1-title">插入存储卡</h3><p data-i18n="step1-desc">系统自动识别相机或读卡器。</p></div>
+        <div class="step"><div class="num">02</div><h3 data-i18n="step2-title">确认任务</h3><p data-i18n="step2-desc">检查事件名、分类和备份目标。</p></div>
+        <div class="step"><div class="num">03</div><h3 data-i18n="step3-title">自动备份</h3><p data-i18n="step3-desc">执行复制、校验和多目标同步。</p></div>
+        <div class="step"><div class="num">04</div><h3 data-i18n="step4-title">完成确认</h3><p data-i18n="step4-desc">生成状态结果，等待下一次插卡。</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span data-i18n="footer-text">Smart Media Backup 介绍导览</span>
+      <a href="smb-website-v26.html" data-i18n="footer-back">返回主页</a>
+    </div>
+  </footer>
+
+  <script>
+    const i18nMap = {
+      "en": {
+        "page-title":   "Smart Media Backup｜Guide",
+        "nav-home":     "Home",
+        "nav-guide":    "Guide",
+        "nav-download": "Download",
+        "lang-btn":     "中",
+        "hero-kicker":  "Guide & Tour",
+        "hero-heading": 'The Full Workflow<br><span class="grad">Made Clear</span>',
+        "hero-lead":    "This page walks through Smart Media Backup's feature structure, usage, and workflow. Each entry point leads to a dedicated interface — no endless scrolling on the homepage.",
+        "hero-download":"Free Download",
+        "hero-install": "Installation Guide",
+        "hero-home":    "Back to Home",
+        "features-title":"Features",
+        "features-note":"This section covers the feature overview accessible from the Guide entry.",
+        "feat1-title":  "Plug & Popup",
+        "feat1-desc":   "Auto-detects device on card insertion, instantly showing current status and pending media.",
+        "feat2-title":  "AI Smart Sorting",
+        "feat2-desc":   "Automatically identifies usable media, helping you filter out duplicates and invalid files faster.",
+        "feat3-title":  "Multi-Destination Sync",
+        "feat3-desc":   "Local drives, archive drives, and cloud storage sync simultaneously — less manual organization.",
+        "workflow-title":"How It Works",
+        "workflow-note":"This is the secondary page from the Guide entry, ideal for step-by-step instructions.",
+        "step1-title":  "Insert Storage Card",
+        "step1-desc":   "System auto-detects camera or card reader.",
+        "step2-title":  "Confirm Task",
+        "step2-desc":   "Review event name, category, and backup target.",
+        "step3-title":  "Auto Backup",
+        "step3-desc":   "Executes copy, verification, and multi-target sync.",
+        "step4-title":  "Completion Confirmation",
+        "step4-desc":   "Generates status report, ready for the next card.",
+        "footer-text":  "Smart Media Backup Guide",
+        "footer-back":  "Back to Home"
+      }
+    };
+
+    function getLang() {
+      return localStorage.getItem("lang") || "zh";
+    }
+
+    function setLang(lang) {
+      localStorage.setItem("lang", lang);
+      applyLang(lang);
+    }
+
+    function toggleLang() {
+      const current = getLang();
+      const next = current === "zh" ? "en" : "zh";
+      setLang(next);
+    }
+
+    function applyLang(lang) {
+      const dict = i18nMap[lang];
+      if (!dict) return;
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (dict[key] !== undefined) {
+          el.innerHTML = dict[key];
+        }
+      });
+      document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
+      const btn = document.querySelector(".lang-btn");
+      if (btn) btn.textContent = lang === "zh" ? "EN" : "中";
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      applyLang(getLang());
+    });
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  window.scrollTo(0, 0);
+  </script>
+</body>
+</html>

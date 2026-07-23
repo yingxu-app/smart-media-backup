@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="zh-CN">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title id="page-title" data-zh="Smart Media Backup｜更新日志" data-en="Smart Media Backup｜Changelog">Smart Media Backup｜更新日志</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="yingxu-system.css" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0b;--panel:#13161a;--panel2:#171a1f;--line:rgba(255,255,255,.08);--text:#d7d8e1;--muted:#737786;--brand:#4ade80;--cyan:#4fd8ff;--shadow:0 28px 80px rgba(0,0,0,.42);--content:1280px}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Outfit','Noto Sans SC',sans-serif;color:var(--text);background:radial-gradient(1000px 500px at 16% 8%,rgba(74,222,128,.14),transparent 60%),radial-gradient(900px 520px at 84% 20%,rgba(79,216,255,.10),transparent 56%),var(--bg);overflow-x:hidden}
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none}
+body::before{background:radial-gradient(700px 520px at 18% 18%,rgba(74,222,128,.14),transparent 58%),radial-gradient(800px 620px at 82% 20%,rgba(83,212,255,.10),transparent 58%);filter:blur(18px);opacity:.9}
+body::after{background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:112px 112px;opacity:.08;mask-image:radial-gradient(circle at 50% 20%,black 26%,transparent 84%)}
+a{color:inherit;text-decoration:none}
+.wrap{width:min(var(--content),calc(100vw - 48px));margin:0 auto;position:relative;z-index:1}
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(10,10,11,.74);border-bottom:1px solid var(--line)}
+.nav-inner{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600;letter-spacing:-.03em}
+.brand-mark{width:38px;height:38px;border-radius:13px;border:1px solid rgba(74,222,128,.22);background:linear-gradient(145deg,rgba(74,222,128,.18),rgba(74,222,128,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.nav-links{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;letter-spacing:.08em;transition:.2s}
+.btn:hover{border-color:var(--brand);color:var(--brand)}
+.lang-btn{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-size:12px;letter-spacing:.04em;transition:.2s;color:var(--muted);min-width:52px;user-select:none}
+.lang-btn:hover{border-color:var(--brand);color:var(--brand)}
+.lang-btn.active{border-color:var(--brand);color:var(--brand);background:rgba(74,222,128,.08)}
+.hero{padding:38px 0 20px}
+.hero-card{border:1px solid rgba(255,255,255,.08);border-radius:32px;background:radial-gradient(900px 460px at 70% 20%,rgba(74,222,128,.09),transparent 40%),linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015)),rgba(8,9,11,.92);box-shadow:var(--shadow);overflow:hidden;padding:48px}
+h1{font-size:52px;margin:0 0 32px;font-weight:600;letter-spacing:-.04em;line-height:1}
+h1 span{background:linear-gradient(165deg,var(--brand),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.version-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:24px}
+.version-item{border:1px solid var(--line);border-radius:20px;padding:28px;background:rgba(255,255,255,.02);transition:.2s}
+.version-item:hover{border-color:rgba(74,222,128,.15)}
+.version-item .tag{display:inline-block;padding:3px 12px;border-radius:999px;background:rgba(74,222,128,.1);color:var(--brand);font-size:11px;font-weight:600;letter-spacing:.04em;margin-bottom:8px}
+.version-item .date{font-size:12px;color:var(--muted);margin-bottom:10px}
+.version-item ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px;line-height:2}
+.footer{padding:32px 0;border-top:1px solid var(--line);margin-top:60px;text-align:center;font-size:13px;color:var(--muted)}
+.footer a{color:var(--brand)}
+@media(max-width:800px){h1{font-size:36px}}
+</style>
+<script src="release-links-v26.js" defer></script>
+<script src="yingxu-site-v26.js"></script>
+</head>
+<body>
+<div class="nav"><div class="wrap nav-inner">
+<a class="brand" href="smb-website-v26.html"><span class="brand-mark"></span>影序</a>
+<div class="nav-links"><a href="features-v26.html" data-zh="功能" data-en="Features">功能</a><a href="download-v26.html" data-zh="下载" data-en="Download">下载</a><a class="btn" href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" rel="noopener noreferrer">GitHub</a><span class="lang-btn" id="lang-toggle" data-lang="zh">中</span></div></div></div>
+
+<section class="hero"><div class="wrap hero-card">
+<h1><span data-zh="更新" data-en="Change">更新</span><span> </span><span data-zh="日志" data-en="log">日志</span></h1>
+<ul class="version-list">
+<li class="version-item"><div class="tag">v1.0.5</div><div class="date">2026-07-23</div><ul><li data-zh="备份出现部分失败时，明确保留 SD 卡原始素材并禁止清理操作；可从历史记录重试" data-en="Partial backup failures now preserve the source SD card and disable cleanup; retry is available from history">备份出现部分失败时，明确保留 SD 卡原始素材并禁止清理操作；可从历史记录重试</li><li data-zh="正式支持增量跳过、断续续传、目标盘结果记录与 JSON 备份报告导出" data-en="Officially supports incremental skips, interrupted-job resume, per-target results, and JSON backup report export">正式支持增量跳过、断续续传、目标盘结果记录与 JSON 备份报告导出</li><li data-zh="macOS 安装包更新为统一影序图标，并完成自动化可靠性回归测试" data-en="The macOS package now uses the unified YINGXU icon and passed automated reliability regression tests">macOS 安装包更新为统一影序图标，并完成自动化可靠性回归测试</li></ul></li>
+<li class="version-item"><div class="tag">v1.0.4</div><div class="date">2026-07-23</div><ul><li data-zh="新增影序 Pocket 局域网扫码配对：同一 Wi‑Fi 下可将手机素材清单直接接力至当前桌面端" data-en="Added YINGXU Pocket LAN QR pairing for direct phone-to-current-desktop handoff on the same Wi-Fi">新增影序 Pocket 局域网扫码配对：同一 Wi‑Fi 下可将手机素材清单直接接力至当前桌面端</li><li data-zh="配对码仅 5 分钟有效；桌面重启后需重新配对，手机原始文件不会上传、删除或修改" data-en="Pairing codes expire in 5 minutes; re-pair after a desktop restart. Phone originals are never uploaded, deleted, or modified">配对码仅 5 分钟有效；桌面重启后需重新配对，手机原始文件不会上传、删除或修改</li><li data-zh="官网新增公开共创墙，真实建议可公开讨论、邮件可直接联系" data-en="The website adds a public co-creation wall for real discussion plus direct email contact">官网新增公开共创墙，真实建议可公开讨论、邮件可直接联系</li></ul></li>
+<li class="version-item"><div class="tag">v1.0.2</div><div class="date">2026-07-22</div><ul><li data-zh="新增影序 Pocket 清单导入，桌面端可一键带入备份项目名" data-en="Added YINGXU Pocket import with one-click task naming on desktop">新增影序 Pocket 清单导入，桌面端可一键带入备份项目名</li><li data-zh="导入只保存素材元数据，不上传、删除或修改手机原始文件" data-en="Imports retain metadata only and never upload, delete, or modify phone originals">导入只保存素材元数据，不上传、删除或修改手机原始文件</li></ul></li>
+<li class="version-item"><div class="tag">v1.0.1</div><div class="date">2026-07-22</div>
+<ul><li data-zh="macOS 正式安装包：目录型 .app + DMG" data-en="macOS release: onedir .app + DMG">macOS 正式安装包：目录型 .app + DMG</li><li data-zh="安装包启动、HTTP 工作台与签名完整性校验已完成" data-en="Launch, local HTTP workbench, and signing integrity checks completed">安装包启动、HTTP 工作台与签名完整性校验已完成</li><li data-zh="官网新增真实下载、SHA-256 校验、安装说明与邮件反馈入口" data-en="Website adds the real download, SHA-256, install guide, and email feedback">官网新增真实下载、SHA-256 校验、安装说明与邮件反馈入口</li><li data-zh="Windows 包仍需在 Windows 环境构建验证，未提供虚假下载" data-en="Windows package still needs a Windows build and validation; no false download is offered">Windows 包仍需在 Windows 环境构建验证，未提供虚假下载</li></ul></li>
+<li class="version-item"><div class="tag">v1.0.0</div><div class="date">2026-07-18</div>
+<ul><li data-zh="首次发布" data-en="Initial release">首次发布</li><li data-zh="SD 卡自动检测 + EXIF 元数据提取" data-en="Auto SD card detection + EXIF metadata extraction">SD 卡自动检测 + EXIF 元数据提取</li><li data-zh="按设备/事件/照片-视频自动分类" data-en="Auto sorting by device/event/photo-video">按设备/事件/照片-视频自动分类</li><li data-zh="SHA256 文件校验" data-en="SHA256 file verification">SHA256 文件校验</li><li data-zh="Web 面板实时可视化进度" data-en="Real-time progress visualization in Web panel">Web 面板实时可视化进度</li><li data-zh="AI 自动命名（Ollama / OpenAI）" data-en="AI auto-naming (Ollama / OpenAI)">AI 自动命名（Ollama / OpenAI）</li><li data-zh="百度网盘自动上传" data-en="Baidu Cloud auto-upload">百度网盘自动上传</li><li data-zh="macOS .app 打包（签名 + DMG）" data-en="macOS .app packaging (signed + DMG)">macOS .app 打包（签名 + DMG）</li><li data-zh="Windows .exe 自动构建" data-en="Windows .exe auto-build">Windows .exe 自动构建</li><li data-zh="GitHub + Vercel 双线官网部署" data-en="GitHub + Vercel dual deployment">GitHub + Vercel 双线官网部署</li></ul></li>
+<li class="version-item"><div class="tag">v0.9.0</div><div class="date">2026-07-10</div><ul><li data-zh="内测版本" data-en="Beta version">内测版本</li><li data-zh="核心备份引擎完成" data-en="Core backup engine completed">核心备份引擎完成</li><li data-zh="Flask Web 面板原型" data-en="Flask Web panel prototype">Flask Web 面板原型</li><li data-zh="基础 CLI 命令行工具" data-en="Basic CLI command-line tool">基础 CLI 命令行工具</li></ul></li>
+</ul>
+</div></section>
+<footer class="footer"><div class="wrap"><a href="smb-website-v26.html" data-zh="返回主页" data-en="Home">返回主页</a><span data-zh=" · v1.0.3 · MIT License" data-en=" · v1.0.3 · MIT License</span></div></footer>
+<script>
+(function(){function t(l){document.documentElement.lang=l==='zh'?'zh-CN':'en';var e=document.querySelectorAll('[data-zh][data-en]');for(var i=0;i<e.length;i++){var el=e[i];el.textContent=l==='zh'?el.getAttribute('data-zh'):el.getAttribute('data-en')}var btn=document.getElementById('lang-toggle');if(btn){btn.textContent=l==='zh'?'中':'EN';btn.setAttribute('data-lang',l);btn.classList.toggle('active',l==='en')}var title=document.getElementById('page-title');if(title){title.textContent=l==='zh'?title.getAttribute('data-zh'):title.getAttribute('data-en')}try{localStorage.setItem('smb_lang',l)}catch(e){}}function init(){var saved=null;try{saved=localStorage.getItem('smb_lang')}catch(e){}var lang=saved||'zh';t(lang);document.getElementById('lang-toggle').addEventListener('click',function(){var next=this.getAttribute('data-lang')==='zh'?'en':'zh';t(next)})}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init)}else{init()}})();
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.scrollTo(0, 0);
+</script>
+</body></html>
