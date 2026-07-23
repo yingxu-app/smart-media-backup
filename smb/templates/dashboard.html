@@ -166,7 +166,7 @@
 <!-- 错误面板 -->
 <div class="error-panel card" id="errorPanel" style="display:none;">
     <div class="error-icon">❌</div>
-    <h3>备份出错</h3>
+    <h3 id="errorTitle">备份出错</h3>
     <p class="error-msg" id="errorMsg"></p>
     <button class="btn-secondary" onclick="resetUI()">返回首页</button>
 </div>
@@ -610,7 +610,8 @@ function updateProgress(data) {
             let icon = "⏳";
             if (d.name === data.current_device) icon = "▶";
             if (data.status === "done") icon = "✅";
-            if (data.status !== "done" && d.name === data.current_device && data.status !== "idle") icon = "▶";
+            if (data.status === "partial") icon = "⚠️";
+            if (!["done", "partial"].includes(data.status) && d.name === data.current_device && data.status !== "idle") icon = "▶";
             return `<div class="queue-item ${d.name === data.current_device && data.status !== 'done' ? 'active' : ''}">
                 <span class="queue-icon">${icon}</span>
                 <span class="queue-name">${d.name}</span>
@@ -628,6 +629,8 @@ function updateProgress(data) {
         }
     } else if (data.status === "error") {
         showError(data.error_message);
+    } else if (data.status === "partial") {
+        showPartial(data);
     } else if (data.status === "cancelled") {
         alert("备份已取消");
         resetUI();
@@ -688,10 +691,24 @@ function cleanupSD(deleteFiles) {
 function showError(msg) {
     document.getElementById("progressPanel").style.display = "none";
     document.getElementById("errorPanel").style.display = "block";
+    document.getElementById("errorTitle").textContent = "备份出错";
     document.getElementById("errorMsg").textContent = msg || "未知错误";
 
     document.getElementById("statusIcon").textContent = "❌";
     document.getElementById("statusTitle").textContent = "备份出错";
+    document.getElementById("statusBar").className = "status-bar error";
+}
+
+function showPartial(data) {
+    document.getElementById("progressPanel").style.display = "none";
+    document.getElementById("errorPanel").style.display = "block";
+    document.getElementById("errorTitle").textContent = "备份未完全完成";
+    document.getElementById("errorMsg").textContent =
+        "部分文件或目标盘没有完成。原始 SD 卡没有被删除，数据仍安全。请到“备份历史”查看失败项并重试任务。";
+
+    document.getElementById("statusIcon").textContent = "⚠️";
+    document.getElementById("statusTitle").textContent = "需要处理";
+    document.getElementById("statusDetail").textContent = data.current_file || "原始素材仍保留在 SD 卡中";
     document.getElementById("statusBar").className = "status-bar error";
 }
 
