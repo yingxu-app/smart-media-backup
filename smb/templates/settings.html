@@ -4,6 +4,7 @@
 {% block content %}
 <div class="page-header">
     <h2>⚙️ 设置</h2>
+    <div class="history-count" id="appVersion">影序 v—</div>
 </div>
 
 <div class="card settings-form">
@@ -180,7 +181,7 @@
 </div>
 
 <div class="card" style="margin-top:16px;text-align:center;color:var(--text-dim);font-size:0.85em;">
-    Smart Media Backup v1.0.0<br>
+    影序 YINGXU v1.0.6<br>
     By 陆冠霖
 </div>
 {% endblock %}
@@ -195,20 +196,16 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function loadSettings() {
-    fetch("/api/status")
+    fetch("/api/settings")
         .then(r => r.json())
-        .then(data => {
-            if (data.version) {
-                // load from localStorage for now
-                const saved = localStorage.getItem("smb_settings");
-                if (saved) {
-                    const s = JSON.parse(saved);
-                    document.getElementById("sWebPort").value = s.web_port || 8080;
-                    document.getElementById("sAutoBrowser").checked = s.auto_browser !== false;
-                    document.getElementById("sVerify").value = s.verify || "sha256";
-                }
-            }
+        .then(s => {
+            document.getElementById("sWebPort").value = s.web_port || 8080;
+            document.getElementById("sAutoBrowser").checked = s.auto_open_browser !== false;
+            document.getElementById("sVerify").value = s.verify_method || "sha256";
         });
+    fetch("/api/status").then(r => r.json()).then(data => {
+        document.getElementById("appVersion").textContent = `影序 v${data.version || "—"}`;
+    });
 
     // 备份总数
     fetch("/api/history?limit=1000")
@@ -223,27 +220,25 @@ function loadSettings() {
 function saveSettings() {
     const settings = {
         web_port: parseInt(document.getElementById("sWebPort").value),
-        auto_browser: document.getElementById("sAutoBrowser").checked,
-        verify: document.getElementById("sVerify").value,
+        auto_open_browser: document.getElementById("sAutoBrowser").checked,
+        verify_method: document.getElementById("sVerify").value,
     };
-    localStorage.setItem("smb_settings", JSON.stringify(settings));
-
-    const msg = document.getElementById("saveMsg");
-    msg.style.display = "block";
-    msg.textContent = "✅ 设置已保存（重启后生效）";
-    msg.style.color = "#4ade80";
-    setTimeout(() => msg.style.display = "none", 3000);
+    fetch("/api/settings", {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(settings)
+    }).then(r => r.json().then(data => ({ok: r.ok, data}))).then(({ok, data}) => {
+        const msg = document.getElementById("saveMsg");
+        msg.style.display = "block";
+        msg.textContent = ok ? "✅ 设置已保存；端口与自动打开浏览器将在下次启动生效" : `❌ ${data.error || "保存失败"}`;
+        msg.style.color = ok ? "#4ade80" : "#f87171";
+        setTimeout(() => msg.style.display = "none", 4000);
+    });
 }
 
 function resetSettings() {
-    localStorage.removeItem("smb_settings");
     document.getElementById("sWebPort").value = 8080;
     document.getElementById("sAutoBrowser").checked = true;
     document.getElementById("sVerify").value = "sha256";
-    document.getElementById("saveMsg").style.display = "block";
-    document.getElementById("saveMsg").textContent = "🔄 已恢复默认设置";
-    document.getElementById("saveMsg").style.color = "#fbbf24";
-    setTimeout(() => document.getElementById("saveMsg").style.display = "none", 3000);
+    saveSettings();
 }
 
 function loadStorageChart() {

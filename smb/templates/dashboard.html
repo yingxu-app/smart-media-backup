@@ -74,6 +74,7 @@
     <button class="btn-start" id="btnStart" onclick="startBackup()" disabled>
         ▶ 开始备份
     </button>
+    <div class="start-error" id="startError" role="alert" hidden></div>
 </div>
 
 <!-- 进度面板 (默认隐藏) -->
@@ -152,12 +153,12 @@
     <div class="cleanup-body">
         <span class="cleanup-icon">🗑️</span>
         <div class="cleanup-text">
-            <strong>备份完成！</strong><br>
-            <span>是否删除 SD 卡中的原始文件？</span>
-            <small>文件会移到废纸篓，不会彻底删除</small>
+            <strong>全部校验通过</strong><br>
+            <span>需要把 SD 卡原始文件移入废纸篓吗？</span>
+            <small>仅在所有目标完成并校验通过后显示。建议先保留，确认素材可用后再清理。</small>
         </div>
         <div class="cleanup-actions">
-            <button class="btn-danger" onclick="cleanupSD(true)">🗑️ 删除</button>
+            <button class="btn-danger" onclick="cleanupSD(true)">🗑️ 移入废纸篓</button>
             <button class="btn-secondary" onclick="cleanupSD(false)">保留</button>
         </div>
     </div>
@@ -524,6 +525,8 @@ function startBackup() {
     const eventName = document.getElementById("eventName").value.trim();
     const backupRoot = document.getElementById("backupTarget").value;
 
+    const startError = document.getElementById("startError");
+    startError.hidden = true;
     if (!eventName) {
         document.getElementById("eventName").focus();
         document.getElementById("eventName").style.borderColor = "#ff4444";
@@ -531,7 +534,7 @@ function startBackup() {
         return;
     }
     if (!backupRoot) {
-        alert("请选择备份目标位置");
+        showStartError("请选择一个备份目标位置。影序会先检查目标盘是否可写、空间是否充足，再开始复制。");
         return;
     }
 
@@ -545,10 +548,10 @@ function startBackup() {
             backup_targets: extraTargets,
         })
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+        if (!ok || data.error) {
+            showStartError(data.error || "无法开始备份，请确认 SD 卡和目标盘仍已连接。");
             return;
         }
         // 切换到进度视图
@@ -561,6 +564,12 @@ function startBackup() {
         document.getElementById("statusDetail").textContent = eventName;
         document.getElementById("statusBar").className = "status-bar backing-up";
     });
+}
+
+function showStartError(message) {
+    const el = document.getElementById("startError");
+    el.textContent = `无法开始备份：${message}。原始素材没有被修改。`;
+    el.hidden = false;
 }
 
 function cancelBackup() {

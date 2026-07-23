@@ -25,8 +25,12 @@ class StartBackupPreflightTests(unittest.TestCase):
         self.target.mkdir()
         server.app.config["TESTING"] = True
         server.engine.progress.status = "idle"
+        self.original_settings = (
+            server.config.web_port, server.config.auto_open_browser, server.config.verify_method,
+        )
 
     def tearDown(self):
+        server.config.web_port, server.config.auto_open_browser, server.config.verify_method = self.original_settings
         self.tmp.cleanup()
 
     def post(self, mount=None):
@@ -59,6 +63,18 @@ class StartBackupPreflightTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("空间不足", payload["error"])
         self.assertGreater(payload["required_bytes"], payload["free_bytes"])
+
+    def test_settings_are_saved_to_the_app_not_only_the_browser(self):
+        response = server.app.test_client().post("/api/settings", json={
+            "web_port": 9090, "auto_open_browser": False, "verify_method": "skip",
+        })
+        self.assertEqual(response.status_code, 200)
+        settings = server.app.test_client().get("/api/settings").get_json()
+        self.assertEqual(settings["web_port"], 9090)
+        self.assertFalse(settings["auto_open_browser"])
+        self.assertEqual(settings["verify_method"], "skip")
+        status = server.app.test_client().get("/api/status").get_json()
+        self.assertEqual(status["version"], "1.0.6")
 
 
 if __name__ == "__main__":

@@ -35,6 +35,8 @@ from .detector import list_removable_volumes, list_all_volumes, SDCardWatcher
 from .backup import BackupEngine
 from . import db
 
+APP_VERSION = "1.0.6"
+
 # 初始化数据库
 db.init_db()
 
@@ -321,7 +323,7 @@ def api_status():
     return jsonify({
         "status": engine.progress.status,
         "progress": engine.progress.to_dict(),
-        "version": "1.0.0",
+        "version": APP_VERSION,
     })
 
 
@@ -552,7 +554,7 @@ def api_sync_export():
     history = db.get_all_history()
     db_path = str(db.DB_PATH)
     return jsonify({
-        "version": "1.0",
+        "version": APP_VERSION,
         "exported_at": datetime.now().isoformat(),
         "history": history,
     })
@@ -867,6 +869,18 @@ def api_settings():
     from .config import config
     if request.method == "POST":
         data = request.get_json() or {}
+        if "web_port" in data:
+            port = int(data["web_port"])
+            if not 1024 <= port <= 65535:
+                return jsonify({"error": "端口必须在 1024 到 65535 之间"}), 400
+            config.web_port = port
+        if "auto_open_browser" in data:
+            config.auto_open_browser = bool(data["auto_open_browser"])
+        if "verify_method" in data:
+            method = data["verify_method"]
+            if method not in {"sha256", "skip"}:
+                return jsonify({"error": "不支持的校验方式"}), 400
+            config.verify_method = method
         if "webhook_url" in data:
             config.webhook_url = data["webhook_url"]
         if "max_speed_mbps" in data:
@@ -880,6 +894,9 @@ def api_settings():
         config.save()
         return jsonify({"status": "saved"})
     return jsonify({
+        "web_port": config.web_port,
+        "auto_open_browser": config.auto_open_browser,
+        "verify_method": config.verify_method,
         "webhook_url": config.webhook_url,
         "max_speed_mbps": config.max_speed_mbps,
         "phash_threshold": config.phash_threshold,

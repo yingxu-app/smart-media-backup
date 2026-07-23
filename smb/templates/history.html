@@ -7,6 +7,41 @@
     <div id="historyCount" class="history-count">—</div>
 </div>
 
+<div class="card library-search">
+    <div class="card-header">
+        <div>
+            <h3>素材检索</h3>
+            <div class="card-subtitle">按文件名、项目名或设备，直接定位已归档的素材</div>
+        </div>
+        <div id="libraryCount" class="history-count">输入关键词开始检索</div>
+    </div>
+    <div class="library-grid">
+        <div class="form-row">
+            <label for="libraryQuery">文件或项目</label>
+            <input type="text" id="libraryQuery" placeholder="例如 婚礼、DSC0001、A7M4">
+        </div>
+        <div class="form-row">
+            <label for="libraryDevice">设备</label>
+            <input type="text" id="libraryDevice" placeholder="Sony / DJI / iPhone">
+        </div>
+        <div class="form-row">
+            <label for="libraryType">类型</label>
+            <select id="libraryType">
+                <option value="">全部素材</option>
+                <option value="photo">照片</option>
+                <option value="raw">RAW</option>
+                <option value="video">视频</option>
+                <option value="audio">音频</option>
+            </select>
+        </div>
+    </div>
+    <div class="search-actions">
+        <button class="btn-primary" onclick="searchLibrary()">检索素材</button>
+        <button class="btn-secondary" onclick="clearLibrarySearch()">清空</button>
+    </div>
+    <div class="library-results" id="libraryResults" hidden></div>
+</div>
+
 <div class="card history-search">
     <div class="search-grid">
         <div class="form-row">
@@ -18,6 +53,7 @@
             <select id="historyStatus">
                 <option value="">全部</option>
                 <option value="completed">成功</option>
+                <option value="partial">部分完成</option>
                 <option value="running">进行中</option>
                 <option value="cancelled">已取消</option>
                 <option value="error">失败</option>
@@ -50,7 +86,12 @@
     <div class="detail-header">
         <button class="btn-back" onclick="hideDetail()">← 返回</button>
         <h3 id="detailTitle"></h3>
+        <button class="btn-secondary" id="openReportBtn" onclick="openReport()">打开报告</button>
+        <button class="btn-secondary" id="downloadReportBtn" onclick="downloadReport()">下载报告</button>
+        <button class="btn-secondary" id="retryBtn" onclick="retryBackup()">重试任务</button>
+        <button class="btn-secondary" id="reverifyBtn" onclick="reverifyBackup()">重新校验</button>
     </div>
+    <div id="reverifyResult" class="reverify-result" hidden></div>
     <div id="detailContent"></div>
 </div>
 {% endblock %}
@@ -59,12 +100,76 @@
 <script>
 document.addEventListener("DOMContentLoaded", loadHistory);
 document.addEventListener("DOMContentLoaded", function() {
-    ["historyQuery", "historyDevice"].forEach(id => {
+    ["historyQuery", "historyDevice", "libraryQuery", "libraryDevice"].forEach(id => {
         document.getElementById(id).addEventListener("keydown", function(e) {
-            if (e.key === "Enter") loadHistory();
+            if (e.key === "Enter") {
+                id.startsWith("library") ? searchLibrary() : loadHistory();
+            }
         });
     });
 });
+
+function escapeHtml(value) {
+    return String(value || "").replace(/[&<>'"]/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#039;", '"': "&quot;"
+    }[char]));
+}
+
+function searchLibrary() {
+    const params = new URLSearchParams({ limit: "100" });
+    const query = document.getElementById("libraryQuery").value.trim();
+    const device = document.getElementById("libraryDevice").value.trim();
+    const mediaType = document.getElementById("libraryType").value;
+    if (!query && !device && !mediaType) {
+        document.getElementById("libraryCount").textContent = "输入关键词、设备或类型后再检索";
+        return;
+    }
+    if (query) params.set("query", query);
+    if (device) params.set("device", device);
+    if (mediaType) params.set("media_type", mediaType);
+    const results = document.getElementById("libraryResults");
+    results.hidden = false;
+    results.innerHTML = '<div class="loading">正在检索归档库...</div>';
+    fetch(`/api/library/search?${params.toString()}`)
+        .then(r => r.json())
+        .then(payload => {
+            const items = payload.items || [];
+            document.getElementById("libraryCount").textContent = `找到 ${payload.total || 0} 个素材`;
+            if (!items.length) {
+                results.innerHTML = '<div class="empty-state">没有匹配的素材。试试项目名、设备名或文件编号。</div>';
+                return;
+            }
+            results.innerHTML = items.map(item => {
+                const path = item.dest_path || item.source_path;
+                return `<div class="library-item">
+                    <div class="library-file"><strong>${escapeHtml(path.split('/').pop())}</strong><span>${escapeHtml(item.event_name)} · ${escapeHtml(item.camera || '未知设备')} · ${escapeHtml(item.media_type || '其他')}</span></div>
+                    <div class="library-path" title="${escapeHtml(path)}">${escapeHtml(path)}</div>
+                    <button class="btn-secondary library-open" data-path="${escapeHtml(path)}" onclick="openArchivedPath(this.dataset.path)">打开位置</button>
+                </div>`;
+            }).join("");
+        })
+        .catch(() => {
+            results.innerHTML = '<div class="empty-state">检索失败，请确认应用仍在运行后重试。</div>';
+        });
+}
+
+function clearLibrarySearch() {
+    document.getElementById("libraryQuery").value = "";
+    document.getElementById("libraryDevice").value = "";
+    document.getElementById("libraryType").value = "";
+    document.getElementById("libraryResults").hidden = true;
+    document.getElementById("libraryCount").textContent = "输入关键词开始检索";
+}
+
+function openArchivedPath(path) {
+    fetch("/api/open_folder", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({path, reveal: true})
+    }).then(r => r.json()).then(result => {
+        if (result.error) alert(result.error);
+    });
+}
 
 function loadHistory() {
     const params = new URLSearchParams();
@@ -96,7 +201,7 @@ function loadHistory() {
                 <div class="history-item" onclick="showDetail(${r.id})">
                     <div class="h-left">
                         <span class="h-icon ${r.status === 'completed' ? 'ok' : r.status === 'error' ? 'err' : ''}">
-                            ${r.status === 'completed' ? '✅' : r.status === 'error' ? '❌' : '⏳'}
+                            ${r.status === 'completed' ? '✅' : r.status === 'partial' ? '⚠️' : r.status === 'error' ? '❌' : '⏳'}
                         </span>
                         <div class="h-info">
                             <div class="h-event">${r.event_name}</div>
@@ -125,16 +230,24 @@ function showDetail(id) {
     document.getElementById("historyList").style.display = "none";
     const detail = document.getElementById("historyDetail");
     detail.style.display = "block";
+    detail.dataset.backupId = id;
+    document.getElementById("reverifyResult").hidden = true;
 
     fetch(`/api/history/${id}`)
         .then(r => r.json())
         .then(data => {
             const rec = data.record || {};
+            detail.dataset.reportPath = rec.report_path || "";
+            document.getElementById("openReportBtn").disabled = !rec.report_path;
+            document.getElementById("downloadReportBtn").disabled = !rec.report_path;
+            const retry = document.getElementById("retryBtn");
+            retry.hidden = rec.status === "completed";
+            retry.disabled = rec.status === "running";
             document.getElementById("detailTitle").textContent = rec.event_name || "详情";
 
             let html = `
                 <div class="detail-summary">
-                    <div class="ds-item"><label>状态</label><span>${rec.status === 'completed' ? '✅ 成功' : rec.status === 'error' ? '❌ 失败' : '⏳ 进行中'}</span></div>
+                    <div class="ds-item"><label>状态</label><span>${rec.status === 'completed' ? '✅ 成功' : rec.status === 'partial' ? '⚠️ 部分目标失败' : rec.status === 'error' ? '❌ 失败' : '⏳ 进行中'}</span></div>
                     <div class="ds-item"><label>目标位置</label><span>${rec.backup_root || ''}</span></div>
                     <div class="ds-item"><label>总文件</label><span>${rec.total_files || 0}</span></div>
                     <div class="ds-item"><label>校验通过</label><span>${rec.verified_files || 0}</span></div>
@@ -147,6 +260,20 @@ function showDetail(id) {
                     ${rec.finished_at ? `<div class="ds-item"><label>完成</label><span>${formatDateTime(rec.finished_at)}</span></div>` : ''}
                 </div>
             `;
+
+            const targetResults = data.target_results || {};
+            const targetEntries = Object.entries(targetResults);
+            if (targetEntries.length) {
+                html += `<h4 style="margin-top:20px;">目标盘结果</h4><div class="target-result-list">`;
+                targetEntries.forEach(([path, result]) => {
+                    const failed = Number(result.failed || 0);
+                    html += `<div class="target-result ${failed ? 'failed' : 'ok'}">
+                        <span class="target-path" title="${escapeHtml(path)}">${escapeHtml(path)}</span>
+                        <span>复制 ${Number(result.copied || 0)} · 复用 ${Number(result.skipped || 0)} · 失败 ${failed}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
 
             if (data.files && data.files.length > 0) {
                 html += `<h4 style="margin-top:20px;">文件列表 (前 ${data.files.length} 个)</h4>
@@ -165,6 +292,63 @@ function showDetail(id) {
 
             document.getElementById("detailContent").innerHTML = html;
         });
+}
+
+function reverifyBackup() {
+    const detail = document.getElementById("historyDetail");
+    const id = detail.dataset.backupId;
+    if (!id) return;
+    const button = document.getElementById("reverifyBtn");
+    const result = document.getElementById("reverifyResult");
+    button.disabled = true;
+    button.textContent = "校验中...";
+    result.hidden = false;
+    result.textContent = "正在重新计算归档文件的 SHA256...";
+    fetch(`/api/history/${id}/reverify`, {method: "POST"})
+        .then(r => r.json().then(data => ({ok: r.ok, data})))
+        .then(({ok, data}) => {
+            if (!ok || data.error) throw new Error(data.error || "校验失败");
+            const summary = data.ok
+                ? `校验通过：${data.passed} 个文件完整`
+                : `发现问题：通过 ${data.passed}，缺失 ${data.missing}，不一致 ${data.mismatched}，无法校验 ${data.unavailable}`;
+            result.className = `reverify-result ${data.ok ? 'ok' : 'warn'}`;
+            result.textContent = summary;
+        })
+        .catch(error => {
+            result.className = "reverify-result warn";
+            result.textContent = error.message || "校验失败";
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.textContent = "重新校验";
+        });
+}
+
+function openReport() {
+    const path = document.getElementById("historyDetail").dataset.reportPath;
+    if (!path) return;
+    openArchivedPath(path);
+}
+
+function downloadReport() {
+    const id = document.getElementById("historyDetail").dataset.backupId;
+    if (id) window.location.href = `/api/history/${id}/report`;
+}
+
+function retryBackup() {
+    const detail = document.getElementById("historyDetail");
+    const id = detail.dataset.backupId;
+    if (!id || !confirm("重新插入原始 SD 卡后开始重试。已完整复制的文件会自动跳过。")) return;
+    const button = document.getElementById("retryBtn");
+    button.disabled = true;
+    fetch(`/api/history/${id}/retry`, {method: "POST"})
+        .then(r => r.json().then(data => ({ok: r.ok, data})))
+        .then(({ok, data}) => {
+            if (!ok || data.error) throw new Error(data.error || "无法开始重试");
+            alert(data.message || "已开始重试");
+        })
+        .catch(error => alert(error.message || "重试失败"))
+        .finally(() => { button.disabled = false; });
 }
 
 function hideDetail() {
@@ -189,8 +373,18 @@ function formatDateTime(iso) {
     transition: background 0.2s;
 }
 .history-item:hover { background: var(--hover); }
+.h-icon:not(.ok):not(.err) { filter: saturate(1.1); }
 .history-count { color: var(--text-dim); font-size: 0.9em; margin-top: 4px; }
 .history-search { margin-bottom: 16px; }
+.library-search { border-color: rgba(88, 230, 157, .22); }
+.library-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(150px, 1fr) minmax(120px, .8fr); gap: 12px; }
+.library-grid .form-row { margin-bottom: 0; }
+.library-results { margin-top: 18px; border-top: 1px solid var(--border); }
+.library-item { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1.4fr) auto; align-items: center; gap: 14px; padding: 13px 2px; border-bottom: 1px solid var(--border); }
+.library-file { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.library-file strong, .library-file span, .library-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.library-file span, .library-path { color: var(--text-dim); font-size: .82em; }
+.library-open { padding: 7px 10px; white-space: nowrap; }
 .search-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -222,6 +416,15 @@ function formatDateTime(iso) {
 .h-count { font-weight: 500; margin-bottom: 4px; }
 .h-date { font-size: 0.85em; color: var(--text-dim); }
 .detail-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.detail-header { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+.detail-header h3 { flex:1; }
+.reverify-result { margin:0 0 16px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; color:var(--text-dim); font-size:.9em; }
+.reverify-result.ok { color:var(--accent); border-color:rgba(88,230,157,.35); background:rgba(88,230,157,.06); }
+.reverify-result.warn { color:var(--orange); border-color:rgba(251,191,36,.35); background:rgba(251,191,36,.06); }
+.target-result-list { margin-top:10px; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.target-result { display:flex; justify-content:space-between; gap:16px; padding:11px 12px; border-bottom:1px solid var(--border); font-size:.88em; }
+.target-result:last-child { border-bottom:0; }.target-result.ok { color:var(--accent); }.target-result.failed { color:var(--red); }
+.target-path { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:58%; }
 .ds-item label { display: block; font-size: 0.85em; color: var(--text-dim); margin-bottom: 4px; }
 .ds-item span { font-weight: 500; }
 .file-list { margin-top: 12px; max-height: 400px; overflow-y: auto; }
@@ -238,10 +441,17 @@ function formatDateTime(iso) {
 
 @media (max-width: 1100px) {
     .search-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .library-grid { grid-template-columns: 1fr 1fr; }
+    .library-grid .form-row:first-child { grid-column: 1 / -1; }
+    .library-item { grid-template-columns: 1fr auto; }
+    .library-path { grid-column: 1 / -1; grid-row: 2; }
 }
 
 @media (max-width: 640px) {
     .search-grid { grid-template-columns: 1fr; }
+    .library-grid, .library-item { grid-template-columns: 1fr; }
+    .library-grid .form-row:first-child, .library-path { grid-column: auto; grid-row: auto; }
+    .library-open { justify-self: start; }
 }
 </style>
 {% endblock %}
