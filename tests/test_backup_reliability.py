@@ -5,7 +5,7 @@ import tempfile
 import unittest
 import json
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 
 TEST_ROOT = tempfile.TemporaryDirectory()
@@ -102,7 +102,8 @@ class BackupReliabilityTests(unittest.TestCase):
         try:
             # _send_webhook catches network errors by design; this must not propagate.
             engine = self.configured_engine()
-            engine._send_webhook(1, 1, 0, ["offline-test"])
+            with patch("urllib.request.urlopen", side_effect=OSError("network unavailable")):
+                engine._send_webhook(1, 1, 0, ["offline-test"])
         finally:
             backup.config.webhook_url = previous_url
 
