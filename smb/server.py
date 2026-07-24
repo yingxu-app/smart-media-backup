@@ -35,7 +35,7 @@ from .detector import list_removable_volumes, list_all_volumes, SDCardWatcher
 from .backup import BackupEngine
 from . import db
 
-APP_VERSION = "1.0.10"
+APP_VERSION = "1.0.11"
 
 # 初始化数据库
 db.init_db()

@@ -323,6 +323,8 @@ class BackupEngine:
             "devices": devices,
             "review_summary": review_summary,
             "target_results": target_results or {},
+            "originals_safe": True,
+            "can_continue": status in ("cancelled", "partial", "error"),
         }
 
         try:
@@ -639,8 +641,22 @@ class BackupEngine:
                 if ei == 0:
                     previewed_count = self._generate_windows_previews(files, backup_root, cur_id)
 
-                # 每个事件独立保留真实结果，避免在多事件任务中把失败误记为完成。
-                db.finish_backup(cur_id, "partial" if event_failed else "completed")
+                # 取消不能被误记为完成：未处理文件进入失败状态，原卡保持安全。
+                if self._cancel_flag.is_set():
+                    cancelled_count = db.mark_pending_as_failed(cur_id, "任务取消，未处理")
+                    # 取消时尚未进入复制循环的文件也必须计入主目标报告，
+                    # 否则历史数据库会显示 failed=N，而报告仍可能显示 failed=0。
+                    if cancelled_count:
+                        all_failed += cancelled_count
+                        event_failed += cancelled_count
+                        target_state = target_results.setdefault(
+                            primary_target, {"copied": 0, "skipped": 0, "failed": 0}
+                        )
+                        target_state["failed"] += cancelled_count
+                    db.finish_backup(cur_id, "cancelled", "任务已取消，未处理文件保留在原卡")
+                else:
+                    # 每个事件独立保留真实结果，避免在多事件任务中把失败误记为完成。
+                    db.finish_backup(cur_id, "partial" if event_failed else "completed")
 
             self.progress.copied_files = all_copied
             self.progress.skipped_files = all_skipped
@@ -681,19 +697,23 @@ class BackupEngine:
             self.progress.phase_progress = 100
 
             failed_count = all_failed
-            final_status = "partial" if failed_count else "completed"
+            final_status = "cancelled" if self._cancel_flag.is_set() else ("partial" if failed_count else "completed")
+            primary_result = target_results.get(primary_target, {})
+            report_copied = primary_result.get("copied", all_copied)
+            report_skipped = primary_result.get("skipped", all_skipped)
+            report_failed = primary_result.get("failed", failed_count)
             report_path = self._write_backup_report(
                 backup_id=primary_backup_id,
                 event_name=" + ".join(events) if total_events > 1 else events[0],
                 backup_root=backup_root,
                 devices=devices,
                 total_files=total,
-                copied_files=all_copied,
-                skipped_files=all_skipped,
+                copied_files=report_copied,
+                skipped_files=report_skipped,
                 reviewed_files=reviewed_count,
                 preview_files=previewed_count,
-                failed_files=failed_count,
-                verified_files=all_copied,
+                failed_files=report_failed,
+                verified_files=report_copied + report_skipped,
                 total_size=self.progress.total_bytes,
                 elapsed_seconds=elapsed,
                 status=final_status,
@@ -704,12 +724,14 @@ class BackupEngine:
             db.finish_backup(primary_backup_id, final_status, report_path=report_path)
             # “部分完成”不能被当作成功：源卡里的素材仍可能尚未落到所有目标盘。
             # 只有每个文件都通过复制/校验时才允许清理 SD 卡。
-            self.progress.status = "done" if final_status == "completed" else "partial"
+            self.progress.status = "done" if final_status == "completed" else final_status
             self.progress.can_cleanup = final_status == "completed"
             self.progress.current_file = (
                 "备份完成，所有目标均已验证"
-                if final_status == "completed"
-                else "部分目标未完成：原始 SD 卡未被清理，请检查失败项后重试"
+                if final_status == "completed" else
+                "任务已取消：原始 SD 卡安全保留，未处理文件可继续备份"
+                if final_status == "cancelled" else
+                "部分目标未完成：原始 SD 卡未被清理，请检查失败项后重试"
             )
             self.progress.mount_point = mount_point
             self.progress.notify()
@@ -730,8 +752,27 @@ class BackupEngine:
             self._trigger_baidu_upload(backup_root, event_name)
 
         except Exception as e:
+            report_path = ""
+            try:
+                report_path = self._write_backup_report(
+                    backup_id=primary_backup_id,
+                    event_name=" + ".join(events) if len(events) > 1 else events[0],
+                    backup_root=backup_root,
+                    devices={}, total_files=self.progress.total_files,
+                    copied_files=self.progress.copied_files,
+                    skipped_files=self.progress.skipped_files,
+                    reviewed_files=self.progress.reviewed_files,
+                    preview_files=self.progress.preview_files,
+                    failed_files=max(0, self.progress.total_files - self.progress.copied_files - self.progress.skipped_files),
+                    verified_files=self.progress.copied_files + self.progress.skipped_files,
+                    total_size=self.progress.total_bytes,
+                    elapsed_seconds=max(0, time.time() - self.progress.start_time),
+                    status="error", review_summary={}, target_results={},
+                )
+            except Exception:
+                pass
             for record_id in backup_ids.values():
-                db.finish_backup(record_id, "error", str(e))
+                db.finish_backup(record_id, "error", str(e), report_path=report_path)
             self.progress.status = "error"
             self.progress.error_message = str(e)
             self.progress.notify()

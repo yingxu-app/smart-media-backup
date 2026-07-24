@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python"/>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platform"/>
-  <img src="https://img.shields.io/badge/release-v1.0.10-34d399" alt="Release"/>
+  <img src="https://img.shields.io/badge/release-v1.0.11-34d399" alt="Release"/>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License"/>
 </p>
 
@@ -44,7 +44,7 @@
 
 ## ✅ 当前 macOS 版本已经验证什么？
 
-v1.0.10 是当前推荐的 macOS Apple Silicon 构建。已在真实 SD 卡上完成 87 个照片/视频文件、约 8.66 GB 的复制与 SHA-256 校验；第二次重复执行会跳过 87 个已存在文件，不重复写入。设备识别已覆盖卡内 EXIF、目录提示和文件名提示，实测 Leica 与 Fujifilm 均可归类。
+v1.0.11 是当前推荐的 macOS Apple Silicon 构建。它补强了取消/异常任务的安全状态、历史数据库计数与 JSON 报告一致性，并保留可继续备份提示。已在真实 SD 卡上完成 87 个照片/视频文件、约 8.66 GB 的复制与 SHA-256 校验；第二次重复执行会跳过 87 个已存在文件，不重复写入。设备识别已覆盖卡内 EXIF、目录提示和文件名提示，实测 Leica 与 Fujifilm 均可归类。
 
 同时，自动化测试覆盖：无卡、目标空间不足、目标不可写、重复备份、损坏文件、网络不可用、进度重置、部分失败和相机识别。测试不会修改真实 SD 卡。
 

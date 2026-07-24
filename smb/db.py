@@ -154,6 +154,20 @@ def update_file_preview(backup_id: int, source_path: str, preview_path: str):
     conn.close()
 
 
+def mark_pending_as_failed(backup_id: int, reason: str = "任务取消，未处理") -> int:
+    """把取消时尚未处理的文件明确标记为失败，避免被误认为已完成。"""
+    conn = get_conn()
+    cur = conn.execute(
+        "UPDATE backup_files SET status='failed', verified=0, error=? "
+        "WHERE backup_id=? AND status IN ('pending', 'running')",
+        (reason, backup_id),
+    )
+    conn.commit()
+    count = cur.rowcount
+    conn.close()
+    return count
+
+
 def get_known_hashes(backup_root: str) -> set[str]:
     """获取指定备份目标下已完成备份的文件哈希集合"""
     conn = get_conn()
@@ -414,15 +428,16 @@ def import_history(records: list[dict]) -> int:
         conn.execute(
             """INSERT INTO backup_history
                (id, event_name, backup_root, backup_targets, started_at, finished_at,
-                total_files, total_size, verified_files, skipped_files,
+                total_files, total_size, copied_files, verified_files, skipped_files,
                 reviewed_files, preview_files, failed_files,
                 duration_seconds, status, devices_json, report_path, error)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 rid, rec.get("event_name"), rec.get("backup_root"),
                 rec.get("backup_targets", "[]"), rec.get("started_at"),
                 rec.get("finished_at"), rec.get("total_files", 0),
-                rec.get("total_size", 0), rec.get("verified_files", 0),
+                rec.get("total_size", 0), rec.get("copied_files", 0),
+                rec.get("verified_files", 0),
                 rec.get("skipped_files", 0), rec.get("reviewed_files", 0),
                 rec.get("preview_files", 0), rec.get("failed_files", 0),
                 rec.get("duration_seconds"), rec.get("status", "completed"),

@@ -42,6 +42,13 @@ class BackupReliabilityTests(unittest.TestCase):
             "media_type": "photo", "date": None, "gps": None,
         }
 
+    def media_files(self):
+        second = self.sd / "clip-02.jpg"
+        second.write_bytes(b"second-camera-original-bytes")
+        first = self.media_file()
+        return [first, {**first, "path": str(second), "filename": second.name,
+                         "size": second.stat().st_size}]
+
     def configured_engine(self):
         engine = backup.BackupEngine()
         engine._review_and_quarantine = Mock(return_value=(0, {}))
@@ -74,6 +81,13 @@ class BackupReliabilityTests(unittest.TestCase):
             self.assertEqual(history[0]["copied_files"], 0)
             self.assertEqual(history[0]["skipped_files"], 1)
             self.assertEqual(history[1]["copied_files"], 1)
+            self.assertEqual(history[0]["verified_files"], 1)
+            self.assertEqual(history[0]["failed_files"], 0)
+            report = json.loads(Path(history[0]["report_path"]).read_text())
+            self.assertEqual(
+                (report["copied_files"], report["skipped_files"], report["failed_files"]),
+                (history[0]["copied_files"], history[0]["skipped_files"], history[0]["failed_files"]),
+            )
         finally:
             backup.scan_sd_card = original_scan
             backup.batch_extract_metadata = original_metadata
@@ -142,6 +156,75 @@ class BackupReliabilityTests(unittest.TestCase):
         finally:
             backup.scan_sd_card = original_scan
             backup.batch_extract_metadata = original_metadata
+
+    def test_cancel_marks_unprocessed_files_failed_and_report_can_continue(self):
+        original_scan = backup.scan_sd_card
+        original_metadata = backup.batch_extract_metadata
+        backup.scan_sd_card = lambda _mount: self.media_files()
+        backup.batch_extract_metadata = lambda files, _progress: files
+        try:
+            engine = self.configured_engine()
+
+            def copy_one_then_cancel(files, target, event_name, backup_id, enable_verify,
+                                     record_history=True, skip_known_hashes=True):
+                item = files[0]
+                dest = Path(target) / "Sony A7M4" / event_name / item["filename"]
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(Path(item["path"]).read_bytes())
+                db.update_file_status(backup_id, item["path"], "copied", str(dest), verified=True)
+                engine.cancel()
+                return {"copied": 1, "skipped": 0, "failed": 0, "bytes": item["size"]}
+
+            engine._copy_to_target = Mock(side_effect=copy_one_then_cancel)
+            engine.run(str(self.sd), "cancel-test", str(self.target), enable_verify=False)
+
+            self.assertEqual(engine.progress.status, "cancelled")
+            self.assertFalse(engine.progress.can_cleanup)
+            self.assertIn("原始 SD 卡安全保留", engine.progress.current_file)
+            history = db.get_backups(limit=1)[0]
+            self.assertEqual(history["status"], "cancelled")
+            self.assertEqual(history["copied_files"], 1)
+            self.assertEqual(history["failed_files"], 1)
+            report = json.loads(Path(history["report_path"]).read_text())
+            self.assertTrue(report["originals_safe"])
+            self.assertTrue(report["can_continue"])
+            self.assertEqual(report["failed_files"], history["failed_files"])
+            files = db.get_backup_files(history["id"])
+            self.assertEqual({row["status"] for row in files}, {"copied", "failed"})
+        finally:
+            backup.scan_sd_card = original_scan
+            backup.batch_extract_metadata = original_metadata
+
+    def test_unexpected_error_always_writes_openable_report(self):
+        original_scan = backup.scan_sd_card
+        backup.scan_sd_card = Mock(side_effect=OSError("目标磁盘突然断开"))
+        try:
+            engine = self.configured_engine()
+            with self.assertRaises(OSError):
+                engine.run(str(self.sd), "error-test", str(self.target), enable_verify=False)
+            history = db.get_backups(limit=1)[0]
+            self.assertEqual(history["status"], "error")
+            report_path = Path(history["report_path"])
+            self.assertTrue(report_path.is_file())
+            report = json.loads(report_path.read_text())
+            self.assertEqual(report["status"], "error")
+            self.assertTrue(report["originals_safe"])
+            self.assertTrue(report["can_continue"])
+        finally:
+            backup.scan_sd_card = original_scan
+
+    def test_import_history_preserves_copied_count(self):
+        record = {
+            "id": 9001, "event_name": "imported", "backup_root": str(self.target),
+            "started_at": "2026-07-24T00:00:00", "finished_at": "2026-07-24T00:01:00",
+            "total_files": 3, "total_size": 30, "copied_files": 2,
+            "verified_files": 2, "skipped_files": 1, "reviewed_files": 0,
+            "preview_files": 0, "failed_files": 0, "duration_seconds": 60,
+            "status": "completed", "devices_json": "{}", "report_path": "",
+            "error": "", "backup_targets": "[]",
+        }
+        self.assertEqual(db.import_history([record]), 1)
+        self.assertEqual(db.get_backup(9001)["copied_files"], 2)
 
 
 if __name__ == "__main__":
