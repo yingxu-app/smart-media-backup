@@ -80,6 +80,27 @@ class BackupProgress:
     def on_update(self, cb: Callable):
         self._callbacks.append(cb)
 
+    def reset_for_run(self):
+        """开始新任务前清空上一轮的瞬时进度，避免 UI 沿用旧数字。"""
+        self.total_files = 0
+        self.copied_files = 0
+        self.skipped_files = 0
+        self.reviewed_files = 0
+        self.processed_files = 0
+        self.current_file = ""
+        self.current_speed = 0.0
+        self.bytes_copied = 0
+        self.total_bytes = 0
+        self.elapsed_seconds = 0.0
+        self.error_message = ""
+        self.detected_devices = []
+        self.phase_progress = 0.0
+        self.current_device = ""
+        self.current_media_type = ""
+        self.preview_files = 0
+        self.can_cleanup = False
+        self.mount_point = ""
+
 
 class BackupEngine:
     """备份引擎 — 扫描→整理→拷贝→校验 全流程"""
@@ -412,6 +433,8 @@ class BackupEngine:
                         source_mtime=os.path.getmtime(f["path"]) if os.path.exists(f["path"]) else None,
                     )
                 self.progress.current_file = f"[续传] {f['filename']}"
+                self.progress.skipped_files += 1
+                self.progress.processed_files += 1
                 self.progress.notify()
                 continue
             if not source_hash or source_hash in hashes:
@@ -423,6 +446,8 @@ class BackupEngine:
                         source_mtime=os.path.getmtime(f["path"]) if os.path.exists(f["path"]) else None,
                     )
                 self.progress.current_file = f"[跳过] {f['filename']}"
+                self.progress.skipped_files += 1
+                self.progress.processed_files += 1
                 self.progress.notify()
                 continue
 
@@ -452,8 +477,9 @@ class BackupEngine:
                 self.progress.current_file = f"❌ {f['filename']}"
 
             self.progress.bytes_copied += f.get("size", 0)
-            self.progress.copied_files = copied
-            self.progress.skipped_files += skipped
+            if ok:
+                self.progress.copied_files += 1
+            self.progress.processed_files += 1
             self.progress.notify()
 
         return {"copied": copied, "skipped": skipped, "failed": failed, "bytes": copied_bytes}
@@ -470,6 +496,7 @@ class BackupEngine:
         # 允许引擎被桌面端、CLI 或测试入口直接调用，不依赖 Web 服务预先建表。
         db.init_db()
         self._cancel_flag.clear()
+        self.progress.reset_for_run()
         self.progress.status = "scanning"
         self.progress.start_time = time.time()
         self.progress.notify()

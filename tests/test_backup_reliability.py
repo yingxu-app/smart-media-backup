@@ -74,6 +74,22 @@ class BackupReliabilityTests(unittest.TestCase):
             backup.scan_sd_card = original_scan
             backup.batch_extract_metadata = original_metadata
 
+    def test_new_run_resets_previous_progress_before_scanning(self):
+        engine = self.configured_engine()
+        engine.progress.copied_files = 87
+        engine.progress.skipped_files = 12
+        engine.progress.bytes_copied = 123456
+        engine.progress.can_cleanup = True
+        engine.progress.current_file = "上一轮备份完成"
+
+        engine.progress.reset_for_run()
+
+        self.assertEqual(engine.progress.copied_files, 0)
+        self.assertEqual(engine.progress.skipped_files, 0)
+        self.assertEqual(engine.progress.bytes_copied, 0)
+        self.assertFalse(engine.progress.can_cleanup)
+        self.assertEqual(engine.progress.current_file, "")
+
     def test_corrupt_copy_retries_then_reports_failure(self):
         engine = self.configured_engine()
         engine.RETRY_DELAY_SECONDS = 0
