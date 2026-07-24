@@ -10,7 +10,7 @@ from .config import config
 
 
 def detect_camera_model(filepath: str) -> str:
-    """通过 exiftool 提取相机型号，失败则用文件名启发式"""
+    """通过 EXIF 提取相机型号，缺失时以存储卡目录和文件名稳妥兜底。"""
     try:
         result = subprocess.run(
             ["exiftool", "-Model", "-s", "-s", "-s", filepath],
@@ -23,14 +23,31 @@ def detect_camera_model(filepath: str) -> str:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
+    # 相机目录通常比通用文件名前缀更可靠，例如 115LEICA、142_FUJI。
+    path_hint = "/".join(part.upper() for part in Path(filepath).parts)
+    if "LEICA" in path_hint:
+        return "Leica"
+    if "FUJI" in path_hint or "FUJIFILM" in path_hint:
+        return "Fujifilm"
+    if "SONY" in path_hint:
+        return "Sony"
+    if "DJI" in path_hint:
+        return "DJI"
+    if "GOPRO" in path_hint:
+        return "GoPro"
+
     fname = Path(filepath).name.upper()
+    if fname.startswith("DSCF"):
+        return "Fujifilm"
     if fname.startswith("DSC"):
         return "Sony"
-    elif fname.startswith("DJI"):
+    if re.match(r"^L\d{7,}", fname):
+        return "Leica"
+    if fname.startswith("DJI"):
         return "DJI"
-    elif fname.startswith("GOPR") or fname.startswith("GH"):
+    if fname.startswith("GOPR") or fname.startswith("GH"):
         return "GoPro"
-    elif fname.startswith("IMG_"):
+    if fname.startswith("IMG_"):
         return "iPhone"
     return "Unknown"
 
@@ -44,7 +61,7 @@ def extract_date(filepath: str) -> Optional[datetime]:
         )
         if result.returncode == 0 and result.stdout.strip():
             return datetime.strptime(result.stdout.strip(), "%Y-%m-%d %H:%M:%S")
-    except (subprocess.TimeoutExpired, ValueError):
+    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
         pass
     try:
         return datetime.fromtimestamp(os.path.getmtime(filepath))
