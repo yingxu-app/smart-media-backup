@@ -28,6 +28,7 @@ def init_db():
             finished_at TEXT,
             total_files INTEGER DEFAULT 0,
             total_size INTEGER DEFAULT 0,
+            copied_files INTEGER DEFAULT 0,
             verified_files INTEGER DEFAULT 0,
             skipped_files INTEGER DEFAULT 0,
             reviewed_files INTEGER DEFAULT 0,
@@ -67,6 +68,7 @@ def init_db():
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
     ensure_column("backup_history", "skipped_files", "INTEGER DEFAULT 0")
+    ensure_column("backup_history", "copied_files", "INTEGER DEFAULT 0")
     ensure_column("backup_history", "reviewed_files", "INTEGER DEFAULT 0")
     ensure_column("backup_history", "preview_files", "INTEGER DEFAULT 0")
     ensure_column("backup_history", "report_path", "TEXT")
@@ -182,7 +184,7 @@ def finish_backup(backup_id: int, status: str = "completed", error: str = "",
             COUNT(*) as total,
             COALESCE(SUM(file_size), 0) as total_size,
             COALESCE(SUM(CASE WHEN verified=1 THEN 1 ELSE 0 END), 0) as verified,
-            COALESCE(SUM(CASE WHEN status='skipped' THEN 1 ELSE 0 END), 0) as skipped,
+            COALESCE(SUM(CASE WHEN status='skipped' OR error='已验证现有文件，未重复复制' THEN 1 ELSE 0 END), 0) as skipped,
             COALESCE(SUM(CASE WHEN status='reviewed' THEN 1 ELSE 0 END), 0) as reviewed,
             COALESCE(SUM(CASE WHEN preview_path IS NOT NULL AND preview_path != '' THEN 1 ELSE 0 END), 0) as previewed,
             COALESCE(SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END), 0) as failed
@@ -210,10 +212,11 @@ def finish_backup(backup_id: int, status: str = "completed", error: str = "",
     except (ValueError, TypeError):
         pass
 
+    copied = max(0, stats["total"] - stats["skipped"] - stats["failed"])
     conn.execute(
         "UPDATE backup_history SET finished_at=?, total_files=?, total_size=?, "
-        "verified_files=?, skipped_files=?, reviewed_files=?, preview_files=?, failed_files=?, duration_seconds=?, status=?, error=?, devices_json=?, report_path=? WHERE id=?",
-        (now, stats["total"], stats["total_size"], stats["verified"],
+        "copied_files=?, verified_files=?, skipped_files=?, reviewed_files=?, preview_files=?, failed_files=?, duration_seconds=?, status=?, error=?, devices_json=?, report_path=? WHERE id=?",
+        (now, stats["total"], stats["total_size"], copied, stats["verified"],
          stats["skipped"], stats["reviewed"], stats["previewed"], stats["failed"], duration, status, error, json.dumps(devices_dict, ensure_ascii=False), report_path,
          backup_id)
     )
@@ -321,6 +324,67 @@ def get_backup_files(backup_id: int, limit: int = 100) -> list[dict]:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def search_library(
+    query: str = "",
+    device: str = "",
+    media_type: str = "",
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict]:
+    """检索已归档的素材文件，返回文件、任务和备份位置的联合记录。"""
+    conn = get_conn()
+    sql = """
+        SELECT bf.*, bh.event_name, bh.backup_root, bh.started_at AS backup_started_at,
+               bh.status AS backup_status
+        FROM backup_files bf
+        JOIN backup_history bh ON bh.id = bf.backup_id
+        WHERE bh.status = 'completed'
+    """
+    params: list = []
+
+    if query:
+        like = f"%{query}%"
+        sql += " AND (bf.source_path LIKE ? OR bf.dest_path LIKE ? OR bf.camera LIKE ? OR bh.event_name LIKE ?)"
+        params.extend([like, like, like, like])
+    if device:
+        sql += " AND bf.camera LIKE ?"
+        params.append(f"%{device}%")
+    if media_type:
+        sql += " AND bf.media_type = ?"
+        params.append(media_type)
+
+    sql += " ORDER BY bh.started_at DESC, bf.id DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def count_library(query: str = "", device: str = "", media_type: str = "") -> int:
+    """统计素材检索结果数量。"""
+    conn = get_conn()
+    sql = """
+        SELECT COUNT(*) AS cnt
+        FROM backup_files bf
+        JOIN backup_history bh ON bh.id = bf.backup_id
+        WHERE bh.status = 'completed'
+    """
+    params: list = []
+    if query:
+        like = f"%{query}%"
+        sql += " AND (bf.source_path LIKE ? OR bf.dest_path LIKE ? OR bf.camera LIKE ? OR bh.event_name LIKE ?)"
+        params.extend([like, like, like, like])
+    if device:
+        sql += " AND bf.camera LIKE ?"
+        params.append(f"%{device}%")
+    if media_type:
+        sql += " AND bf.media_type = ?"
+        params.append(media_type)
+    row = conn.execute(sql, params).fetchone()
+    conn.close()
+    return int(row["cnt"] if row else 0)
 
 
 def get_all_history() -> list[dict]:

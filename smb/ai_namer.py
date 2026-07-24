@@ -21,7 +21,9 @@ class AINamer:
     """AI 内容识别命名器"""
 
     def __init__(self):
-        self.backend = "ollama"       # "ollama" | "openai" | "disabled"
+        # AI is opt-in: a fresh install must never make background network
+        # requests or print connection errors before the user configures it.
+        self.backend = "disabled"     # "ollama" | "openai" | "disabled"
         self.ollama_model = "llava"   # Ollama 视觉模型
         self.ollama_url = "http://localhost:11434"
         self.openai_key = ""
@@ -33,7 +35,7 @@ class AINamer:
         if AI_SETTINGS_PATH.exists():
             try:
                 d = json.loads(AI_SETTINGS_PATH.read_text())
-                self.backend = d.get("backend", "ollama")
+                self.backend = d.get("backend", "disabled")
                 self.ollama_model = d.get("ollama_model", "llava")
                 self.ollama_url = d.get("ollama_url", "http://localhost:11434")
                 self.openai_key = d.get("openai_key", "")

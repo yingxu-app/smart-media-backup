@@ -1,0 +1,149 @@
+<!DOCTYPE html><html lang="zh-CN">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>影序 YINGXU｜隐私政策</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="yingxu-system.css" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0b;--panel:#13161a;--panel2:#171a1f;--line:rgba(255,255,255,.08);--text:#d7d8e1;--muted:#737786;--brand:#4ade80;--cyan:#4fd8ff;--shadow:0 28px 80px rgba(0,0,0,.42);--content:900px}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Outfit','Noto Sans SC',sans-serif;color:var(--text);background:radial-gradient(1000px 500px at 16% 8%,rgba(74,222,128,.14),transparent 60%),radial-gradient(900px 520px at 84% 20%,rgba(79,216,255,.10),transparent 56%),var(--bg);overflow-x:hidden}
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none}
+body::before{background:radial-gradient(700px 520px at 18% 18%,rgba(74,222,128,.14),transparent 58%),radial-gradient(800px 620px at 82% 20%,rgba(83,212,255,.10),transparent 58%);filter:blur(18px);opacity:.9}
+a{color:inherit;text-decoration:none}
+.wrap{width:min(var(--content),calc(100vw - 48px));margin:0 auto;position:relative;z-index:1}
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(10,10,11,.74);border-bottom:1px solid var(--line)}
+.nav-inner{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600;letter-spacing:-.03em}
+.brand-mark{width:38px;height:38px;border-radius:13px;border:1px solid rgba(74,222,128,.22);background:linear-gradient(145deg,rgba(74,222,128,.18),rgba(74,222,128,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.nav-links{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:14px}
+.lang-btn{cursor:pointer;display:flex;align-items:center;gap:4px;padding:5px 11px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:13px;color:var(--muted);transition:.2s;user-select:none;margin-left:4px}
+.lang-btn:hover{background:rgba(74,222,128,.10);color:var(--brand);border-color:rgba(74,222,128,.25)}
+.hero{padding:38px 0 20px}
+.hero-card{border:1px solid rgba(255,255,255,.08);border-radius:32px;background:radial-gradient(900px 460px at 70% 20%,rgba(74,222,128,.09),transparent 40%),linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015)),rgba(8,9,11,.92);box-shadow:var(--shadow);overflow:hidden;padding:48px}
+h1{font-size:44px;margin:0 0 24px;font-weight:600;letter-spacing:-.04em;line-height:1;text-align:center}
+h1 span{background:linear-gradient(165deg,var(--brand),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.policy{font-size:14px;line-height:2;color:var(--muted);max-width:700px;margin:0 auto}
+.policy h2{font-size:20px;color:var(--text);margin:32px 0 8px;font-weight:600}
+.policy p{margin:0 0 12px}
+.footer{padding:32px 0;border-top:1px solid var(--line);margin-top:60px;text-align:center;font-size:13px;color:var(--muted)}
+.footer a{color:var(--brand)}
+@media(max-width:800px){h1{font-size:32px}}
+</style>
+<script src="release-links-v27.js" defer></script>
+<script src="yingxu-site-v27.js"></script>
+</head>
+<body>
+<div class="nav"><div class="wrap nav-inner">
+<a class="brand" href="smb-website-v27.html"><span class="brand-mark"></span>影序</a>
+<div class="nav-links"><a href="features-v27.html">功能</a><a href="faq-v27.html">FAQ</a><a href="changelog-v27.html">更新</a><span class="lang-btn" id="langBtn" onclick="toggleLang()">EN</span></div></div></div>
+
+<section class="hero"><div class="wrap hero-card">
+<h1>隐私<span>政策</span></h1>
+<div class="policy">
+<p id="p1">Smart Media Backup（以下简称「本软件」）是一个开源的个人媒体备份工具。我们重视你的隐私，以下是本软件的数据处理说明。</p>
+
+<h2 id="s1t">1. 数据存储位置</h2>
+<p id="s1b">所有数据处理均在本地完成。本软件不会将你的照片、视频或其他文件上传到我们控制的任何服务器。</p>
+
+<h2 id="s2t">2. 百度网盘上传</h2>
+<p id="s2b">百度网盘上传功能需要你在设置页中手动授权。只有在授权并开启该功能后，本软件才会在本地备份完成后将文件上传到你个人百度网盘的指定目录。上传行为完全在你的控制之下，你可以随时关闭该功能。</p>
+
+<h2 id="s3t">3. AI 命名功能</h2>
+<p id="s3b">AI 命名功能默认使用本地 Ollama 模型（llava），所有图像数据在本地处理，不会离开你的电脑。如果你选择使用 OpenAI 兼容 API，图像数据将被发送到你指定的 API 服务端处理。你可以在设置页中选择关闭该功能。</p>
+
+<h2 id="s4t">4. 日志与统计数据</h2>
+<p id="s4b">本软件仅记录备份操作的必要日志（如文件数量、校验结果、耗时），存储在本地 SQLite 数据库中，用于在 Web 面板中展示历史记录。这些数据不会被自动上传或分享。</p>
+
+<h2 id="s5t">5. 开源审计</h2>
+<p id="s5b">本软件以 MIT 协议在 GitHub 上开源，任何人均可审计源代码，确认数据处理逻辑。如果你发现任何隐私相关问题，欢迎通过 GitHub Issues 反馈。</p>
+
+<h2 id="s6t">6. 第三方服务</h2>
+<p id="s6b">本软件在以下场景下会与第三方服务通信：百度网盘 API（需用户授权）、OpenAI 兼容 API（需用户配置）、GitHub（用于检查更新）。除此之外，本软件不会与其他第三方服务建立连接。</p>
+
+<h2 id="s7t">7. 联系方式</h2>
+<p id="s7b">如有任何隐私相关问题，请在 GitHub 仓库提交 Issue，或联系作者：luguanlin20050927@iCloud.com</p>
+
+</div>
+</div></section>
+<footer class="footer"><div class="wrap" id="footerText"><a href="smb-website-v27.html">返回主页</a> · v1.0.1 · MIT License</div></footer>
+<script>
+const zh = {
+  title: "Smart Media Backup｜隐私政策",
+  h1: '隐私<span>政策</span>',
+  langBtn: "EN",
+  p1: "Smart Media Backup（以下简称「本软件」）是一个开源的个人媒体备份工具。我们重视你的隐私，以下是本软件的数据处理说明。",
+  s1t: "1. 数据存储位置",
+  s1b: "所有数据处理均在本地完成。本软件不会将你的照片、视频或其他文件上传到我们控制的任何服务器。",
+  s2t: "2. 百度网盘上传",
+  s2b: "百度网盘上传功能需要你在设置页中手动授权。只有在授权并开启该功能后，本软件才会在本地备份完成后将文件上传到你个人百度网盘的指定目录。上传行为完全在你的控制之下，你可以随时关闭该功能。",
+  s3t: "3. AI 命名功能",
+  s3b: "AI 命名功能默认使用本地 Ollama 模型（llava），所有图像数据在本地处理，不会离开你的电脑。如果你选择使用 OpenAI 兼容 API，图像数据将被发送到你指定的 API 服务端处理。你可以在设置页中选择关闭该功能。",
+  s4t: "4. 日志与统计数据",
+  s4b: "本软件仅记录备份操作的必要日志（如文件数量、校验结果、耗时），存储在本地 SQLite 数据库中，用于在 Web 面板中展示历史记录。这些数据不会被自动上传或分享。",
+  s5t: "5. 开源审计",
+  s5b: "本软件以 MIT 协议在 GitHub 上开源，任何人均可审计源代码，确认数据处理逻辑。如果你发现任何隐私相关问题，欢迎通过 GitHub Issues 反馈。",
+  s6t: "6. 第三方服务",
+  s6b: "本软件在以下场景下会与第三方服务通信：百度网盘 API（需用户授权）、OpenAI 兼容 API（需用户配置）、GitHub（用于检查更新）。除此之外，本软件不会与其他第三方服务建立连接。",
+  s7t: "7. 联系方式",
+  s7b: "如有任何隐私相关问题，请在 GitHub 仓库提交 Issue，或联系作者：luguanlin20050927@iCloud.com",
+  footer: '<a href="smb-website-v27.html">返回主页</a> · v1.0.1 · MIT License'
+};
+const en = {
+  title: "Smart Media Backup｜Privacy Policy",
+  h1: 'Privacy <span>Policy</span>',
+  langBtn: "中文",
+  p1: "Smart Media Backup (hereinafter referred to as \"the Software\") is an open-source personal media backup tool. We value your privacy. Below is an explanation of how the Software handles your data.",
+  s1t: "1. Data Storage Location",
+  s1b: "All data processing is performed locally. The Software does not upload your photos, videos, or other files to any server controlled by us.",
+  s2t: "2. Baidu Cloud Upload",
+  s2b: "The Baidu Cloud upload feature requires manual authorization in the settings page. Only after authorization and enabling this feature will the Software upload files to your personal Baidu Cloud directory after local backup completes. The upload behavior is entirely under your control, and you can disable this feature at any time.",
+  s3t: "3. AI Naming Feature",
+  s3b: "The AI naming feature uses a local Ollama model (llava) by default. All image data is processed locally and never leaves your computer. If you choose to use an OpenAI-compatible API, image data will be sent to the API server you specify for processing. You can disable this feature in the settings page.",
+  s4t: "4. Logs and Statistics",
+  s4b: "The Software only records essential logs of backup operations (e.g., file count, verification results, duration), stored in a local SQLite database for displaying history in the web panel. This data is not automatically uploaded or shared.",
+  s5t: "5. Open Source Audit",
+  s5b: "The Software is open-source under the MIT license on GitHub. Anyone can audit the source code to verify the data processing logic. If you discover any privacy-related issues, please report them via GitHub Issues.",
+  s6t: "6. Third-Party Services",
+  s6b: "The Software communicates with third-party services in the following scenarios: Baidu Cloud API (requires user authorization), OpenAI-compatible API (requires user configuration), GitHub (for checking updates). The Software does not establish connections with any other third-party services.",
+  s7t: "7. Contact",
+  s7b: "For any privacy-related questions, please submit an Issue in the GitHub repository, or contact the author: luguanlin20050927@iCloud.com",
+  footer: '<a href="smb-website-v27.html">Back to Home</a> · v1.0.1 · MIT License'
+};
+function applyLang(lang){
+  const t=lang==='en'?en:zh;
+  document.title=t.title;
+  document.querySelector('h1').innerHTML=t.h1;
+  document.getElementById('langBtn').textContent=t.langBtn;
+  document.getElementById('p1').textContent=t.p1;
+  document.getElementById('s1t').textContent=t.s1t;
+  document.getElementById('s1b').textContent=t.s1b;
+  document.getElementById('s2t').textContent=t.s2t;
+  document.getElementById('s2b').textContent=t.s2b;
+  document.getElementById('s3t').textContent=t.s3t;
+  document.getElementById('s3b').textContent=t.s3b;
+  document.getElementById('s4t').textContent=t.s4t;
+  document.getElementById('s4b').textContent=t.s4b;
+  document.getElementById('s5t').textContent=t.s5t;
+  document.getElementById('s5b').textContent=t.s5b;
+  document.getElementById('s6t').textContent=t.s6t;
+  document.getElementById('s6b').textContent=t.s6b;
+  document.getElementById('s7t').textContent=t.s7t;
+  document.getElementById('s7b').textContent=t.s7b;
+  document.getElementById('footerText').innerHTML=t.footer;
+  document.documentElement.lang=lang==='en'?'en':'zh-CN';
+}
+function toggleLang(){
+  const cur=localStorage.getItem('lang')||'zh';
+  const next=cur==='zh'?'en':'zh';
+  localStorage.setItem('lang',next);
+  applyLang(next);
+}
+(function(){
+  const saved=localStorage.getItem('lang');
+  if(saved)applyLang(saved);
+})();
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.scrollTo(0, 0);
+</script>
+</body></html>

@@ -1,16 +1,15 @@
 <div align="center">
   <img src="smb/static/img/icon.svg" width="80" alt="SMB Logo"/>
-  <h1>🖼 Smart Media Backup</h1>
-  <p><strong>插 SD 卡到电脑 → 自动读取设备/日期 → 按设备→事件→照片/视频分类 → Web 面板可视化</strong></p>
+  <h1>影序 YINGXU</h1>
+  <p><strong>插卡之后，素材有序抵达</strong></p>
 </div>
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python"/>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platform"/>
+  <img src="https://img.shields.io/badge/release-v1.0.10-34d399" alt="Release"/>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License"/>
 </p>
-
-**官网：<https://yingxu-app.github.io/>**
 
 ---
 
@@ -26,7 +25,7 @@
 - 手动分类照片和视频
 - 手动校验怕拷坏了
 
-**Smart Media Backup 把这些全自动了。**
+**影序把这条链路变成一套可追溯的工作流：识别、归档、复制、校验、检索。**
 
 ---
 
@@ -41,7 +40,15 @@
 | 📊 实时进度 | Web 面板进度条/速度/剩余时间 |
 | 📋 历史记录 | 每次备份可查 |
 | 💾 任意目标 | 本地磁盘、外置硬盘、NAS |
-| 📱 Pocket 局域网接力 | 手机扫码配对后，把素材清单直接交给当前桌面端 |
+| 📱 Pocket 局域网接力 | 手机扫码配对后，把素材清单直接交给当前桌面端；不上传原始文件 |
+
+## ✅ 当前 macOS 版本已经验证什么？
+
+v1.0.10 是当前推荐的 macOS Apple Silicon 构建。已在真实 SD 卡上完成 87 个照片/视频文件、约 8.66 GB 的复制与 SHA-256 校验；第二次重复执行会跳过 87 个已存在文件，不重复写入。设备识别已覆盖卡内 EXIF、目录提示和文件名提示，实测 Leica 与 Fujifilm 均可归类。
+
+同时，自动化测试覆盖：无卡、目标空间不足、目标不可写、重复备份、损坏文件、网络不可用、进度重置、部分失败和相机识别。测试不会修改真实 SD 卡。
+
+> macOS 安装包为未购买开发者账号的自签名/未公证构建。首次打开若遇到系统拦截，请在“系统设置 → 隐私与安全性”中允许，或右键 App 选择“打开”。
 
 ---
 
@@ -168,8 +175,12 @@ MIT License © 2025 陆冠霖
 ## 🌟 路线图
 
 - [x] Phase 1: Core + Web 面板
-- [ ] 桌面 App 打包 (Tauri)
+- [x] macOS 桌面 App 打包（PyInstaller + DMG）
+- [x] 增量备份、历史检索、备份报告与重试
+- [x] 官网下载页、更新日志、SHA-256 校验信息
 - [ ] 百度网盘自动上传
+- [ ] Windows 安装包在 Windows 真机验证
+- [ ] iOS / Android 原生端
 - [ ] AI 内容识别命名
 - [ ] 树莓派镜像
 - [ ] 官网 smartbackup.app

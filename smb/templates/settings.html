@@ -181,7 +181,7 @@
 </div>
 
 <div class="card" style="margin-top:16px;text-align:center;color:var(--text-dim);font-size:0.85em;">
-    影序 YINGXU v1.0.6<br>
+    影序 YINGXU <span id="footerVersion">v—</span><br>
     By 陆冠霖
 </div>
 {% endblock %}
@@ -205,6 +205,7 @@ function loadSettings() {
         });
     fetch("/api/status").then(r => r.json()).then(data => {
         document.getElementById("appVersion").textContent = `影序 v${data.version || "—"}`;
+        document.getElementById("footerVersion").textContent = `v${data.version || "—"}`;
     });
 
     // 备份总数

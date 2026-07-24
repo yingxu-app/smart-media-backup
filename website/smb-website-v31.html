@@ -578,12 +578,6 @@ if(cardStage) setInterval(cycleCard, 3000);
 // preserved website versions from surfacing on the current published homepage.
 (function(){
   const replacements = {
-    'v1.0.9 已可下载':'v1.0.10 已可下载',
-    'macOS v1.0.9 · MIT 开源':'macOS v1.0.10 · MIT 开源',
-    '下载 macOS v1.0.9 →':'下载 macOS v1.0.10 →',
-    'v1.0.9 · .dmg / 24 MB':'v1.0.10 · .dmg / 24 MB',
-    'macOS v1.0.9：51726db343bd7ddd58d7651c4b727e1d458b5019f0f6f3d4815ee329ac990d5c':'macOS v1.0.10：0351e58f00fdeb58547fbb09240130c40afa298489c56c6bfda3a5195dd64a81',
-    'macOS v1.0.9':'macOS v1.0.10',
     'v1.0.7 已可下载':'v1.0.9 已可下载',
     'macOS v1.0.7 · MIT 开源':'macOS v1.0.9 · MIT 开源',
     '下载 macOS v1.0.7 →':'下载 macOS v1.0.9 →',
@@ -599,7 +593,7 @@ if(cardStage) setInterval(cycleCard, 3000);
   });
   document.querySelectorAll('a[href]').forEach(function(a){
     a.href = a.href.replace(/(download|guide|features|faq|install|changelog|about|mobile|privacy|co-create)-v2[78]\.html/g, '$1-v30.html');
-    if(a.href.includes('/releases/download/')) a.href = a.href.replace(/\/v1\.0\.(8|9)\/YINGXU-macOS-v1\.0\.(8|9)\.dmg/, '/v1.0.10/YINGXU-macOS-v1.0.10.dmg');
+    if(a.href.includes('/releases/download/v1.0.8/')) a.href = a.href.replace('/v1.0.8/YINGXU-macOS-v1.0.8.dmg','/v1.0.9/YINGXU-macOS-v1.0.9.dmg');
   });
 })();
 </script>

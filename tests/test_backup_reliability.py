@@ -70,6 +70,10 @@ class BackupReliabilityTests(unittest.TestCase):
             second.run(str(self.sd), "portrait", str(self.target), enable_verify=True)
             self.assertEqual(second.progress.status, "done")
             self.assertGreaterEqual(second.progress.skipped_files, 1)
+            history = db.get_backups(limit=2)
+            self.assertEqual(history[0]["copied_files"], 0)
+            self.assertEqual(history[0]["skipped_files"], 1)
+            self.assertEqual(history[1]["copied_files"], 1)
         finally:
             backup.scan_sd_card = original_scan
             backup.batch_extract_metadata = original_metadata

@@ -250,6 +250,7 @@ function showDetail(id) {
                     <div class="ds-item"><label>状态</label><span>${rec.status === 'completed' ? '✅ 成功' : rec.status === 'partial' ? '⚠️ 部分目标失败' : rec.status === 'error' ? '❌ 失败' : '⏳ 进行中'}</span></div>
                     <div class="ds-item"><label>目标位置</label><span>${rec.backup_root || ''}</span></div>
                     <div class="ds-item"><label>总文件</label><span>${rec.total_files || 0}</span></div>
+                    <div class="ds-item"><label>已复制</label><span>${rec.copied_files || 0}</span></div>
                     <div class="ds-item"><label>校验通过</label><span>${rec.verified_files || 0}</span></div>
                     <div class="ds-item"><label>跳过重复</label><span>${rec.skipped_files || 0}</span></div>
                     <div class="ds-item"><label>待确认废片</label><span>${rec.reviewed_files || 0}</span></div>

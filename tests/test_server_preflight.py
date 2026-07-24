@@ -74,7 +74,7 @@ class StartBackupPreflightTests(unittest.TestCase):
         self.assertFalse(settings["auto_open_browser"])
         self.assertEqual(settings["verify_method"], "skip")
         status = server.app.test_client().get("/api/status").get_json()
-        self.assertEqual(status["version"], "1.0.8")
+        self.assertEqual(status["version"], "1.0.10")
 
 
 if __name__ == "__main__":
