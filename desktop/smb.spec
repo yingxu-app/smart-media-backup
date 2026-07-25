@@ -14,8 +14,8 @@ print(f"[SMB Build] ROOT={ROOT}")
 block_cipher = None
 
 a = Analysis(
-    [str(SMB / "server.py")],
-    pathex=[str(ROOT)],
+    [str(ROOT / "desktop" / "run.py")],
+    pathex=[str(ROOT), str(ROOT / "desktop")],
     binaries=[],
     datas=[
         (str(SMB / "templates"), "smb/templates"),
@@ -65,7 +65,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name="Smart Media Backup",
+    name="影序 YINGXU",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -83,15 +83,15 @@ exe = EXE(
 app = BUNDLE(
     exe,
     [],
-    name="Smart Media Backup.app",
+    name="影序 YINGXU.app",
     icon=str(ROOT / "desktop" / "icon.icns"),
-    bundle_identifier="com.luguanlin.smart-media-backup",
+    bundle_identifier="com.luguanlin.yingxu",
     info_plist={
-        "CFBundleName": "Smart Media Backup",
-        "CFBundleDisplayName": "Smart Media Backup",
-        "CFBundleIdentifier": "com.luguanlin.smart-media-backup",
-        "CFBundleVersion": "1.0.0",
-        "CFBundleShortVersionString": "1.0.0",
+        "CFBundleName": "影序 YINGXU",
+        "CFBundleDisplayName": "影序 YINGXU",
+        "CFBundleIdentifier": "com.luguanlin.yingxu",
+        "CFBundleVersion": "1.0.12",
+        "CFBundleShortVersionString": "1.0.12",
         "CFBundleExecutable": "Smart Media Backup",
         "CFBundleInfoDictionaryVersion": "6.0",
         "NSHighResolutionCapable": True,
