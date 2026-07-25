@@ -84,7 +84,7 @@ app = BUNDLE(
     exe,
     [],
     name="Smart Media Backup.app",
-    icon="/Users/nanyu/smart-media-backup/desktop/icon.icns",
+    icon=str(ROOT / "desktop" / "icon.icns"),
     bundle_identifier="com.luguanlin.smart-media-backup",
     info_plist={
         "CFBundleName": "Smart Media Backup",

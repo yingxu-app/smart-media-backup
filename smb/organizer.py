@@ -44,7 +44,7 @@ def extract_date(filepath: str) -> Optional[datetime]:
         )
         if result.returncode == 0 and result.stdout.strip():
             return datetime.strptime(result.stdout.strip(), "%Y-%m-%d %H:%M:%S")
-    except (subprocess.TimeoutExpired, ValueError):
+    except (subprocess.TimeoutExpired, ValueError, FileNotFoundError):
         pass
     try:
         return datetime.fromtimestamp(os.path.getmtime(filepath))

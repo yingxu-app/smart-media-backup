@@ -15,7 +15,10 @@ from .organizer import (
 )
 from .verifier import ChecksumVerifier
 from .waste_filter import waste_reviewer
-from .windows_preview import windows_preview
+try:
+    from .windows_preview import windows_preview
+except ImportError:
+    windows_preview = None
 from . import db
 
 
@@ -330,7 +333,7 @@ class BackupEngine:
         backup_id: int,
     ) -> int:
         """为最终文件生成 Windows 预览树"""
-        if not getattr(self._preview_builder, "enabled", True):
+        if not self._preview_builder or not getattr(self._preview_builder, "enabled", True):
             return 0
 
         preview_candidates = [
