@@ -32,6 +32,8 @@ a = Analysis(
         "werkzeug", "jinja2", "markupsafe", "itsdangerous", "click",
         "bidict", "encodings.utf_8", "encodings.latin_1",
         "json", "sqlite3", "threading", "webbrowser",
+        "webview", "webview.platforms.cocoa",
+        "objc", "AppKit", "Cocoa", "WebKit",
         "os", "sys", "time", "shutil", "hashlib",
         "concurrent", "concurrent.futures",
         "http", "http.server",
@@ -61,9 +63,6 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
     name="影序 YINGXU",
     debug=False,
@@ -72,6 +71,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
+    exclude_binaries=True,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -80,8 +80,19 @@ exe = EXE(
     entitlements_file=None,
 )
 
-app = BUNDLE(
+coll = COLLECT(
     exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name="影序 YINGXU",
+)
+
+app = BUNDLE(
+    coll,
     [],
     name="影序 YINGXU.app",
     icon=str(ROOT / "desktop" / "icon.icns"),
@@ -90,9 +101,9 @@ app = BUNDLE(
         "CFBundleName": "影序 YINGXU",
         "CFBundleDisplayName": "影序 YINGXU",
         "CFBundleIdentifier": "com.luguanlin.yingxu",
-        "CFBundleVersion": "1.0.12",
-        "CFBundleShortVersionString": "1.0.12",
-        "CFBundleExecutable": "Smart Media Backup",
+        "CFBundleVersion": "1.0.24",
+        "CFBundleShortVersionString": "1.0.24",
+        "CFBundleExecutable": "影序 YINGXU",
         "CFBundleInfoDictionaryVersion": "6.0",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",

@@ -171,6 +171,25 @@ def get_known_hashes(backup_root: str) -> set[str]:
     return {row["source_hash"] for row in rows if row["source_hash"]}
 
 
+def get_prior_destination(backup_root: str, source_path: str, source_hash: str) -> str:
+    """找到同一原文件的已完成目标路径，供增量备份安全跳过。"""
+    conn = get_conn()
+    row = conn.execute(
+        """
+        SELECT bf.dest_path FROM backup_files bf
+        JOIN backup_history bh ON bh.id = bf.backup_id
+        WHERE bh.backup_root=? AND bh.status='completed'
+          AND bf.source_path=? AND bf.source_hash=?
+          AND bf.status IN ('completed','skipped','reviewed')
+          AND bf.dest_path IS NOT NULL AND bf.dest_path!=''
+        ORDER BY bh.finished_at DESC LIMIT 1
+        """,
+        (backup_root, source_path, source_hash),
+    ).fetchone()
+    conn.close()
+    return str(row["dest_path"]) if row else ""
+
+
 def finish_backup(backup_id: int, status: str = "completed", error: str = "",
                   report_path: str = ""):
     """完成备份记录"""
@@ -231,16 +250,40 @@ def get_backup(backup_id: int) -> Optional[dict]:
     return None
 
 
+def rename_backup(backup_id: int, event_name: str) -> bool:
+    """重命名历史中的项目标签，不改动已备份的真实文件路径。"""
+    name = event_name.strip()
+    if not name:
+        return False
+    conn = get_conn()
+    cur = conn.execute("UPDATE backup_history SET event_name=? WHERE id=?", (name, backup_id))
+    conn.commit()
+    conn.close()
+    return cur.rowcount > 0
+
+
+def clear_history() -> int:
+    """仅清除本地历史数据库，不删除备份文件、报告或任何原卡素材。"""
+    conn = get_conn()
+    count = conn.execute("SELECT COUNT(*) AS count FROM backup_history").fetchone()["count"]
+    conn.execute("DELETE FROM backup_files")
+    conn.execute("DELETE FROM backup_history")
+    conn.commit()
+    conn.close()
+    return int(count)
+
+
 def get_backups(
     limit: int = 20,
     offset: int = 0,
     query: str = "",
     status: str = "",
-    device: str = "",
+    target: str = "",
     date_from: str = "",
     date_to: str = "",
+    scope: str = "",
 ) -> list[dict]:
-    """查询备份历史，支持关键词/设备/状态/日期过滤"""
+    """查询备份历史，支持关键词/目标位置/状态/日期过滤"""
     conn = get_conn()
     sql = "SELECT * FROM backup_history WHERE 1=1"
     params: list = []
@@ -254,9 +297,9 @@ def get_backups(
         sql += " AND status = ?"
         params.append(status)
 
-    if device:
-        sql += " AND EXISTS (SELECT 1 FROM backup_files bf WHERE bf.backup_id = backup_history.id AND bf.camera LIKE ?)"
-        params.append(f"%{device}%")
+    if target:
+        sql += " AND backup_root LIKE ?"
+        params.append(f"%{target}%")
 
     if date_from:
         sql += " AND started_at >= ?"
@@ -265,6 +308,17 @@ def get_backups(
     if date_to:
         sql += " AND started_at <= ?"
         params.append(date_to)
+
+    scope_sql = {
+        "event": "event_name IS NOT NULL AND TRIM(event_name) != ''",
+        "date": "started_at IS NOT NULL AND TRIM(started_at) != ''",
+        "device": "devices_json IS NOT NULL AND devices_json NOT IN ('', '{}', '[]')",
+        "location": "event_name IS NOT NULL AND TRIM(event_name) != ''",
+        "photo": "EXISTS (SELECT 1 FROM backup_files bf WHERE bf.backup_id = backup_history.id AND bf.media_type = 'photo')",
+        "video": "EXISTS (SELECT 1 FROM backup_files bf WHERE bf.backup_id = backup_history.id AND bf.media_type = 'video')",
+    }
+    if scope in scope_sql:
+        sql += " AND " + scope_sql[scope]
 
     sql += " ORDER BY started_at DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])
@@ -277,9 +331,10 @@ def get_backups(
 def count_backups(
     query: str = "",
     status: str = "",
-    device: str = "",
+    target: str = "",
     date_from: str = "",
     date_to: str = "",
+    scope: str = "",
 ) -> int:
     """统计符合条件的历史数量"""
     conn = get_conn()
@@ -295,9 +350,9 @@ def count_backups(
         sql += " AND status = ?"
         params.append(status)
 
-    if device:
-        sql += " AND EXISTS (SELECT 1 FROM backup_files bf WHERE bf.backup_id = backup_history.id AND bf.camera LIKE ?)"
-        params.append(f"%{device}%")
+    if target:
+        sql += " AND backup_root LIKE ?"
+        params.append(f"%{target}%")
 
     if date_from:
         sql += " AND started_at >= ?"
@@ -307,9 +362,32 @@ def count_backups(
         sql += " AND started_at <= ?"
         params.append(date_to)
 
+    scope_sql = {
+        "event": "event_name IS NOT NULL AND TRIM(event_name) != ''",
+        "date": "started_at IS NOT NULL AND TRIM(started_at) != ''",
+        "device": "devices_json IS NOT NULL AND devices_json NOT IN ('', '{}', '[]')",
+        "location": "event_name IS NOT NULL AND TRIM(event_name) != ''",
+        "photo": "EXISTS (SELECT 1 FROM backup_files bf WHERE bf.backup_id = backup_history.id AND bf.media_type = 'photo')",
+        "video": "EXISTS (SELECT 1 FROM backup_files bf WHERE bf.backup_id = backup_history.id AND bf.media_type = 'video')",
+    }
+    if scope in scope_sql:
+        sql += " AND " + scope_sql[scope]
+
     row = conn.execute(sql, params).fetchone()
     conn.close()
     return int(row["cnt"] if row else 0)
+
+
+def get_backup_targets() -> list[str]:
+    """返回历史记录中可选的备份位置，供零基础用户直接选择。"""
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT DISTINCT backup_root FROM backup_history "
+        "WHERE backup_root IS NOT NULL AND TRIM(backup_root) != '' "
+        "ORDER BY backup_root COLLATE NOCASE"
+    ).fetchall()
+    conn.close()
+    return [str(row["backup_root"]) for row in rows]
 
 
 def get_backup_files(backup_id: int, limit: int = 100) -> list[dict]:

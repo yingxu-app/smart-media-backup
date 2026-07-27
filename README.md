@@ -1,161 +1,72 @@
-<div align="center">
-  <img src="smb/static/img/icon.svg" width="80" alt="SMB Logo"/>
-  <h1>🖼 Smart Media Backup</h1>
-  <p><strong>插 SD 卡到电脑 → 自动读取设备/日期 → 按设备→事件→照片/视频分类 → Web 面板可视化</strong></p>
-</div>
+# 影序 YINGXU
 
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python"/>
-  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platform"/>
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License"/>
-</p>
+> 摄影师的本地优先素材备份与归档工具。插卡、确认、备份、校验、可追溯。
 
----
+[官网](https://yingxu-app.github.io) · [下载 macOS 版](https://github.com/luguanlin20050927/smart-media-backup/releases/latest) · [更新日志](https://yingxu-app.github.io/changelog-v37.html) · [问题反馈](https://github.com/luguanlin20050927/smart-media-backup/issues)
 
-## 📸 这是给谁用的？
+## 给摄影师的三个步骤
 
-**摄影师、视频创作者、无人机飞手。**
+1. 从官网下载 DMG，打开后把“影序 YINGXU”拖到“应用程序”。
+2. 插入相机存储卡或读卡器，影序会扫描来源、文件数量、照片和视频。
+3. 选择备份位置，确认事件名称和目录预览，点击“开始备份”。完成后可在“归档记录”打开报告、查询素材位置。
 
-每次拍完：
+默认只读取、复制和校验，**绝不自动删除原卡素材**。首次备份保留每一个文件；再次备份同一来源到同一目标时会逐个跳过已完成文件。
 
-- 手动把 SD 卡插电脑
-- 手动拖文件到外置盘
-- 手动按日期/设备建文件夹
-- 手动分类照片和视频
-- 手动校验怕拷坏了
+## 当前发布版：v1.0.24
 
-**Smart Media Backup 把这些全自动了。**
+| 能力 | 当前行为 |
+| --- | --- |
+| 来源扫描 | 识别已挂载的存储卡、外接盘；显示文件、照片、视频与容量统计。 |
+| 多目标备份 | 可选本地目录、外接硬盘；一个目标异常不会删除原卡素材。 |
+| 增量跳过 | 基于来源路径、哈希与完成历史判断；不会把同内容但不同文件误判为重复。 |
+| SHA-256 校验 | 复制后比对源与目标；报告和历史记录显示校验结果。 |
+| 中断恢复 | 取消或目标不可用时记录部分完成状态、失败原因与报告路径，重新执行可继续处理未完成文件。 |
+| 历史与报告 | 保留成功、跳过、失败、校验数量、来源卡、目标位置和 JSON 报告。 |
+| 本地优先 | 素材和历史默认留在本机；百度网盘为可选项，未配置时不会影响本地备份。 |
 
----
+## macOS 安装与首次打开
 
-## ✨ 功能
+1. 下载 `YINGXU-macOS-v1.0.24.dmg`，双击打开。
+2. 将“影序 YINGXU”拖入“应用程序”。
+3. 第一次打开时，因当前版本尚未完成 Apple 公证，macOS 可能提示“无法验证开发者”或“已损坏”。这是系统保护提示，不代表素材被修改。
+4. 在“系统设置 → 隐私与安全性”找到影序，点击“仍要打开”；随后再打开即可。
 
-| 功能 | 说明 |
-|------|------|
-| 🚀 插卡即检测 | 插入 SD 卡自动弹窗 |
-| 📷 自动读取元数据 | 相机型号、拍摄日期、GPS（需 exiftool） |
-| 📁 自动分类 | 按设备→事件→照片/视频 自动整理 |
-| 🔒 文件校验 | SHA256 校验，保证拷贝完整 |
-| 📊 实时进度 | Web 面板进度条/速度/剩余时间 |
-| 📋 历史记录 | 每次备份可查 |
-| 💾 任意目标 | 本地磁盘、外置硬盘、NAS |
+请只从官网或本仓库 Releases 下载。发布页会提供对应 DMG 的 SHA-256，下载后可核对完整性。
 
----
+## 目录与安全原则
 
-## 📁 目录结构
+目录由工作台中的“文件夹命名顺序”预览决定，可按时间、事件、地点、设备、照片/视频组合。
 
-备份完成后，你的磁盘上长这样：
+- 原卡始终是源，只读扫描和复制；
+- 校验失败、取消、磁盘不可用、空间不足时，不允许清理原卡；
+- 只有所有已选目标完成且校验通过后，界面才允许用户主动进入清理流程；
+- 若设备或地点无法可靠识别，会明确显示待确认，不会假装猜测正确。
 
-```
-外置盘/
-├── Sony ILCE-7M4/              ← 自动：按设备分类
-│   └── 2025年8月漫展/           ← 你输入的事件名
-│       ├── 照片/                ← 自动：照片和视频分开
-│       │   ├── DSC01234.ARW    ← 保留原始文件名
-│       │   ├── DSC01235.ARW
-│       │   └── checksums.json  ← 校验清单
-│       └── 视频/
-│           ├── C0001.MP4
-│           └── checksums.json
-└── DJI Mavic 3/
-    └── 2025年8月漫展/
-        └── 视频/
-            ├── DJI_0001.MP4
-            └── checksums.json
-```
+## 本机验证证据（v1.0.24）
 
-**你只需要做 3 件事：** 插卡 → 输事件名 → 点开始
+在 macOS 与真实 `TF卡64G` 上完成两轮验收：
 
----
+- 首轮：132/132 个文件复制并 SHA-256 校验通过；
+- 同目标、同事件再次执行：0 复制、132 跳过、132 已校验；
+- 自动回归测试覆盖空卡、取消、目标不可用、同内容不同文件、重复跳过及校验发现损坏文件。
 
-## 🚀 快速开始
+物理拔卡、断电、Windows 与移动端尚未在本次发布环境完成实机验证，因此没有对这些平台提供虚假的正式下载承诺。
 
-### 安装
+## 开发与测试
 
 ```bash
-pip install smart-media-backup
+git clone https://github.com/luguanlin20050927/smart-media-backup.git
+cd smart-media-backup
+python3 -m unittest discover -s tests -v
 ```
 
-### 启动
+macOS 打包使用项目内虚拟环境：
 
 ```bash
-smb
+cd desktop
+../.venv/bin/python -m PyInstaller smb.spec --noconfirm
 ```
 
-浏览器自动打开 → 看到仪表盘 → 插卡 → 开始备份。
+## 开源与反馈
 
----
-
-## 🧑‍💻 用户指南
-
-### 👨 摄影师（macOS / Windows）
-
-1. 打开终端，输 `pip install smart-media-backup`
-2. 再输 `smb` → 浏览器自动打开
-3. 插 SD 卡 → 自动检测到设备/文件数量
-4. 输入事件名（如"2025年8月漫展"）
-5. 选择备份目标（本地盘 / 外置盘 / NAS）
-6. 点「开始备份」
-7. 看进度条 → 完成后弹通知
-
-**每次只花 30 秒操作，剩下都是自动的。**
-
-### 🥧 Pi Zero 2W 用户
-
-详见树莓派安装指南。
-
----
-
-## ⚙️ 高级
-
-### CLI 模式
-
-```bash
-# 启动 Web 面板
-smb web
-
-# 快速扫描 SD 卡
-smb scan
-```
-
-### 配置文件
-
-`~/.config/smb/config.json`
-
-```json
-{
-  "web_port": 8080,
-  "verify_method": "sha256",
-  "auto_open_browser": true
-}
-```
-
----
-
-## 🛠 技术栈
-
-| 层 | 技术 |
-|----|------|
-| 后端 | Python 3.9+, Flask, SocketIO |
-| 前端 | Chart.js, SocketIO Client |
-| 元数据 | exiftool (可选) |
-| 校验 | SHA256 |
-| 存储 | SQLite |
-| 安装 | pip / 一键脚本 |
-
----
-
-## 📄 许可证
-
-MIT License © 2025 陆冠霖
-
----
-
-## 🌟 路线图
-
-- [x] Phase 1: Core + Web 面板
-- [ ] 桌面 App 打包 (Tauri)
-- [ ] 百度网盘自动上传
-- [ ] AI 内容识别命名
-- [ ] 树莓派镜像
-- [ ] 官网 smartbackup.app
+MIT License. 这是上海立达学院学生独立开发作品，欢迎通过 GitHub Issues 提交 Bug、使用建议与素材工作流需求。

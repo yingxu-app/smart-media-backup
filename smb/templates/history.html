@@ -3,29 +3,40 @@
 
 {% block content %}
 <div class="page-header">
-    <h2>📋 备份历史</h2>
-    <div id="historyCount" class="history-count">—</div>
+    <div><h2>02 归档记录</h2><div id="historyCount" class="history-count">—</div></div>
+    <button class="btn-danger" onclick="clearAllHistory()">🗑 清空全部记录</button>
 </div>
 
 <div class="card history-search">
     <div class="search-grid">
         <div class="form-row">
-            <label for="historyQuery">搜索关键词</label>
-            <input type="text" id="historyQuery" placeholder="事件名 / 目标盘 / 设备">
-        </div>
-        <div class="form-row">
             <label for="historyStatus">状态</label>
             <select id="historyStatus">
                 <option value="">全部</option>
                 <option value="completed">成功</option>
+                <option value="partial">部分完成</option>
                 <option value="running">进行中</option>
                 <option value="cancelled">已取消</option>
                 <option value="error">失败</option>
             </select>
         </div>
         <div class="form-row">
-            <label for="historyDevice">设备名</label>
-            <input type="text" id="historyDevice" placeholder="Sony / DJI / iPhone">
+            <label for="historyTarget">备份位置</label>
+            <select id="historyTarget"><option value="">全部位置</option></select>
+        </div>
+        <div class="form-row">
+            <label for="historySearchMode">搜索方式</label>
+            <select id="historySearchMode" onchange="toggleHistoryQuery()">
+                <option value="">全部信息</option>
+                <option value="event">名称 / 项目</option>
+                <option value="date">拍摄时间</option>
+                <option value="device">设备</option>
+                <option value="location">地点</option>
+                <option value="photo">照片</option>
+                <option value="video">视频</option>
+                <option value="custom">自主输入…</option>
+            </select>
+            <input type="text" id="historyQuery" placeholder="输入关键词（Esc 返回选项）" style="display:none;">
         </div>
         <div class="form-row">
             <label for="historyDateFrom">开始日期</label>
@@ -49,7 +60,7 @@
 <div class="history-detail card" id="historyDetail" style="display:none;">
     <div class="detail-header">
         <button class="btn-back" onclick="hideDetail()">← 返回</button>
-        <h3 id="detailTitle"></h3>
+        <div class="detail-title-row"><h3 id="detailTitle"></h3><button class="btn-secondary" id="renameRecordBtn">✎ 改名</button></div>
     </div>
     <div id="detailContent"></div>
 </div>
@@ -57,28 +68,42 @@
 
 {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", loadHistory);
+document.addEventListener("DOMContentLoaded", () => { loadHistory(); loadHistoryTargets(); });
 document.addEventListener("DOMContentLoaded", function() {
-    ["historyQuery", "historyDevice"].forEach(id => {
+    ["historyQuery"].forEach(id => {
         document.getElementById(id).addEventListener("keydown", function(e) {
             if (e.key === "Enter") loadHistory();
+            if (e.key === "Escape") restoreHistorySearchMode();
         });
     });
 });
+
+function loadHistoryTargets() {
+    fetch("/api/history_targets").then(r => r.json()).then(items => {
+        const select = document.getElementById("historyTarget");
+        select.innerHTML = '<option value="">全部位置</option>' + (items || []).map(item =>
+            `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`
+        ).join("");
+    });
+}
+
+function escapeHtml(value) { const d = document.createElement("div"); d.textContent = value || ""; return d.innerHTML; }
 
 function loadHistory() {
     const params = new URLSearchParams();
     params.set("limit", "50");
 
-    const query = document.getElementById("historyQuery").value.trim();
+    const mode = document.getElementById("historySearchMode").value;
+    const query = mode === "custom" ? document.getElementById("historyQuery").value.trim() : "";
     const status = document.getElementById("historyStatus").value.trim();
-    const device = document.getElementById("historyDevice").value.trim();
+    const target = document.getElementById("historyTarget").value.trim();
     const dateFrom = document.getElementById("historyDateFrom").value;
     const dateTo = document.getElementById("historyDateTo").value;
 
     if (query) params.set("query", query);
     if (status) params.set("status", status);
-    if (device) params.set("device", device);
+    if (target) params.set("target", target);
+    if (mode && mode !== "custom") params.set("scope", mode);
     if (dateFrom) params.set("date_from", new Date(dateFrom).toISOString());
     if (dateTo) params.set("date_to", new Date(dateTo).toISOString());
 
@@ -95,8 +120,8 @@ function loadHistory() {
             container.innerHTML = records.map(r => `
                 <div class="history-item" onclick="showDetail(${r.id})">
                     <div class="h-left">
-                        <span class="h-icon ${r.status === 'completed' ? 'ok' : r.status === 'error' ? 'err' : ''}">
-                            ${r.status === 'completed' ? '✅' : r.status === 'error' ? '❌' : '⏳'}
+                        <span class="h-icon ${r.status === 'completed' ? 'ok' : r.status === 'error' ? 'err' : r.status === 'partial' ? 'warn' : ''}">
+                            ${r.status === 'completed' ? '✅' : r.status === 'partial' ? '⚠️' : r.status === 'cancelled' ? '⏹️' : r.status === 'error' ? '❌' : '⏳'}
                         </span>
                         <div class="h-info">
                             <div class="h-event">${r.event_name}</div>
@@ -115,13 +140,36 @@ function loadHistory() {
 function clearHistorySearch() {
     document.getElementById("historyQuery").value = "";
     document.getElementById("historyStatus").value = "";
-    document.getElementById("historyDevice").value = "";
+    document.getElementById("historyTarget").value = "";
+    document.getElementById("historySearchMode").value = "";
+    toggleHistoryQuery();
     document.getElementById("historyDateFrom").value = "";
     document.getElementById("historyDateTo").value = "";
     loadHistory();
 }
 
+function toggleHistoryQuery() {
+    const select = document.getElementById("historySearchMode");
+    const custom = select.value === "custom";
+    const input = document.getElementById("historyQuery");
+    select.style.display = custom ? "none" : "block";
+    input.style.display = custom ? "block" : "none";
+    if (!custom) input.value = "";
+    if (custom) input.focus();
+}
+
+function restoreHistorySearchMode() {
+    const select = document.getElementById("historySearchMode");
+    const input = document.getElementById("historyQuery");
+    input.value = "";
+    input.style.display = "none";
+    select.style.display = "block";
+    select.value = "";
+}
+
+let activeHistoryId = null;
 function showDetail(id) {
+    activeHistoryId = id;
     document.getElementById("historyList").style.display = "none";
     const detail = document.getElementById("historyDetail");
     detail.style.display = "block";
@@ -131,10 +179,11 @@ function showDetail(id) {
         .then(data => {
             const rec = data.record || {};
             document.getElementById("detailTitle").textContent = rec.event_name || "详情";
+            document.getElementById("renameRecordBtn").onclick = () => renameHistory(id, rec.event_name || "");
 
             let html = `
                 <div class="detail-summary">
-                    <div class="ds-item"><label>状态</label><span>${rec.status === 'completed' ? '✅ 成功' : rec.status === 'error' ? '❌ 失败' : '⏳ 进行中'}</span></div>
+                    <div class="ds-item"><label>状态</label><span>${rec.status === 'completed' ? '✅ 成功' : rec.status === 'partial' ? '⚠️ 部分完成，可继续备份' : rec.status === 'cancelled' ? '⏹️ 已取消，原卡安全' : rec.status === 'error' ? '❌ 失败' : '⏳ 进行中'}</span></div>
                     <div class="ds-item"><label>目标位置</label><span>${rec.backup_root || ''}</span></div>
                     <div class="ds-item"><label>总文件</label><span>${rec.total_files || 0}</span></div>
                     <div class="ds-item"><label>校验通过</label><span>${rec.verified_files || 0}</span></div>
@@ -167,6 +216,24 @@ function showDetail(id) {
         });
 }
 
+function renameHistory(id, currentName) {
+    const name = prompt("给这条归档记录换一个名称：", currentName);
+    if (name === null) return;
+    const eventName = name.trim();
+    if (!eventName) { alert("名称不能为空"); return; }
+    fetch(`/api/history/${id}/rename`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({event_name:eventName})})
+        .then(r=>r.json()).then(d=>{ if(d.error) throw new Error(d.error); showDetail(id); loadHistory(); })
+        .catch(e=>alert("改名失败："+e.message));
+}
+
+function clearAllHistory() {
+    if (!confirm("确定清空所有归档记录吗？这不会删除已备份的素材或报告文件。")) return;
+    if (!confirm("请再次确认：这会删除应用内的全部历史列表。")) return;
+    fetch("/api/history/clear", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({confirm:"CLEAR_HISTORY"})})
+      .then(r=>r.json()).then(d=>{if(d.error) throw new Error(d.error); hideDetail(); loadHistory();})
+      .catch(e=>alert("清空失败："+e.message));
+}
+
 function hideDetail() {
     document.getElementById("historyList").style.display = "block";
     document.getElementById("historyDetail").style.display = "none";
@@ -190,6 +257,9 @@ function formatDateTime(iso) {
 }
 .history-item:hover { background: var(--hover); }
 .history-count { color: var(--text-dim); font-size: 0.9em; margin-top: 4px; }
+.page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.detail-title-row { display:flex; align-items:center; gap:10px; }
+.btn-danger { padding:9px 12px; color:#fecaca; border:1px solid rgba(248,113,113,.45); border-radius:8px; background:rgba(248,113,113,.08); cursor:pointer; }
 .history-search { margin-bottom: 16px; }
 .search-grid {
     display: grid;
@@ -213,6 +283,13 @@ function formatDateTime(iso) {
 }
 .search-grid input, .search-grid select {
     width: 100%;
+    min-height: 44px;
+    height:44px;
+    background:var(--bg);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color-scheme:dark;
 }
 .h-left { display: flex; align-items: center; gap: 12px; }
 .h-icon { font-size: 1.3em; }

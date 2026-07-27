@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 import flask
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
 
 # PyInstaller 打包后资源路径修正
@@ -23,7 +23,8 @@ app = Flask(__name__,
 app.config["SECRET_KEY"] = os.urandom(16).hex()
 
 from .config import config
-from .detector import list_removable_volumes, list_all_volumes, SDCardWatcher
+from .detector import (list_removable_volumes, list_all_volumes,
+                       find_likely_media_source, SDCardWatcher)
 from .backup import BackupEngine
 from . import db
 
@@ -34,6 +35,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 engine = BackupEngine()
 _scan_cache = {"files": [], "volumes": []}
+_open_browser_on_start = True
 
 
 # ====== SocketIO 实时推送 ======
@@ -109,6 +111,32 @@ def api_open_folder():
         return jsonify({"status": "ok"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/choose_folder", methods=["POST"])
+def api_choose_folder():
+    """使用 macOS 原生选择器，让普通用户无需输入 POSIX 路径。"""
+    if sys.platform != "darwin":
+        return jsonify({"error": "当前平台暂不支持原生文件夹选择器"}), 501
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", 'POSIX path of (choose folder with prompt "选择影序备份位置")'],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            return jsonify({"status": "cancelled"})
+        folder = result.stdout.strip().rstrip("/")
+        if not folder or not os.path.isdir(folder):
+            return jsonify({"error": "未选择有效文件夹"}), 400
+        st = os.statvfs(folder)
+        return jsonify({
+            "status": "ok",
+            "name": os.path.basename(folder) or folder,
+            "mount_point": folder,
+            "size_free": st.f_frsize * st.f_bavail,
+        })
+    except Exception as exc:
+        return jsonify({"error": f"打开文件夹选择器失败: {exc}"}), 500
 
 
 # ====== 百度网盘 API ======
@@ -203,19 +231,44 @@ def api_status():
     return jsonify({
         "status": engine.progress.status,
         "progress": engine.progress.to_dict(),
-        "version": "1.0.0",
+        "version": "1.0.24",
     })
 
 
 @app.route("/api/volumes")
 def api_volumes():
     """列出所有可用卷（用于目标磁盘选择）"""
-    all_vols = list_all_volumes()
+    all_vols = list_removable_volumes()
     # 过滤系统卷
-    system_mounts = {"/", "/System/Volumes/", "/System/Volumes/VM", "/System/Volumes/Preboot",
+    system_mounts = {"/System/Volumes/VM", "/System/Volumes/Preboot",
                      "/System/Volumes/Update", "/System/Volumes/xarts", "/System/Volumes/iSCPreboot",
                      "/System/Volumes/Hardware", "/System/Volumes/Data"}
     result = []
+
+    # 常用本地文件夹
+    import os as _os
+    local_folders = [
+        _os.path.expanduser('~/Desktop'),
+        _os.path.expanduser('~/Documents'),
+        _os.path.expanduser('~/Downloads'),
+        _os.path.expanduser('~/Pictures'),
+        _os.path.expanduser('~/Movies'),
+    ]
+    for p in local_folders:
+        if _os.path.isdir(p):
+            try:
+                st = _os.statvfs(p)
+                result.append({
+                    'name': '📁 ' + _os.path.basename(p),
+                    'mount_point': p,
+                    'size_total': st.f_frsize * st.f_blocks,
+                    'size_used': st.f_frsize * (st.f_blocks - st.f_bfree),
+                    'size_free': st.f_frsize * st.f_bavail,
+                    'fstype': 'local',
+                })
+            except OSError:
+                pass
+
     for v in all_vols:
         mount = v["mount_point"]
         # 排除系统卷
@@ -231,7 +284,9 @@ def api_volumes():
         total = v.get("size_total", 0)
         if total > 5 * 1024**4:
             continue
-        result.append(v)
+        item = dict(v)
+        item.setdefault('size_free', max(0, item.get('size_total', 0) - item.get('size_used', 0)))
+        result.append(item)
     return jsonify(result)
 
 
@@ -245,15 +300,15 @@ def api_scan():
     mount_point = data.get("mount_point", "")
 
     if not mount_point:
-        # 如果没有指定，使用第一个检测到的可移动卷
-        vols = list_removable_volumes()
-        if vols:
-            mount_point = vols[0]["mount_point"]
+        # macOS 上 /Volumes 同时包含外置 SSD 和 SD 卡，不能按枚举顺序误选。
+        source = find_likely_media_source(list_removable_volumes())
+        if source:
+            mount_point = source["mount_point"]
 
     if not mount_point or not os.path.ismount(mount_point):
         return jsonify({"error": "未检测到 SD 卡", "files": [], "devices": []})
 
-    from .organizer import scan_sd_card, batch_extract_metadata
+    from .organizer import scan_sd_card, batch_extract_metadata, build_date_groups
     raw = scan_sd_card(mount_point)
     if not raw:
         return jsonify({"error": "未找到照片或视频文件", "files": [], "devices": []})
@@ -283,16 +338,36 @@ def api_scan():
         "size": f.get("size", 0),
     } for f in files[:500]]  # 前端只展示前 500 个
 
+    preview_items = []
+    previewable_extensions = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
+    for index, item in enumerate(files):
+        suffix = Path(item.get("path", "")).suffix.lower()
+        if item.get("media_type") == "photo" and suffix in previewable_extensions:
+            preview_items.append({"id": index, "filename": item.get("filename", "照片")})
+        if len(preview_items) == 4:
+            break
+
     global _scan_cache
-    _scan_cache = {"files": raw, "devices": device_list}
+    event_groups = build_date_groups(files)
+    _scan_cache = {"files": files, "devices": device_list, "event_groups": event_groups}
 
     # AI 自动命名建议
+    # 智能事件名：从EXIF提取日期+设备
     suggested_name = ""
     if files:
+        # AI 是可选建议，默认不运行；日期和设备识别始终离线可用。
         from .ai_namer import ai_namer
-        sample_paths = [f["path"] for f in files[:5] if f.get("media_type") in ("photo", "raw")]
-        if sample_paths:
-            suggested_name = ai_namer.suggest_event_name(sample_paths) or ""
+        if ai_namer.is_enabled():
+            sample_paths = [f["path"] for f in files[:5] if f.get("media_type") in ("photo", "raw")]
+            if sample_paths:
+                suggested_name = ai_namer.suggest_event_name(sample_paths) or ""
+        # AI不可用时，从EXIF生成基础名
+        if not suggested_name:
+            from collections import Counter
+            dates = [str(f.get("date",""))[:10] for f in files if f.get("date","")]
+            if dates:
+                d = Counter(dates).most_common(1)[0][0]
+                suggested_name = d + "拍摄"
 
     return jsonify({
         "devices": device_list,
@@ -300,8 +375,50 @@ def api_scan():
         "total_files": len(files),
         "total_size": sum(f.get("size", 0) for f in files),
         "mount_point": mount_point,
+        "source_name": Path(mount_point).name,
         "suggested_name": suggested_name,
+        "event_groups": event_groups,
+        "previews": preview_items,
     })
+
+
+@app.route("/api/preview/<int:file_index>")
+def api_preview(file_index: int):
+    """只提供刚刚扫描来源中的少量照片预览，不接受外部任意路径。"""
+    files = _scan_cache.get("files", [])
+    if file_index < 0 or file_index >= len(files):
+        return jsonify({"error": "预览不存在"}), 404
+    item = files[file_index]
+    path = Path(item.get("path", ""))
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
+    if item.get("media_type") != "photo" or path.suffix.lower() not in allowed_extensions or not path.is_file():
+        return jsonify({"error": "该文件不能直接预览"}), 404
+    return send_file(path, conditional=True, max_age=0)
+
+
+@app.route("/api/sources")
+def api_sources():
+    """列出可作为备份来源的已挂载卡/磁盘，供用户明确选择。"""
+    from .organizer import scan_sd_card
+    sources = []
+    for volume in list_removable_volumes():
+        mount = volume.get("mount_point", "")
+        if not mount or not os.path.ismount(mount):
+            continue
+        media = scan_sd_card(mount)
+        if not media:
+            continue
+        photos = sum(1 for item in media if item.get("media_type") in ("photo", "raw"))
+        videos = sum(1 for item in media if item.get("media_type") == "video")
+        sources.append({
+            "name": volume.get("name") or Path(mount).name,
+            "mount_point": mount,
+            "total_files": len(media),
+            "photos": photos,
+            "videos": videos,
+            "total_size": sum(item.get("size", 0) for item in media),
+        })
+    return jsonify({"sources": sources})
 
 
 @app.route("/api/start_backup", methods=["POST"])
@@ -314,29 +431,35 @@ def api_start_backup():
     mount_point = data.get("mount_point", "")
     event_name = data.get("event_name", "").strip()
     event_names = data.get("event_names") or []
+    event_groups = data.get("event_groups") or []
     if not event_names and event_name:
         event_names = [e.strip() for e in event_name.replace("，", ",").split(",") if e.strip()]
     backup_root = data.get("backup_root", "")
     backup_targets = data.get("backup_targets") or []
+    requested_sort_order = data.get("sort_order") or []
 
-    if not event_name and not event_names:
+    if not event_name and not event_names and not event_groups:
         return jsonify({"error": "请输入事件文件夹名"})
     if not event_names and event_name:
         event_names = [e.strip() for e in event_name.replace("，", ",").split(",") if e.strip()]
     if not backup_root and not backup_targets:
         return jsonify({"error": "请选择备份目标位置"})
     if not mount_point:
-        vols = list_removable_volumes()
-        if vols:
-            mount_point = vols[0]["mount_point"]
+        source = find_likely_media_source(list_removable_volumes())
+        if source:
+            mount_point = source["mount_point"]
     if not mount_point or not os.path.isdir(mount_point):
         return jsonify({"error": "未检测到 SD 卡"})
 
     # 保存配置
     config.last_backup_root = backup_root
+    allowed_sort_parts = {"date", "event", "location", "device", "type"}
+    cleaned_sort_order = [part for part in requested_sort_order if part in allowed_sort_parts]
+    if cleaned_sort_order:
+        config.sort_order = cleaned_sort_order
     if backup_targets:
         config.backup_targets = list(dict.fromkeys(backup_targets))
-        config.save()
+    config.save()
 
     # 在新线程运行备份
     def _run():
@@ -344,7 +467,8 @@ def api_start_backup():
             engine.run(mount_point, event_name, backup_root,
                        enable_verify=config.verify_method == "sha256",
                        backup_targets=backup_targets or None,
-                       event_names=event_names or None)
+                       event_names=event_names or None,
+                       event_groups=event_groups or None)
         except Exception as e:
             print(f"[SMB] 备份失败: {e}", file=sys.stderr)
 
@@ -437,11 +561,12 @@ def api_history():
     offset = request.args.get("offset", 0, type=int)
     query = request.args.get("query", "", type=str).strip()
     status = request.args.get("status", "", type=str).strip()
-    device = request.args.get("device", "", type=str).strip()
+    target = request.args.get("target", "", type=str).strip()
+    scope = request.args.get("scope", "", type=str).strip()
     date_from = request.args.get("date_from", "", type=str).strip()
     date_to = request.args.get("date_to", "", type=str).strip()
-    records = db.get_backups(limit, offset, query, status, device, date_from, date_to)
-    total = db.count_backups(query, status, device, date_from, date_to)
+    records = db.get_backups(limit, offset, query, status, target, date_from, date_to, scope)
+    total = db.count_backups(query, status, target, date_from, date_to, scope)
     return jsonify({
         "items": records,
         "total": total,
@@ -450,11 +575,26 @@ def api_history():
         "filters": {
             "query": query,
             "status": status,
-            "device": device,
+            "target": target,
+            "scope": scope,
             "date_from": date_from,
             "date_to": date_to,
         }
     })
+
+
+@app.route("/api/history_targets")
+def api_history_targets():
+    """返回历史备份位置下拉选项，不要求用户手输路径。"""
+    items = []
+    for path in db.get_backup_targets():
+        normalized = path.rstrip("/")
+        tail = os.path.basename(normalized) or normalized
+        aliases = {"Desktop": "桌面", "Documents": "文稿", "Downloads": "下载", "Pictures": "图片", "Movies": "影片"}
+        label = aliases.get(tail, tail)
+        kind = "本地位置" if tail in aliases else "备份位置"
+        items.append({"value": path, "label": f"{label}（{kind}）"})
+    return jsonify(items)
 
 
 @app.route("/api/history/<int:backup_id>")
@@ -463,6 +603,26 @@ def api_history_detail(backup_id):
     record = db.get_backup(backup_id)
     files = db.get_backup_files(backup_id, 500)
     return jsonify({"record": record, "files": files})
+
+
+@app.route("/api/history/<int:backup_id>/rename", methods=["POST"])
+def api_history_rename(backup_id):
+    data = request.get_json(silent=True) or {}
+    name = str(data.get("event_name", "")).strip()
+    if not name:
+        return jsonify({"error": "请输入新的项目名称"}), 400
+    if not db.rename_backup(backup_id, name):
+        return jsonify({"error": "未找到该历史记录"}), 404
+    return jsonify({"status": "ok", "event_name": name})
+
+
+@app.route("/api/history/clear", methods=["POST"])
+def api_history_clear():
+    """清空历史记录；真实备份目录、报告和原卡素材不会被删除。"""
+    data = request.get_json(silent=True) or {}
+    if data.get("confirm") != "CLEAR_HISTORY":
+        return jsonify({"error": "请确认清空历史记录"}), 400
+    return jsonify({"status": "ok", "cleared": db.clear_history()})
 
 
 # ====== SocketIO ======
@@ -558,7 +718,7 @@ def api_setup_pull_model():
 
 # ====== 启动 ======
 
-def main():
+def main(open_browser: bool = True):
     """启动 Web 服务"""
     import socket
 
@@ -573,11 +733,15 @@ def main():
     from .config import CONFIG_DIR
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
+    global _open_browser_on_start
+    _open_browser_on_start = open_browser
+
     # 启动 SD 卡监听
     def _on_sd_insert(volume: dict):
-        import webbrowser
-        if config.auto_open_browser:
-            webbrowser.open(f"http://{host}:{port}")
+        # 自动打开浏览器（macOS）
+        if _open_browser_on_start and config.auto_open_browser:
+            import subprocess as sp
+            sp.run(['open', f'http://localhost:{port}'], check=False)
         print(f"[SMB] 📸 SD 卡已插入: {volume['name']} ({volume['mount_point']})")
 
     watcher = SDCardWatcher(on_insert=_on_sd_insert)
@@ -585,7 +749,7 @@ def main():
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║     🖼  Smart Media Backup  v1.0         ║
+║          影序 YINGXU  v1.0.24           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║
@@ -594,9 +758,21 @@ def main():
 ╚══════════════════════════════════════════╝
 """)
 
-    # 自动打开浏览器
-    if config.auto_open_browser:
-        webbrowser.open(f"http://localhost:{port}")
+    # 先启动服务，就绪后再弹浏览器（消除启动等待感）
+    import threading, time, urllib.request
+
+    def _open_when_ready():
+        for _ in range(30):
+            try:
+                urllib.request.urlopen(f'http://{host}:{port}/api/status', timeout=0.5)
+                break
+            except Exception:
+                time.sleep(0.5)
+        if _open_browser_on_start and config.auto_open_browser:
+            import subprocess as sp
+            sp.run(['open', f'http://localhost:{port}'], check=False)
+
+    threading.Thread(target=_open_when_ready, daemon=True).start()
 
     socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
 

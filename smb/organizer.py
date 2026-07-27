@@ -132,6 +132,10 @@ def scan_sd_card(mount_path: str) -> list[dict]:
             'System Volume Information', '$RECYCLE.BIN', '.Spotlight-V100')]
 
         for fname in files:
+            # macOS 在 FAT/exFAT 卡上生成的 AppleDouble 资源叉文件。
+            # 它们与原片同名但以 ._ 开头，绝不能作为独立素材归档。
+            if fname.startswith("._"):
+                continue
             ext = Path(fname).suffix.lower()
             if ext not in media_exts:
                 continue
@@ -155,6 +159,58 @@ def scan_sd_card(mount_path: str) -> list[dict]:
             results.append(info)
 
     return results
+
+
+def date_group_key(value: Optional[datetime]) -> str:
+    """为单日归档生成稳定键；缺少可靠拍摄时间时单独列为待确认。"""
+    return value.strftime("%Y-%m-%d") if value else "unknown-date"
+
+
+def build_date_groups(files: list[dict]) -> list[dict]:
+    """按拍摄日拆分素材，供预览和真实备份共用。
+
+    地点与场景不能在没有可靠元数据或人工确认时擅自编造，因此只给出
+    可编辑的日期基础名称，并把 GPS 是否存在明确告诉界面。
+    """
+    groups: dict[str, dict] = {}
+    for f in files:
+        key = date_group_key(f.get("date"))
+        if key not in groups:
+            if key == "unknown-date":
+                suggested = "日期待确认"
+                display_date = "日期待确认"
+            else:
+                dt = f["date"]
+                display_date = dt.strftime("%Y年%m月%d日")
+                suggested = f"{display_date}拍摄"
+            groups[key] = {
+                "date_key": key,
+                "date_label": display_date,
+                "suggested_name": suggested,
+                "files": [],
+                "total_size": 0,
+                "devices": set(),
+                "has_gps": False,
+            }
+        group = groups[key]
+        group["files"].append(f)
+        group["total_size"] += f.get("size", 0)
+        group["devices"].add(f.get("camera") or "Unknown")
+        group["has_gps"] = group["has_gps"] or bool(f.get("gps"))
+
+    ordered = sorted(groups.values(), key=lambda item: item["date_key"], reverse=True)
+    return [
+        {
+            "date_key": item["date_key"],
+            "date_label": item["date_label"],
+            "suggested_name": item["suggested_name"],
+            "file_count": len(item["files"]),
+            "total_size": item["total_size"],
+            "devices": sorted(item["devices"]),
+            "location_status": "检测到 GPS，地点待确认" if item["has_gps"] else "未记录地点，可补充",
+        }
+        for item in ordered
+    ]
 
 
 def batch_extract_metadata(files: list[dict], progress_callback=None) -> list[dict]:

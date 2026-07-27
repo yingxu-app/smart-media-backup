@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Smart Media Backup — 智能媒体备份</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;background:#0a0a0b}
+body{
+  font-family:'Outfit','Noto Sans SC',sans-serif;
+  background:#0a0a0b;color:#ceced7;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;font-size:10.6667px;line-height:1.5;min-height:100vh;
+}
+
+/* BACKGROUND EFFECTS */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(800px circle at 10% 15%, rgba(74,222,128,0.06) 0%, transparent 60%),
+    radial-gradient(700px circle at 75% 20%, rgba(56,189,248,0.04) 0%, transparent 60%),
+    radial-gradient(900px circle at 40% 85%, rgba(74,222,128,0.04) 0%, transparent 60%),
+    radial-gradient(1000px circle at 50% 50%, rgba(16,185,129,0.02) 0%, transparent 70%);
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.006) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.006) 1px, transparent 1px);
+  background-size:60px 60px, 60px 60px, 20px 20px, 20px 20px;
+  background-position:0 0,0 0,30px 30px,30px 30px;
+  -webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 40%, black 25%, transparent 70%);
+  mask-image:radial-gradient(ellipse 75% 65% at 50% 40%, black 25%, transparent 70%);
+}
+.noise-overlay{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.03;mix-blend-mode:overlay}
+.noise-overlay svg{width:100%;height:100%}
+.scanlines{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.004) 2px,rgba(255,255,255,0.004) 4px);
+  -webkit-mask-image:radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 70%);
+  mask-image:radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 70%);
+}
+.light-orb{position:fixed;z-index:0;pointer-events:none;border-radius:50%;filter:blur(60px)}
+.light-orb.o1{width:400px;height:400px;background:rgba(74,222,128,0.05);top:10%;left:5%;animation:drifOrb1 12s ease-in-out infinite}
+.light-orb.o2{width:350px;height:350px;background:rgba(56,189,248,0.04);bottom:15%;right:8%;animation:drifOrb2 15s ease-in-out infinite}
+.light-orb.o3{width:300px;height:300px;background:rgba(52,211,153,0.035);top:50%;left:60%;animation:drifOrb3 18s ease-in-out infinite}
+@keyframes drifOrb1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,-30px) scale(1.1)}66%{transform:translate(-20px,40px) scale(0.95)}}
+@keyframes drifOrb2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-40px,30px) scale(1.08)}66%{transform:translate(50px,-20px) scale(0.9)}}
+@keyframes drifOrb3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,-40px) scale(1.15)}}
+
+.cursor-glow{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(400px circle at var(--mx,50%) var(--my,50%), rgba(74,222,128,0.04) 0%, transparent 70%);
+  transition:background .1s;
+}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:20px 28px;transition:all .3s ease;
+}
+nav.scrolled{
+  background:rgba(10,10,11,0.85);backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);border-bottom:1px solid #2a2d33;
+}
+.nav-inner{max-width:1280px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}
+.nav-brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:10.6667px;color:#ceced7;text-decoration:none;letter-spacing:0.5px}
+.nav-brand svg{width:22px;height:22px}
+.nav-links{display:flex;gap:28px;align-items:center}
+.nav-links a{color:#676a79;text-decoration:none;font-size:10.6667px;font-weight:400;transition:color .25s;letter-spacing:0.3px}
+.nav-links a:hover{color:#ceced7}
+.nav-links .nav-cta{
+  padding:0 26.6667px;height:38.656px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:14.667px;background:rgba(74,222,128,0.08);color:#4ade80;
+  font-size:10.6667px;font-weight:500;text-decoration:none;
+  border:1px solid rgba(74,222,128,0.12);transition:all .25s;letter-spacing:1.5px;
+}
+.nav-links .nav-cta:hover{background:rgba(74,222,128,0.12)}
+
+/* HERO */
+.hero{position:relative;z-index:2;padding:140px 28px 60px;max-width:1280px;margin:0 auto}
+.hero h1{
+  font-size:113.333px;font-weight:400;letter-spacing:-2.26667px;line-height:99.7333px;
+  margin-bottom:16px;max-width:900px;color:#ceced7;text-align:start;
+}
+.hero h1 .gradient{
+  background:linear-gradient(135deg,#4ade80 0%,#22d3ee 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-desc{
+  font-size:13.333px;color:#ceced7;line-height:16px;margin-bottom:28px;
+  max-width:440px;font-weight:300;letter-spacing:0.2px;
+}
+.hero-btns{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.hero-btns .btn-primary{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:0 26.6667px;height:38.656px;border-radius:14.667px;
+  background:transparent;color:#ceced7;font-size:10.6667px;font-weight:500;
+  text-decoration:none;border:0;transition:all .25s;letter-spacing:3px;
+}
+.hero-btns .btn-primary:hover{color:#fff}
+.hero-btns .btn-secondary{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:0 26.6667px;height:38.656px;border-radius:14.667px;
+  background:rgba(103,106,121,0.12);color:#676a79;font-size:10.6667px;font-weight:400;
+  text-decoration:none;border:1px solid rgba(103,106,121,0.2);transition:all .25s;letter-spacing:1px;
+}
+.hero-btns .btn-secondary:hover{border-color:#676a79;color:#ceced7}
+.hero-meta{color:#676a79;font-size:9.333px;margin-top:8px;letter-spacing:0.3px}
+.hero-meta a{color:#4ade80;text-decoration:none}
+.hero-meta a:hover{opacity:.8}
+
+/* SD Card */
+.hero-visual{margin-top:50px;display:flex;align-items:center;gap:40px}
+.card-stage{position:relative;width:320px;height:200px;display:flex;align-items:center}
+.card-backdrop{
+  position:absolute;inset:-30px;
+  background:radial-gradient(ellipse at 50% 100%, rgba(74,222,128,0.08) 0%, transparent 70%);
+  border-radius:50%;filter:blur(30px);
+}
+.sd-card{
+  position:relative;width:100%;height:100%;
+  background:linear-gradient(135deg,#17191d 0%,#1e2025 100%);
+  border:1px solid #2a2d33;border-radius:14px;overflow:hidden;padding:20px;
+}
+.scan-bar{
+  position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(74,222,128,0.04),transparent);
+  animation:scan 3s ease-in-out infinite;
+}
+@keyframes scan{0%{left:-60%}100%{left:160%}}
+.card-grid{
+  position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,0.01) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.01) 1px,transparent 1px);
+  background-size:20px 20px;opacity:0.3;
+}
+.card-content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:space-between}
+.card-top{display:flex;justify-content:space-between;align-items:center}
+.card-chip{display:flex;gap:4px;align-items:center}
+.card-chip span{width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px rgba(74,222,128,0.3);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.card-chip .label{color:#454850;font-size:8px;letter-spacing:0.5px;margin-left:4px}
+.card-files{color:#454850;font-size:8px;letter-spacing:0.3px}
+.card-center{text-align:left}
+.card-center .card-title{font-size:13px;font-weight:400;color:#ceced7;letter-spacing:-0.2px;margin-bottom:2px}
+.card-center .card-pills{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.card-pills span{padding:1px 6px;border-radius:3px;font-size:7px;background:rgba(103,106,121,0.1);color:#676a79;border:0}
+.card-footer{margin-top:auto}
+.card-progress{height:2px;background:rgba(255,255,255,0.03);border-radius:2px;overflow:hidden;margin-bottom:4px}
+.card-progress .fill{height:100%;width:62%;background:linear-gradient(90deg,#4ade80,#22d3ee);border-radius:2px;animation:progress 4s ease-in-out infinite}
+@keyframes progress{0%{width:20%}50%{width:75%}100%{width:20%}}
+.card-status{display:flex;justify-content:space-between;color:#454850;font-size:7px;letter-spacing:0.3px}
+.hero-tagline{flex:1;max-width:320px}
+.hero-tagline p{font-size:10.6667px;color:#676a79;line-height:1.6;font-weight:300;letter-spacing:0.2px}
+.hero-tagline .store-badges{display:flex;gap:8px;margin-top:16px}
+.hero-tagline .store-badges a{
+  display:inline-flex;align-items:center;gap:6px;padding:0 14px;height:34px;
+  border-radius:14.667px;background:#17191d;border:1px solid #2a2d33;
+  color:#676a79;text-decoration:none;font-size:9.333px;transition:all .2s;
+}
+.hero-tagline .store-badges a:hover{border-color:#454850}
+
+/* SECTIONS */
+section{position:relative;z-index:2;padding:100px 28px;max-width:1280px;margin:0 auto}
+section h2{
+  font-size:113.333px;font-weight:400;letter-spacing:-2.26667px;line-height:99.7333px;
+  margin-bottom:8px;max-width:900px;color:#ceced7;
+}
+section h2 .gradient{
+  background:linear-gradient(135deg,#4ade80 0%,#22d3ee 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+section .sec-desc{
+  font-size:13.333px;color:#ceced7;line-height:16px;margin-bottom:40px;
+  max-width:440px;font-weight:300;letter-spacing:0.2px;
+}
+
+/* FEATURES GRID (3-col Flowty style) */
+.features-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:1px;border-radius:10px;overflow:hidden;border:1px solid #2a2d33;
+}
+.feature-card{background:#17191d;padding:32px 24px}
+.feature-card .f-icon{width:28px;height:28px;margin-bottom:12px;color:#4ade80}
+.feature-card h3{font-size:13.333px;font-weight:500;color:#ceced7;margin-bottom:4px;letter-spacing:0.2px}
+.feature-card p{color:#676a79;font-size:10.6667px;line-height:1.6;font-weight:300}
+.feature-card .f-tags{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.feature-card .f-tags span{padding:2px 8px;border-radius:4px;font-size:8px;color:#454850;border:0;background:rgba(69,72,80,0.1)}
+
+/* FEATURES DETAIL (2-col expanded) */
+.features-detail{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:1px;border-radius:10px;overflow:hidden;border:1px solid #2a2d33}
+.feature-detail-card{background:#17191d;padding:24px 22px}
+.feature-detail-card h4{font-size:13.333px;font-weight:500;color:#ceced7;margin-bottom:4px;letter-spacing:0.2px}
+.feature-detail-card p{color:#676a79;font-size:10.6667px;line-height:1.6;font-weight:300}
+.feature-detail-card .f-tags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.feature-detail-card .f-tags span{padding:2px 8px;border-radius:4px;font-size:8px;color:#454850;border:0;background:rgba(69,72,80,0.1)}
+
+/* STATS */
+.stats-block{display:flex;align-items:center;gap:40px;padding:40px 0}
+.stats-number{
+  font-size:80px;font-weight:400;letter-spacing:-2px;line-height:1;
+  background:linear-gradient(135deg,#ceced7 0%,#676a79 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.stats-text{max-width:400px}
+.stats-text p{font-size:10.6667px;color:#676a79;line-height:1.6;font-weight:300}
+.stats-text a{color:#4ade80;text-decoration:none}
+.stats-text a:hover{opacity:.8}
+
+/* TESTIMONIALS */
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.testi-card{border:1px solid #2a2d33;border-radius:10px;padding:20px;background:#17191d}
+.testi-card blockquote{color:#676a79;font-size:9.333px;line-height:1.6;font-weight:300;margin-bottom:10px}
+.testi-card .testi-author{font-size:8px;color:#454850}
+
+/* DOWNLOAD */
+.download-grid{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:40px}
+.download-card{
+  background:#17191d;border:1px solid #2a2d33;border-radius:10px;
+  padding:24px 28px;text-decoration:none;color:inherit;
+  min-width:160px;transition:border-color .25s;text-align:left;
+}
+.download-card:hover{border-color:rgba(74,222,128,0.15)}
+.download-card .d-icon{margin-bottom:6px}
+.download-card .d-name{font-weight:500;font-size:10.6667px;color:#ceced7;margin-bottom:2px}
+.download-card .d-size{font-size:8px;color:#454850;margin-bottom:10px}
+.download-card .d-btn{
+  display:inline-block;padding:3px 14px;border-radius:5px;
+  background:rgba(74,222,128,0.08);color:#4ade80;font-weight:400;
+  font-size:9.333px;letter-spacing:1px;border:1px solid rgba(74,222,128,0.12);
+}
+
+.install-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:40px}
+.install-card{border:1px solid #2a2d33;border-radius:10px;padding:22px;background:#17191d}
+.install-card h4{font-size:10.6667px;font-weight:500;color:#ceced7;margin-bottom:8px}
+.install-card ol{padding-left:16px;color:#676a79;font-size:9.333px;line-height:2;font-weight:300}
+.install-card .install-note{margin-top:8px;padding:8px 12px;border-radius:6px;font-size:9.333px;line-height:1.5}
+.install-card .install-note.warn{background:rgba(255,68,68,0.025);border-left:2px solid rgba(255,68,68,0.15);color:#676a79}
+.install-card .install-note.ok{background:rgba(74,222,128,0.025);border-left:2px solid rgba(74,222,128,0.1);color:#676a79}
+
+/* FOOTER */
+footer{position:relative;z-index:2;border-top:1px solid #2a2d33;padding:40px 28px;max-width:1280px;margin:0 auto}
+.footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:12px;flex-wrap:wrap}
+.footer-links a{color:#454850;text-decoration:none;font-size:9.333px;transition:color .2s}
+.footer-links a:hover{color:#676a79}
+footer p{color:#454850;font-size:9.333px;text-align:center}
+
+@media(max-width:768px){
+  .hero h1,section h2{font-size:48px;line-height:42px;letter-spacing:-1px}
+  .feature-card{grid-column:span 3}
+  .features-detail{grid-template-columns:1fr}
+  .testi-grid,.install-grid{grid-template-columns:1fr}
+  .stats-block{flex-direction:column;align-items:flex-start}
+  .stats-number{font-size:48px}
+  .nav-links a:not(.nav-cta){display:none}
+  .hero-visual{flex-direction:column;gap:20px}
+  .card-stage{width:100%;max-width:300px}
+}
+@media(max-width:480px){
+  .hero h1,section h2{font-size:36px;line-height:32px}
+  .hero{padding:100px 16px 60px}section{padding:80px 16px}
+  .hero-btns{flex-direction:column;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+
+<div class="cursor-glow" id="cursorGlow"></div>
+<div class="noise-overlay">
+  <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+    <filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+    <rect width="100%" height="100%" filter="url(#noise)" opacity="1"/>
+  </svg>
+</div>
+<div class="scanlines"></div>
+<div class="light-orb o1"></div>
+<div class="light-orb o2"></div>
+<div class="light-orb o3"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <svg viewBox="0 0 22 22" fill="none"><rect x="1" y="1" width="20" height="20" rx="4" stroke="#4ade80" stroke-width="1.2"/><path d="M6 11L9 14L15 7" stroke="#4ade80" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Smart Media Backup
+    </a>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#download">下载</a>
+      <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank">GitHub</a>
+      <a href="#download" class="nav-cta">免 费 下 载</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>插卡到电脑<br><span class="gradient">剩下的交给 AI</span></h1>
+  <p class="hero-desc">自动读取相机型号、拍摄日期、GPS。AI 废片筛选、百度网盘上传、多目标同时备份。插卡即备份。</p>
+  <div class="hero-btns">
+    <a href="#download" class="btn-primary">免 费 下 载</a>
+    <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" class="btn-secondary">源码 →</a>
+  </div>
+  <div class="hero-meta">macOS · Windows · MIT 开源 · <a href="https://smart-media-backup.vercel.app" target="_blank">国内镜像</a></div>
+
+  <div class="hero-visual">
+    <div class="card-stage">
+      <div class="card-backdrop"></div>
+      <div class="sd-card">
+        <div class="scan-bar"></div>
+        <div class="card-grid"></div>
+        <div class="card-content">
+          <div class="card-top">
+            <div class="card-chip"><span></span><span class="label">扫描中</span></div>
+            <div class="card-files">4,812 files</div>
+          </div>
+          <div class="card-center">
+            <div class="card-title">Sony ILCE-7M4</div>
+            <div class="card-pills"><span>RAW 238</span><span>JPG 56</span><span>MP4 27</span></div>
+          </div>
+          <div class="card-footer">
+            <div class="card-progress"><div class="fill"></div></div>
+            <div class="card-status"><span>验证中 · 135/325</span><span>48 MB/s</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-tagline">
+      <p>一个优雅的桌面伴侣，为深度而设计<br>无序的拍摄工作。</p>
+      <div class="store-badges"><a href="#download">macOS 下载</a><a href="#download">Windows 下载</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- 功能 -->
+<section id="features">
+  <h2>核心<br><span class="gradient">功能</span></h2>
+  <p class="sec-desc">从插卡到云端，每一步都经过精心设计。</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="f-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="4" y="10" width="20" height="16" rx="2"/><path d="M12 6l2-2 2 2"/><path d="M14 4v8"/></svg></div>
+      <h3>插卡即用</h3>
+      <p>SD 卡插入自动检测，EXIF 秒级提取，RAW、JPG、MP4、HEIC 全格式。插卡自动弹浏览器。</p>
+      <div class="f-tags"><span>Sony</span><span>DJI</span><span>Canon</span></div>
+    </div>
+    <div class="feature-card">
+      <div class="f-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="14" cy="14" r="9"/><path d="M14 9v6l3 2"/></svg></div>
+      <h3>AI 智能分类</h3>
+      <p>相机型号、拍摄日期、GPS 坐标自动提取。按设备、事件、照片-视频三层分类。</p>
+      <div class="f-tags"><span>按设备</span><span>按日期</span><span>按地点</span></div>
+    </div>
+    <div class="feature-card">
+      <div class="f-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M7 14l5 5 9-9"/></svg></div>
+      <h3>零错误保障</h3>
+      <p>SHA256 校验 + 三次重试 + 增量去重。已处理超过 1TB 文件，零拷贝错误。</p>
+      <div class="f-tags"><span>SHA256</span><span>增量</span><span>重试</span></div>
+    </div>
+  </div>
+
+  <div class="features-detail">
+    <div class="feature-detail-card">
+      <h4>多目标 + 云同步</h4>
+      <p>同时备份到外置硬盘、NAS、本地磁盘。百度网盘后台自动上传，多台电脑同步备份历史。</p>
+      <div class="f-tags"><span>多目标</span><span>百度网盘</span><span>跨电脑</span></div>
+    </div>
+    <div class="feature-detail-card">
+      <h4>AI 废片筛选</h4>
+      <p>自动识别过曝、过暗、模糊、闭眼。废片移到待确认文件夹，绝不替你删。</p>
+      <div class="f-tags"><span>过曝</span><span>模糊</span><span>闭眼</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 数据 -->
+<section>
+  <div class="stats-block">
+    <div class="stats-number">1000+<br>GB</div>
+    <div class="stats-text">
+      <p>社区通过本工具处理超过 1TB 的媒体文件，照片整理时间减少约 80%，备份错误率降为零。<a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank">GitHub 数据</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- 评价 -->
+<section>
+  <p class="sec-desc" style="margin-bottom:0">用户对 Smart Media Backup 的真实评价。</p>
+  <div class="testi-grid">
+    <div class="testi-card"><blockquote>"插卡自动弹浏览器这个体验太好了。以前每次都要手动建文件夹分类，现在插卡、打字、点一下完事。"</blockquote><div class="testi-author">— 婚礼摄影师，上海</div></div>
+    <div class="testi-card"><blockquote>"最打动我的是废片筛选。AI 帮我挑出闭眼和过曝的省了两小时。百度网盘自动上传更是锦上添花。"</blockquote><div class="testi-author">— 独立摄影师，北京</div></div>
+    <div class="testi-card"><blockquote>"百度网盘自动上传太方便了。以前备份完要手动拖到网盘，现在后台自己传。SHA256 校验让我睡得安稳。"</blockquote><div class="testi-author">— 视频创作者，深圳</div></div>
+  </div>
+</section>
+
+<!-- 下载安装 -->
+<section id="download">
+  <h2>下载<br><span class="gradient">安装</span></h2>
+  <p class="sec-desc">免费开源，macOS 和 Windows 双平台支持。</p>
+
+  <div class="download-grid">
+    <a href="https://smart-media-backup.vercel.app/download/macos" class="download-card">
+      <div class="d-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="4" r="3" stroke="#454850" stroke-width="1"/><path d="M4 14l6 4 6-4" stroke="#454850" stroke-width="1"/><path d="M10 18V8" stroke="#454850" stroke-width="1"/></svg></div>
+      <div class="d-name">macOS</div>
+      <div class="d-size">.dmg · 48 MB · Apple Silicon · v1.0.12</div>
+      <div class="d-btn">下载</div>
+    </a>
+    <a href="https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.0/SmartMediaBackup-Windows.exe" class="download-card">
+      <div class="d-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M2 2h7v7H2V2zm0 9h7v7H2v-7zm9-9h7v7h-7V2zm0 9h7v7h-7v-7z" stroke="#454850" stroke-width="1"/></svg></div>
+      <div class="d-name">Windows</div>
+      <div class="d-size">.exe · Windows 10+</div>
+      <div class="d-btn">下载</div>
+    </a>
+    <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank" class="download-card">
+      <div class="d-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l8 4v8l-8 4-8-4V6l8-4z" stroke="#454850" stroke-width="1"/><path d="M10 10l8-4" stroke="#454850" stroke-width="1"/><path d="M10 10v8" stroke="#454850" stroke-width="1"/><path d="M2 6l8 4" stroke="#454850" stroke-width="1"/></svg></div>
+      <div class="d-name">源代码</div>
+      <div class="d-size">MIT 协议 · GitHub</div>
+      <div class="d-btn">查看</div>
+    </a>
+  </div>
+
+  <div class="install-grid">
+    <div class="install-card">
+      <h4>macOS 安装</h4>
+      <ol><li>下载 .dmg → 拖到 Applications</li><li>打开启动台 → 点 App</li></ol>
+      <div class="install-note warn">首次弹出「未验证开发者」<br>系统设置 → 隐私 → 「仍然打开」</div>
+      <div class="install-note ok">右键 → 点「打开」即可</div>
+    </div>
+    <div class="install-card">
+      <h4>Windows 安装</h4>
+      <ol><li>下载 .exe → 双击运行</li><li>从桌面快捷方式启动</li></ol>
+      <div class="install-note warn">弹出「已保护你的电脑」<br>点「更多信息」→「仍要运行」</div>
+      <div class="install-note ok">代码开源 MIT，安全</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-links">
+    <a href="#">首页</a><a href="#features">功能</a><a href="#download">下载</a>
+    <a href="https://github.com/luguanlin20050927/smart-media-backup" target="_blank">GitHub</a>
+    <a href="https://github.com/luguanlin20050927/smart-media-backup/releases" target="_blank">更新日志</a>
+    <a href="https://github.com/luguanlin20050927/smart-media-backup/issues" target="_blank">问题反馈</a>
+  </div>
+  <p>Smart Media Backup · MIT License · 2025 陆冠霖</p>
+</footer>
+
+<script>
+window.addEventListener('scroll',()=>{document.getElementById('nav').classList.toggle('scrolled',window.scrollY>40)})
+document.addEventListener('pointermove',e=>{document.getElementById('cursorGlow').style.setProperty('--mx',e.clientX+'px');document.getElementById('cursorGlow').style.setProperty('--my',e.clientY+'px')})
+</script>
+</body>
+</html>

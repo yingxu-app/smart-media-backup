@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Media Backup</title>
+    <title>影序 YINGXU</title>
     <link rel="stylesheet" href="/static/css/app.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -13,21 +13,21 @@
     <!-- 侧边栏 -->
     <nav class="sidebar">
         <div class="sidebar-brand">
-            <span class="brand-icon">🖼</span>
-            <span class="brand-text">SMB</span>
+            <img class="brand-icon" src="/static/img/icon.svg" alt="影序图标">
+            <span class="brand-text">影序 YINGXU</span>
         </div>
         <div class="sidebar-nav">
             <a href="/" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
-                <span class="nav-icon">🏠</span>
-                <span class="nav-label">首页</span>
+                <span class="nav-icon">01</span>
+                <span class="nav-label">工作台</span>
             </a>
             <a href="/history" class="nav-item {% if active_page == 'history' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span class="nav-label">历史记录</span>
+                <span class="nav-icon">02</span>
+                <span class="nav-label">归档记录</span>
             </a>
             <a href="/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}">
-                <span class="nav-icon">⚙️</span>
-                <span class="nav-label">设置</span>
+                <span class="nav-icon">03</span>
+                <span class="nav-label">偏好设置</span>
             </a>
         </div>
         <div class="sidebar-footer">

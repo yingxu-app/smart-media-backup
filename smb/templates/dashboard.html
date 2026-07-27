@@ -2,27 +2,30 @@
 <html lang="zh">
 <head><meta charset="UTF-8"><title>影序 YINGXU</title><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,system-ui,sans-serif;background:#0a0a0b;color:#e2e8f0;min-height:100vh}
-.app{display:flex;min-height:100vh}
-.sidebar{width:220px;background:#0f1117;padding:20px 0;border-right:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column}
+:root{--bg:#0a0a0b;--panel:#13161a;--panel-soft:#101216;--field:#1a1c24;--border:rgba(255,255,255,.08);--text:#e2e8f0;--muted:#8c93a3;--accent:#4ade80}
+[data-theme="light"]{--bg:#ffffff;--panel:#ffffff;--panel-soft:#ffffff;--field:#ffffff;--border:rgba(15,23,42,.14);--text:#152019;--muted:#62706a;--accent:#16a34a}
+body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{min-height:100vh}
+.sidebar{width:220px;background:var(--panel-soft);padding:20px 0;border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:10}
 .sidebar-logo{padding:0 20px 20px;font-size:16px;font-weight:700;color:#4ade80}
-.sidebar a{display:block;padding:12px 20px;color:#aaa;text-decoration:none;font-size:14px;transition:.2s}
-.sidebar a:hover{color:#fff;background:rgba(255,255,255,.03)}
-.sidebar a.active{color:#4ade80;background:rgba(74,222,128,.08);border-right:2px solid #4ade80}
-.main{flex:1;padding:30px;overflow-y:auto;max-width:900px}
-.card{background:#13161a;border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid rgba(255,255,255,.06)}
+.sidebar a{display:block;padding:12px 20px;color:var(--muted);text-decoration:none;font-size:14px;transition:.2s}
+.sidebar a:hover{color:var(--text);background:rgba(74,222,128,.05)}
+.sidebar a.active{color:var(--accent);background:rgba(74,222,128,.10);border-right:2px solid var(--accent)}
+.sidebar-footer{display:flex;align-items:center;gap:8px;padding:16px 20px 0;margin-top:auto;color:var(--muted);font-size:12px}.status-dot{width:10px;height:10px;border-radius:50%;background:#64748b}.status-dot.ready{background:var(--accent);box-shadow:0 0 8px var(--accent)}.status-text.ready{color:var(--accent);font-weight:700}.theme-toggle{margin-left:auto;border:0;background:transparent;color:var(--text);font-size:20px;cursor:pointer;padding:4px}
+.main{margin-left:220px;width:calc(100% - 220px);padding:30px;max-width:none}
+.card{background:var(--panel);border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid var(--border)}
 .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-h2,h3{color:#e2e8f0;font-weight:600}
+h2,h3{color:var(--text);font-weight:600}
 .btn-start{display:block;width:100%;padding:14px;background:#4ade80;color:#0a0a0b;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px}
 .btn-start:disabled{background:#1e3a2a;color:#4a6652;cursor:not-allowed}
 .btn-cancel{padding:10px 24px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:8px;cursor:pointer;font-size:14px}
-.btn-refresh,.btn-add-target{padding:8px 14px;background:#1a1c24;color:#4ade80;border:1px solid rgba(74,222,128,.2);border-radius:8px;cursor:pointer;font-size:14px}
-.btn-refresh:hover,.btn-add-target:hover{background:rgba(74,222,128,.1)}
-select,input[type=text]{padding:10px 14px;background:#1a1c24;color:#e2e8f0;border:1px solid rgba(255,255,255,.1);border-radius:8px;font-size:14px;width:100%}
+.btn-refresh,.btn-add-target{height:44px;padding:0 16px;background:var(--field);color:var(--accent);border:1px solid rgba(74,222,128,.35);border-radius:8px;cursor:pointer;font-size:14px;white-space:nowrap}
+.btn-refresh:hover,.btn-add-target:hover{background:rgba(74,222,128,.1)}.is-refreshing{pointer-events:none;opacity:.72}.is-refreshing .refresh-glyph{display:inline-block;animation:spin .75s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+select,input[type=text]{height:44px;padding:10px 14px;background:var(--field);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:14px;width:100%}
 .form-row{margin-bottom:16px}
-.form-row label{display:block;margin-bottom:6px;color:#aaa;font-size:13px}
-.hint{color:#737786;font-size:12px;margin-top:4px;display:block}
+.form-row label{display:block;margin-bottom:6px;color:var(--muted);font-size:13px}.hint{color:var(--muted);font-size:12px;margin-top:4px;display:block}
 .target-selector{display:flex;gap:8px;align-items:center}
+.source-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.source-item{padding:12px;text-align:left;background:var(--panel-soft);border:1px solid var(--border);border-radius:10px;color:var(--text);cursor:pointer}.source-item:hover,.source-item.selected{border-color:var(--accent);background:rgba(74,222,128,.08)}.source-item b,.source-item span{display:block}.source-item span{margin-top:5px;color:var(--muted);font-size:12px}.naming-order{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.folder-preview{margin-top:10px;padding:10px 12px;border-radius:8px;background:#0d1712;border:1px solid rgba(74,222,128,.16);font-size:13px;color:#a7f3d0;word-break:break-word}.naming-depth{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)}.naming-depth select{width:auto;padding:7px 10px}.preview-strip{display:flex;gap:8px;margin-top:10px;overflow:auto}.preview-item{width:86px;flex:0 0 86px}.preview-item img{display:block;width:86px;height:64px;object-fit:cover;border-radius:7px;border:1px solid var(--border);background:#0b0e12}.preview-item span{display:block;margin-top:4px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.target-actions{display:flex;gap:8px;margin-top:8px}.folder-picker{width:100%;display:flex;align-items:center;justify-content:center;font-size:15px}@media(max-width:720px){.naming-order{grid-template-columns:1fr 1fr}}
 .device-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
 .device-icon{width:40px;height:40px;background:rgba(74,222,128,.08);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-right:12px}
 .device-name{font-size:14px;font-weight:600}
@@ -41,49 +44,72 @@ select,input[type=text]{padding:10px 14px;background:#1a1c24;color:#e2e8f0;borde
 .tag-remove{background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px}
 .local-folder-row{display:flex;gap:8px;align-items:center}
 .local-folder-row input{flex:1;padding:8px 12px;font-size:13px}
-.status-bar{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:16px;background:#13161a;border-radius:12px;border:1px solid rgba(255,255,255,.06)}
+.status-bar{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:16px;background:var(--panel);border-radius:12px;border:1px solid var(--border)}
 .status-icon{font-size:28px}
 .status-title{font-size:15px;font-weight:600}
-.status-detail{font-size:13px;color:#737786}
-</style></head>
+.status-detail{font-size:13px;color:var(--muted)}
+.quick-start{display:flex;align-items:stretch;gap:10px}.quick-step{flex:1;padding:12px;border-radius:9px;background:var(--panel-soft);border:1px solid var(--border);font-size:13px;line-height:1.55}.quick-step b{display:block;color:var(--accent);margin-bottom:3px}.quick-start-close{align-self:flex-start;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;padding:2px 4px}@media(max-width:720px){.quick-start{display:block}.quick-step{margin-bottom:8px}}
+</style><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+</head>
 <body><div class="app">
 <div class="sidebar">
-  <div class="sidebar-logo">影序 YINGXU</div>
+  <div class="sidebar-logo"><img src="/static/img/icon.svg" alt="影序图标" style="width:28px;height:28px;vertical-align:middle;margin-right:8px">影序 YINGXU</div>
   <a href="/" class="active">01 工作台</a>
   <a href="/history">02 归档记录</a>
   <a href="/settings">03 偏好设置</a>
+  <div class="sidebar-footer"><span class="status-dot" id="statusDot"></span><span class="status-text" id="statusText">未就绪</span><button class="theme-toggle" onclick="toggleTheme()" title="切换日间 / 夜间模式">🌙</button></div>
 </div>
 <div class="main" id="mainContent">
 <div class="status-bar" id="statusBar">
   <div class="status-icon" id="statusIcon">📡</div>
   <div class="status-info">
     <div class="status-title" id="statusTitle">等待插入 SD 卡...</div>
-    <div class="status-detail" id="statusDetail">插入 SD 卡后自动检测</div>
+    <div class="status-detail" id="statusDetail">插入存储卡后自动检测；不会读取或删除素材</div>
   </div>
 </div>
+<div class="card quick-start" id="quickStart" style="display:none" aria-label="首次使用指引">
+  <div class="quick-step"><b>01 插入存储卡</b>影序只读取和复制，不会删除原卡素材。</div>
+  <div class="quick-step"><b>02 选一个备份位置</b>可选桌面、外置硬盘或“其他文件夹”，可用空间会显示出来。</div>
+  <div class="quick-step"><b>03 命名后开始备份</b>完成后到“归档记录”查看结果和打开报告。</div>
+  <button class="quick-start-close" onclick="dismissQuickStart()" title="关闭指引" aria-label="关闭首次使用指引">×</button>
+</div>
 <div class="scan-result card" id="scanResult" style="display:none">
-  <div class="card-header"><h3>📷 检测结果</h3><span class="card-subtitle" id="cardSubtitle"></span></div>
+  <div class="card-header"><h3>📷 检测到的来源</h3><button class="btn-refresh" id="refreshSourcesBtn" onclick="scanSources(this)"><span class="refresh-glyph">↻</span> 刷新来源</button></div>
+  <div class="source-list" id="sourceList"></div>
+  <div class="card-header" style="margin-top:16px"><h3>当前来源的素材统计</h3><span class="card-subtitle" id="cardSubtitle"></span></div>
   <div class="device-list" id="deviceList"></div>
   <div class="scan-summary"><span id="totalFilesInfo"></span><span id="totalSizeInfo"></span></div>
 </div>
 <div class="action-panel card" id="actionPanel" style="display:none">
   <div class="form-row">
+    <label>🧩 文件夹命名顺序</label>
+    <div class="naming-order"><select class="name-part" onchange="updateNamingPreview()"><option value="date">时间</option><option value="event">事件</option><option value="location">地点</option><option value="device">设备</option><option value="type">照片或视频</option></select><select class="name-part" onchange="updateNamingPreview()"><option value="event">事件</option><option value="date">时间</option><option value="location">地点</option><option value="device">设备</option><option value="type">照片或视频</option></select><select class="name-part" onchange="updateNamingPreview()"><option value="location">地点</option><option value="event">事件</option><option value="date">时间</option><option value="device">设备</option><option value="type">照片或视频</option></select><select class="name-part" onchange="updateNamingPreview()"><option value="device">设备</option><option value="event">事件</option><option value="date">时间</option><option value="location">地点</option><option value="type">照片或视频</option></select><select class="name-part" onchange="updateNamingPreview()"><option value="type">照片或视频</option><option value="event">事件</option><option value="date">时间</option><option value="location">地点</option><option value="device">设备</option></select></div>
+    <div class="naming-depth">使用前 <select id="nameDepth" onchange="updateNamingPreview()"><option value="1">1 项（只按时间）</option><option value="2">2 项</option><option value="3">3 项</option><option value="4">4 项</option><option value="5" selected>5 项</option></select> 作为文件夹名称</div>
+    <small class="hint">可重复调整顺序；识别不到地点时会显示“地点待确认”，你可以在事件名称中补充。</small>
+    <div class="folder-preview" id="folderPreview">备份文件夹预览：—</div>
+    <div class="preview-strip" id="previewStrip" aria-label="当前来源的参考照片"></div>
+    <small class="hint">参考照片仅在本机读取，用于帮助确认事件名称；不会上传，也不会修改原文件。</small>
+  </div>
+  <div class="form-row">
     <label for="eventName">📝 事件名称</label>
-    <input type="text" id="eventName" placeholder="例如：2026年上海漫展">
+    <input type="text" id="eventName" placeholder="例如：2026年上海漫展" oninput="updateNamingPreview()">
   </div>
   <div class="form-row">
     <label>💾 备份到</label>
     <div class="target-selector">
       <select id="backupTarget"></select>
-      <button class="btn-refresh" onclick="refreshTargets()" title="刷新磁盘">🔄</button>
-      <button class="btn-add-target" onclick="addTarget()">＋</button>
+      <button class="btn-refresh" id="refreshTargetsBtn" onclick="refreshTargets(this)" title="重新读取可用磁盘"><span class="refresh-glyph">↻</span> 刷新磁盘</button>
+      <button class="btn-add-target" onclick="addTarget()">＋ 再备份一份</button>
     </div>
     <div class="local-folder-row" style="margin-top:6px">
-      <input type="text" id="localFolder" placeholder="或输入本地路径，如 /Users/nanyu/Desktop/备份">
-      <button class="btn-add-target" onclick="setLocalFolder()">📁 设为目标</button>
+      <input type="text" id="localFolder" placeholder="从上方选择后会显示路径；也可手动填写" oninput="syncManualTarget()">
+      <button class="btn-add-target" onclick="setLocalFolder()">✓ 使用路径</button>
     </div>
+    <div class="target-actions"><button class="btn-refresh folder-picker" onclick="chooseFolder()">📁 选择其他文件夹</button></div>
     <div id="targetTags" class="target-tags"></div>
-    <small class="hint">可选手动输入本地路径，或从下拉选外置磁盘。点＋添加额外备份目标</small>
+    <small class="hint">选择磁盘后会同步显示路径。要备份到两个位置，请先选择第一个位置，再点“再备份一份”。</small>
   </div>
   <button class="btn-start" id="btnStart" onclick="startBackup()" disabled>▶ 开始备份</button>
 </div>
@@ -106,29 +132,51 @@ select,input[type=text]{padding:10px 14px;background:#1a1c24;color:#e2e8f0;borde
 </div></div>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-const socket=io();let detectedMount='';let extraTargets=[];
+const socket=io();const WORKSPACE_CACHE_KEY='yingxu-workspace-v1';const WORKSPACE_CACHE_MAX_AGE=30*60*1000;const QUICK_START_KEY='yingxu-quick-start-dismissed-v1';let detectedMount='';let selectedSourceMount='';let extraTargets=[];let terminalNotice='';let scanData={};
+function applyTheme(theme){document.documentElement.setAttribute('data-theme',theme);localStorage.setItem('smb-theme',theme);document.querySelector('.theme-toggle').textContent=theme==='dark'?'🌙':'☀️'}
+function toggleTheme(){applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light')}
+applyTheme(localStorage.getItem('smb-theme')||'dark');
 
-socket.on('scan_progress',d=>{document.getElementById('progressFill').style.width=d.progress+'%';document.getElementById('progressPct').textContent=Math.round(d.progress)+'%';document.getElementById('currentFile').textContent=d.current_file||'—';document.getElementById('currentSpeed').textContent=d.speed||'—';document.getElementById('copiedCount').textContent=d.copied||0;document.getElementById('skippedCount').textContent=d.skipped||0});
+socket.on('scan_progress',d=>{document.getElementById('progressFill').style.width=d.progress+'%';document.getElementById('progressPct').textContent=Math.round(d.progress)+'%';document.getElementById('currentFile').textContent=d.current_file||'—';document.getElementById('currentSpeed').textContent=d.speed||'—';document.getElementById('copiedCount').textContent=d.copied||0;document.getElementById('skippedCount').textContent=d.skipped||0;handleTerminalStatus(d)});
 socket.on('backup_complete',d=>{alert('✅ 备份完成! '+d.copied+' 个文件已复制, '+d.skipped+' 个已跳过');resetUI();});
 socket.on('backup_error',d=>{alert('❌ 备份出错: '+d.error);resetUI();});
-socket.on('scan_update',d=>{detectedMount=d.mount_point;renderScan(d.devices,d.total_files,d.total_size)});
+socket.on('scan_update',d=>{if(!selectedSourceMount||selectedSourceMount===d.mount_point){detectedMount=d.mount_point;scanData=d;renderScan(d.devices,d.total_files,d.total_size,d.source_name)}});
 
-function scan(){fetch('/api/scan').then(r=>r.json()).then(d=>{detectedMount=d.mount_point;renderScan(d.devices,d.total_files,d.total_size)}).catch(e=>{document.getElementById('statusTitle').textContent='等待插入 SD 卡...';document.getElementById('statusDetail').textContent='插入后自动检测'})}
+function setSidebarStatus(ready){let dot=document.getElementById('statusDot'),text=document.getElementById('statusText');dot.classList.toggle('ready',ready);text.classList.toggle('ready',ready);text.textContent=ready?'就绪':'未就绪'}
+function dismissQuickStart(){localStorage.setItem(QUICK_START_KEY,'1');document.getElementById('quickStart').style.display='none'}
+function showQuickStartIfNeeded(){if(!localStorage.getItem(QUICK_START_KEY))document.getElementById('quickStart').style.display='flex'}
+function hasWorkspace(){return Boolean(scanData&&detectedMount&&scanData.devices&&scanData.devices.length)}
+function saveWorkspaceState(){if(!hasWorkspace())return;try{localStorage.setItem(WORKSPACE_CACHE_KEY,JSON.stringify({savedAt:Date.now(),detectedMount,selectedSourceMount,scanData,eventName:document.getElementById('eventName').value,localFolder:document.getElementById('localFolder').value,extraTargets}))}catch(_){}}
+function restoreWorkspaceState(){try{let cached=JSON.parse(localStorage.getItem(WORKSPACE_CACHE_KEY)||'null');if(!cached||Date.now()-cached.savedAt>WORKSPACE_CACHE_MAX_AGE||!cached.scanData||!cached.detectedMount)return false;detectedMount=cached.detectedMount;selectedSourceMount=cached.selectedSourceMount||cached.detectedMount;scanData=cached.scanData;extraTargets=Array.isArray(cached.extraTargets)?cached.extraTargets:[];renderScan(scanData.devices,scanData.total_files,scanData.total_size,scanData.source_name);if(cached.eventName)document.getElementById('eventName').value=cached.eventName;if(cached.localFolder){document.getElementById('localFolder').value=cached.localFolder;syncManualTarget()}renderTags();document.getElementById('statusTitle').textContent='✅ 已恢复上次检测结果';document.getElementById('statusDetail').textContent=(scanData.source_name||'存储卡')+' · 后台确认中';setSidebarStatus(true);return true}catch(_){return false}}
+function showWaiting(detail){document.getElementById('statusTitle').textContent='等待插入 SD 卡...';document.getElementById('statusDetail').textContent=detail;setSidebarStatus(false)}
+function scan(){fetch('/api/scan').then(r=>r.json()).then(d=>{if(d.error){if(hasWorkspace()){document.getElementById('statusTitle').textContent='上次检测结果已保留';document.getElementById('statusDetail').textContent='当前未检测到原存储卡；重新插入后会自动更新';setSidebarStatus(false);return}showWaiting('未发现含照片或视频的存储卡');return}if(!selectedSourceMount){detectedMount=d.mount_point;scanData=d;renderScan(d.devices,d.total_files,d.total_size,d.source_name)}setSidebarStatus(true);scanSources()}).catch(()=>{if(!hasWorkspace())showWaiting('插入后自动检测')})}
 
-function renderScan(devices,total,size){if(!devices||devices.length===0){document.getElementById('statusTitle').textContent='未检测到设备';return}document.getElementById('statusTitle').textContent='✅ 检测到 '+devices.length+' 个设备';document.getElementById('statusDetail').textContent='';document.getElementById('scanResult').style.display='block';document.getElementById('actionPanel').style.display='block';document.getElementById('btnStart').disabled=false;let h='';devices.forEach(d=>{let pc=d.photo_count||d.files.filter(f=>['.jpg','.jpeg','.png','.heic'].some(e=>f.name.toLowerCase().endsWith(e))).length;let vc=d.video_count||d.files.filter(f=>['.mp4','.mov','.avi'].some(e=>f.name.toLowerCase().endsWith(e))).length;h+=`<div class="device-row"><div class="device-icon">📷</div><div><div class="device-name">${d.name||'Unknown'}</div><div class="device-meta">${d.file_count||d.files.length} 文件 · ${pc} 照片 · ${vc} 视频</div></div></div>`});document.getElementById('deviceList').innerHTML=h;document.getElementById('totalFilesInfo').textContent='共 '+total+' 个文件';document.getElementById('totalSizeInfo').textContent=(size/(1024*1024)).toFixed(1)+' MB';document.getElementById('cardSubtitle').textContent='扫描完成'}
+function renderScan(devices,total,size,sourceName){if(!devices||devices.length===0){document.getElementById('statusTitle').textContent='未检测到设备';return}document.getElementById('statusTitle').textContent='✅ 已插入 SD 卡';document.getElementById('statusDetail').textContent=(sourceName||'存储卡')+' · 已扫描完成';document.getElementById('scanResult').style.display='block';document.getElementById('actionPanel').style.display='block';document.getElementById('btnStart').disabled=false;let h='';devices.forEach(d=>{h+=`<div class="device-row"><div class="device-icon">📷</div><div><div class="device-name">${d.name||'未知设备'}</div><div class="device-meta">${d.files||0} 文件 · ${d.photos||0} 照片 · ${d.videos||0} 视频</div></div></div>`});document.getElementById('deviceList').innerHTML=h;document.getElementById('totalFilesInfo').textContent='共 '+total+' 个文件';document.getElementById('totalSizeInfo').textContent=(size/(1024*1024)).toFixed(1)+' MB';document.getElementById('cardSubtitle').textContent='当前来源：'+(sourceName||'存储卡');let sn=scanData.suggested_name;if(sn&&!document.getElementById('eventName').value.trim()){document.getElementById('eventName').value=sn;document.getElementById('eventName').style.color='#4ade80'}renderPreviews(scanData.previews||[]);updateNamingPreview();saveWorkspaceState()}
 
-function refreshTargets(){fetch('/api/volumes').then(r=>r.json()).then(vols=>{let sel=document.getElementById('backupTarget');sel.innerHTML='';if(vols.length===0){sel.innerHTML='<option value="">没有检测到磁盘</option>';return}sel.innerHTML='<option value="">选择目标磁盘...</option>';vols.forEach(v=>{sel.innerHTML+=`<option value="${v.mount_point}">${v.name||'—'} (${v.mount_point}) — ${(v.size_free/(1024**3)).toFixed(1)} GB 可用</option>`})})}
+function renderPreviews(items){document.getElementById('previewStrip').innerHTML=items.map(item=>`<div class="preview-item"><img src="/api/preview/${item.id}" alt="${item.filename}" onerror="this.parentElement.style.display='none'"><span>${item.filename}</span></div>`).join('')}
 
-function setLocalFolder(){let p=document.getElementById('localFolder').value.trim();if(!p){alert('请输入路径');return}document.getElementById('backupTarget').innerHTML=`<option value="${p}" selected>📁 ${p}</option>`;document.getElementById('btnStart').disabled=false}
+function setRefreshing(button,active){if(button)button.classList.toggle('is-refreshing',active)}
+function scanSources(button){setRefreshing(button,true);fetch('/api/sources').then(r=>r.json()).then(d=>{let list=d.sources||[];if(selectedSourceMount&&!list.some(s=>s.mount_point===selectedSourceMount)){selectedSourceMount='';detectedMount=''}document.getElementById('sourceList').innerHTML=list.map(s=>{let mount=encodeURIComponent(s.mount_point);return `<button class="source-item ${s.mount_point===(selectedSourceMount||detectedMount)?'selected':''}" onclick="selectSource(decodeURIComponent('${mount}'))"><b>💾 ${s.name}</b><span>${s.total_files} 文件 · ${s.photos} 照片 · ${s.videos} 视频 · ${(s.total_size/1024/1024).toFixed(1)} MB</span></button>`}).join('')||'<span class="hint">未检测到可备份来源</span>'}).catch(()=>alert('刷新来源失败，请检查存储卡是否仍已连接。')).finally(()=>setRefreshing(button,false))}
+function selectSource(mount){fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mount_point:mount})}).then(r=>r.json()).then(d=>{if(d.error){alert(d.error);return}selectedSourceMount=d.mount_point;detectedMount=d.mount_point;scanData=d;renderScan(d.devices,d.total_files,d.total_size,d.source_name);saveWorkspaceState();scanSources()})}
 
-function addTarget(){let sel=document.getElementById('backupTarget');let v=sel.value;if(!v||extraTargets.includes(v))return;extraTargets.push(v);renderTags()}
-function removeTarget(v){extraTargets=extraTargets.filter(t=>t!==v);renderTags()}
+function refreshTargets(button){setRefreshing(button,true);let previous=document.getElementById('backupTarget').value||document.getElementById('localFolder').value.trim();fetch('/api/volumes').then(r=>r.json()).then(vols=>{let sel=document.getElementById('backupTarget');sel.innerHTML='<option value="">选择备份位置…</option>';vols.forEach(v=>{let free=Number(v.size_free);let freeText=Number.isFinite(free)?(free/(1024**3)).toFixed(1)+' GB 可用':'空间未知';let raw=(v.name||'').replace('📁 ','');let localNames={Desktop:'桌面',Documents:'文稿',Downloads:'下载',Pictures:'图片',Movies:'影片'};let label=localNames[raw]||raw||'外置磁盘';let external=!(v.fstype==='local'||Object.prototype.hasOwnProperty.call(localNames,raw));let icon=external?'🔌':'📁';let kind=external?'外接磁盘':'本地位置';sel.innerHTML+=`<option value="${v.mount_point}">${icon} ${label} · ${freeText}（${kind}）</option>`});if(previous){if([...sel.options].some(o=>o.value===previous)){sel.value=previous}else{sel.innerHTML+=`<option value="${previous}" selected>📁 已选择的位置 · ${previous}</option>`}document.getElementById('btnStart').disabled=false}sel.onchange=()=>{document.getElementById('localFolder').value=sel.value;document.getElementById('btnStart').disabled=!sel.value;saveWorkspaceState()}}).catch(()=>alert('刷新磁盘失败，请重新连接目标磁盘后再试。')).finally(()=>setRefreshing(button,false))}
+
+function syncManualTarget(){let p=document.getElementById('localFolder').value.trim();if(p){let sel=document.getElementById('backupTarget');sel.innerHTML=`<option value="${p}" selected>📁 自定义位置 · ${p}</option>`;document.getElementById('btnStart').disabled=false;saveWorkspaceState()}}
+function setLocalFolder(){syncManualTarget();if(!document.getElementById('localFolder').value.trim())alert('请输入路径')}
+function chooseFolder(){fetch('/api/choose_folder',{method:'POST'}).then(r=>r.json()).then(d=>{let path=d.mount_point||d.path;if(path){document.getElementById('localFolder').value=path;syncManualTarget()}else if(d.error){alert(d.error)}}).catch(()=>alert('选择文件夹失败，请重试。'))}
+
+function updateNamingPreview(){let values={date:(scanData.suggested_name||new Date().toISOString().slice(0,10)).replace('拍摄',''),event:document.getElementById('eventName').value.trim()||'事件待命名',location:'地点待确认',device:(scanData.devices&&scanData.devices[0]&&scanData.devices[0].name)||'设备待确认',type:'照片与视频'};let depth=Number(document.getElementById('nameDepth').value||5);let keys=[...document.querySelectorAll('.name-part')].map(s=>s.value).slice(0,depth);document.getElementById('folderPreview').textContent='备份文件夹预览：'+keys.map(k=>values[k]).join(' / ')}
+
+function addTarget(){let sel=document.getElementById('backupTarget');let v=sel.value;if(!v||extraTargets.includes(v))return;extraTargets.push(v);renderTags();saveWorkspaceState()}
+function removeTarget(v){extraTargets=extraTargets.filter(t=>t!==v);renderTags();saveWorkspaceState()}
 function renderTags(){document.getElementById('targetTags').innerHTML=extraTargets.map(t=>`<span class="target-tag">${t.split('/').pop()||t} <button onclick="removeTarget('${t}')" class="tag-remove">✕</button></span>`).join('')}
 
-function startBackup(){let sel=document.getElementById('backupTarget');let back=sel.value;if(!back){alert('请选择或输入备份目标位置');return}let evt=document.getElementById('eventName').value.trim();if(!evt){alert('请输入事件名称');return}if(extraTargets.length===0){extraTargets=[back]}document.getElementById('progressPanel').style.display='block';document.getElementById('actionPanel').style.display='none';document.getElementById('scanResult').style.display='none';fetch('/api/start_backup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mount_point:detectedMount,event_name:evt,backup_root:back,backup_targets:extraTargets})})}
+function startBackup(){let sel=document.getElementById('backupTarget');let back=sel.value;if(!back){alert('请选择或输入备份目标位置');return}let evt=document.getElementById('eventName').value.trim();if(!evt){alert('请输入事件名称');return}if(extraTargets.length===0){extraTargets=[back]}let depth=Number(document.getElementById('nameDepth').value||5);let sortOrder=[...document.querySelectorAll('.name-part')].map(s=>s.value).slice(0,depth);document.getElementById('progressPanel').style.display='block';document.getElementById('actionPanel').style.display='none';document.getElementById('scanResult').style.display='none';fetch('/api/start_backup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mount_point:detectedMount,event_name:evt,backup_root:back,backup_targets:extraTargets,sort_order:sortOrder})})}
 
-function cancelBackup(){fetch('/api/cancel_backup',{method:'POST'});resetUI()}
+function handleTerminalStatus(d){if(!['done','partial','cancelled','error'].includes(d.status)){terminalNotice='';return}let key=d.status+'-'+(d.copied_files||0)+'-'+(d.skipped_files||0);if(terminalNotice===key)return;terminalNotice=key;if(d.status==='partial'||d.status==='cancelled'){alert((d.status==='partial'?'⚠️ 部分完成':'⏹️ 已取消')+'\n已复制 '+(d.copied_files||0)+' 个，已跳过 '+(d.skipped_files||0)+' 个。\n原始素材没有被删除，可重新执行继续备份。');resetUI();return}if(d.status==='done'){alert('✅ 备份完成\n已复制 '+(d.copied_files||0)+' 个，已跳过 '+(d.skipped_files||0)+' 个。');resetUI();return}if(d.status==='error'){alert('❌ 备份失败\n'+(d.error_message||'请查看历史记录后重试。'));resetUI()}}
+function cancelBackup(){document.getElementById('currentFile').textContent='正在取消：会保留已完成文件，原卡不会被删除...';fetch('/api/cancel_backup',{method:'POST'}).then(()=>{document.querySelector('.btn-cancel').disabled=true})}
 function resetUI(){document.getElementById('progressPanel').style.display='none';document.getElementById('scanResult').style.display='none';document.getElementById('actionPanel').style.display='none';extraTargets=[];renderTags()}
 
-refreshTargets();setInterval(scan,3000);
+document.getElementById('eventName').addEventListener('input',()=>{updateNamingPreview();saveWorkspaceState()});
+showQuickStartIfNeeded();restoreWorkspaceState();refreshTargets();scan();setInterval(scan,8000);
 </script></body></html>

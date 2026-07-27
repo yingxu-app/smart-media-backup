@@ -15,3 +15,17 @@ function toggleTheme() {
     document.documentElement.setAttribute("data-theme", saved);
     document.querySelector(".theme-toggle").textContent = saved === "dark" ? "🌙" : "☀️";
 })();
+
+function refreshSidebarReadiness() {
+    const dot = document.getElementById("statusDot");
+    const text = document.getElementById("statusText");
+    if (!dot || !text) return;
+    fetch("/api/scan").then(r => r.json()).then(data => {
+        const ready = Boolean(data && !data.error && data.mount_point);
+        dot.classList.toggle("active", ready);
+        text.classList.toggle("active", ready);
+        text.textContent = ready ? "就绪" : "未就绪";
+    }).catch(() => { dot.classList.remove("active"); text.classList.remove("active"); text.textContent = "未就绪"; });
+}
+refreshSidebarReadiness();
+setInterval(refreshSidebarReadiness, 5000);

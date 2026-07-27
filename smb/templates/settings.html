@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-header">
-    <h2>⚙️ 设置</h2>
+    <h2>03 偏好设置</h2>
 </div>
 
 <div class="card settings-form">
@@ -24,6 +24,7 @@
             <option value="sha256">SHA256 (推荐)</option>
             <option value="skip">跳过校验 (更快速)</option>
         </select>
+        <small class="setting-help">SHA-256 会逐个比对原卡与备份文件，确认内容一致；更慢但更稳。选择“跳过”只是不做比对，不会删除原卡素材。</small>
     </div>
     <div class="form-row">
         <label>已备份文件总数</label>
@@ -40,15 +41,17 @@
 <div class="card settings-form" style="margin-top:16px;">
     <div class="card-header"><h3>☁️ 百度网盘</h3></div>
     <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:16px;">
-        备份完成后自动上传到百度网盘。需在 <a href="https://pan.baidu.com/union/home" target="_blank" style="color:var(--accent);">百度网盘开放平台</a> 注册应用获取 API Key。
+        这是可选功能。开启后，备份完成的副本才会上传；原卡素材始终留在本机。需要先在 <a href="https://pan.baidu.com/union/home" target="_blank" style="color:var(--accent);">百度网盘开放平台</a> 创建应用并取得凭证。
     </p>
     <div class="form-row">
         <label for="bdApiKey">API Key (App Key)</label>
         <input type="text" id="bdApiKey" placeholder="填写你的百度网盘 App Key">
+        <small class="setting-help">App Key 相当于“应用编号”，不是你的百度账号密码。</small>
     </div>
     <div class="form-row">
         <label for="bdSecretKey">Secret Key</label>
         <input type="password" id="bdSecretKey" placeholder="填写你的 Secret Key">
+        <small class="setting-help">Secret Key 只保存在这台电脑；不要截图或发送给他人。</small>
     </div>
     <div class="form-row">
         <label for="bdAppId">App ID (选填)</label>
@@ -60,9 +63,9 @@
     </div>
     <div id="baiduStatus" class="save-msg" style="margin-top:12px;display:none;"></div>
     <div id="baiduAuthPanel" style="display:none;margin-top:16px;padding:16px;background:var(--bg);border-radius:8px;">
-        <p style="margin-bottom:8px;">1. 点击下方按钮，在打开的页面中授权</p>
+        <p style="margin-bottom:8px;">第 1 步：点击下方按钮，登录你自己的百度账号并同意授权</p>
         <button class="btn-secondary" onclick="openBaiduAuthUrl()" id="btnOpenAuth">🔗 打开授权页面</button>
-        <p style="margin:12px 0 8px;">2. 授权成功后，把页面显示的授权码粘贴过来</p>
+        <p style="margin:12px 0 8px;">第 2 步：授权完成后，把页面显示的授权码粘贴到这里，再点确认</p>
         <div style="display:flex;gap:8px;">
             <input type="text" id="bdAuthCode" placeholder="粘贴授权码" style="flex:1;">
             <button class="btn-primary" onclick="exchangeBaiduCode()">确认</button>
@@ -74,12 +77,12 @@
 <div class="card settings-form" style="margin-top:16px;">
     <div class="card-header"><h3>🤖 AI 自动命名</h3></div>
     <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:16px;">
-        插入 SD 卡后自动识别照片内容，建议事件文件夹名。
+        可选的命名建议功能。不开启时仍会离线读取拍摄日期和设备，不影响正常备份。
     </p>
     <div class="form-row">
         <label>启用 AI 命名</label>
         <label class="toggle">
-            <input type="checkbox" id="aiEnabled" checked>
+            <input type="checkbox" id="aiEnabled">
             <span class="toggle-slider"></span>
         </label>
     </div>
@@ -89,6 +92,7 @@
             <option value="ollama">Ollama (本地，免费)</option>
             <option value="openai">OpenAI 兼容 API</option>
         </select>
+        <small class="setting-help">本地 Ollama 免费但需要另装模型（通常数 GB）；在线 API 可能产生费用。首次使用建议保持关闭，确认需要时再开启。</small>
     </div>
     <div id="aiOllamaSettings">
         <div class="form-row">
@@ -126,6 +130,7 @@
     <div class="form-row">
         <label>🔁 Webhook 通知</label>
         <input type="url" id="webhookUrl" placeholder="https://example.com/webhook" style="flex:1;">
+        <small class="setting-help">只有你使用自动化工具、企业机器人或自己的服务器时才需要。普通用户留空即可。</small>
     </div>
     <div class="form-row">
         <label>🐢 限速 (MB/s)</label>
@@ -143,10 +148,10 @@
         </select>
     </div>
     <div class="form-row">
-        <label>📂 目录层级</label>
+        <label>📂 默认目录层级</label>
         <div style="flex:1;">
             <div id="sortOrderList" class="sort-order-list"></div>
-            <small style="color:var(--muted);">拖拽或点上下箭头调整顺序</small>
+            <small style="color:var(--muted);">工作台可在每次备份前单独调整；这里设置默认顺序。</small>
         </div>
     </div>
     <div class="form-actions">
@@ -159,7 +164,7 @@
 <div class="card" style="margin-top:16px;">
     <h4 style="margin-bottom:12px;">🔄 跨电脑同步</h4>
     <div class="form-row">
-        <label>远程地址</label>
+        <label>另一台电脑的地址</label>
         <div style="display:flex;gap:8px;flex:1;">
             <input type="text" id="syncUrl" placeholder="http://192.168.1.100:8080" style="flex:1;">
             <button class="btn-secondary" onclick="syncPull()">📥 拉取</button>
@@ -167,7 +172,7 @@
         </div>
     </div>
     <div id="syncMsg" class="save-msg" style="display:none;"></div>
-    <small style="color:var(--muted);">输入另一台电脑上 SMB 的地址，点击拉取同步备份历史</small>
+    <small style="color:var(--muted);">两台电脑需在同一网络且另一台也打开影序。输入另一台显示的地址后，可导出或拉取“历史记录”；不会自动传输原始照片。</small>
 </div>
 
 <div class="card" style="margin-top:16px;">
@@ -176,7 +181,7 @@
 </div>
 
 <div class="card" style="margin-top:16px;text-align:center;color:var(--text-dim);font-size:0.85em;">
-    Smart Media Backup v1.0.0<br>
+    影序 YINGXU v1.0.16<br>
     By 陆冠霖
 </div>
 {% endblock %}
@@ -516,12 +521,13 @@ document.addEventListener("DOMContentLoaded", function() { loadAdvancedSettings(
 </script>
 
 <style>
-.settings-form .form-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.settings-form .form-row { display: flex; align-items: center; justify-content: space-between; flex-wrap:wrap; gap:8px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .settings-form label { font-weight: 500; }
 .settings-form input[type="number"] { width: 120px; }
 .setting-value { font-weight: 600; color: var(--accent); }
 .form-actions { margin-top: 20px; }
 .save-msg { margin-top: 12px; font-weight: 500; }
+.setting-help { display:block; width:100%; margin-top:2px; color:var(--text-dim); font-size:.84em; line-height:1.55; }
 
 /* Toggle开关 */
 .toggle { position: relative; display: inline-block; width: 48px; height: 26px; }

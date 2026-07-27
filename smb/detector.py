@@ -139,6 +139,51 @@ def is_sd_card(volume: dict) -> bool:
     return True
 
 
+def find_likely_media_source(volumes: Optional[list[dict]] = None) -> Optional[dict]:
+    """从已挂载的可移动卷中选出最像相机存储卡的来源。
+
+    macOS 会把外置 SSD 和 SD 卡都挂载在 /Volumes，不能再依赖枚举顺序。
+    这里仅检查根目录结构和卷名，不读取、更改任何素材。没有足够证据时返回
+    ``None``，宁可提示用户插卡，也不能把备份盘误当成来源。
+    """
+    candidates = volumes if volumes is not None else list_removable_volumes()
+    best: Optional[dict] = None
+    best_score = 0
+
+    for volume in candidates:
+        mount_point = volume.get("mount_point", "")
+        if not mount_point or not os.path.ismount(mount_point):
+            continue
+        try:
+            root_names = {entry.name.upper() for entry in Path(mount_point).iterdir()}
+        except OSError:
+            continue
+
+        name = str(volume.get("name", "")).lower()
+        score = 0
+        if any(token in name for token in ("sd", "tf", "card", "存储卡", "内存卡", "卡")):
+            score += 30
+        if "DCIM" in root_names:
+            score += 80
+        if "PRIVATE" in root_names:
+            score += 25
+        if "MISC" in root_names:
+            score += 15
+        if "MP_ROOT" in root_names or "AVCHD" in root_names:
+            score += 20
+        if "IPHONE" in root_names:
+            score += 10
+        # 常见备份盘命名不会单独否决，但会降低误选优先级。
+        if any(token in name for token in ("ssd", "固态", "backup", "archive", "nas")):
+            score -= 20
+
+        if score > best_score:
+            best = volume
+            best_score = score
+
+    return best if best_score >= 40 else None
+
+
 class SDCardWatcher:
     """后台线程探测 SD 卡插拔，通过回调通知"""
 
