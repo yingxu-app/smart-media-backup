@@ -1,0 +1,23 @@
+# 影序 YINGXU v1.0.29 发布验收
+
+## 发布内容
+
+- macOS Apple Silicon 桌面应用，版本号 `1.0.29`
+- 增量跳过、SHA-256 校验、多目标备份、取消与暂停、失败报告
+- JSON、CSV、Markdown 三种报告
+- 归档检索、目标盘结果、文件夹层级命名与参考图
+
+## 已完成验证
+
+- 17 项可靠性与 API 安全回归测试全部通过
+- macOS App 已由 PyInstaller 构建并完成 ad-hoc 深度签名验证
+- App、Info.plist、README、更新日志版本号统一为 `1.0.29`
+- 发布目录包含 App 与 Applications 拖拽入口
+
+## 当前环境限制
+
+受当前自动化沙箱无法访问 macOS 虚拟磁盘设备影响，`hdiutil create` 会返回“设备未配置”。应用本体与发布目录已经完成；在普通 macOS 终端运行 `scripts/package_macos_release.sh` 即可生成并验证 DMG。DMG 生成前，官网不得把 v1.0.29 标成可下载正式版。
+
+未购买 Apple Developer 账户，因此本版只能 ad-hoc 签名，无法公证。首次打开需按官网安装说明在“系统设置 → 隐私与安全性”中允许。
+
+Windows 实机、iPhone/Android 原始素材后台读取，以及 Apple 公证不属于当前 Mac 与零付费条件下可完成的验收项。

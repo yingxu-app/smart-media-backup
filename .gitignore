@@ -12,3 +12,6 @@ venv/
 *.local
 .DS_Store
 .test-config*/
+.app-smoke-config/
+desktop/.pyinstaller/
+release/

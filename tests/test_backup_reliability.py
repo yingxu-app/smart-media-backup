@@ -13,6 +13,8 @@ from pathlib import Path
 
 from smb import backup, db
 from smb import config as config_module
+from smb.ai_namer import ai_namer
+from smb.waste_filter import waste_reviewer
 
 
 class BackupReliabilityTests(unittest.TestCase):
@@ -50,6 +52,7 @@ class BackupReliabilityTests(unittest.TestCase):
         config_module.CONFIG_DIR = self.old_module_config_dir
         config_module.CONFIG_FILE = self.old_config_file
         self.temp.cleanup()
+
 
     def _engine(self):
         engine = backup.BackupEngine()
@@ -282,6 +285,91 @@ class BackupReliabilityTests(unittest.TestCase):
         self.assertEqual(migrated["event_name"], "旧记录")
         self.assertIn("skipped_files", migrated)
         self.assertEqual(db.get_target_results(1), [])
+
+    def test_ai_is_optional_and_offline_failure_never_blocks_naming(self):
+        """AI 默认关闭；本地模型离线时只返回空建议，不影响基础归档。"""
+        old_backend = ai_namer.backend
+        old_url = ai_namer.ollama_url
+        try:
+            ai_namer.backend = "disabled"
+            self.assertIsNone(ai_namer.suggest_event_name([str(self.source / "IMG_0001.JPG")]))
+            ai_namer.backend = "ollama"
+            ai_namer.ollama_url = "http://127.0.0.1:1"
+            with mock.patch.object(ai_namer, "_prepare_image", return_value="ZmFrZQ=="):
+                self.assertIsNone(ai_namer.suggest_event_name([str(self.source / "IMG_0001.JPG")]))
+        finally:
+            ai_namer.backend = old_backend
+            ai_namer.ollama_url = old_url
+
+    def test_waste_review_never_deletes_source_and_uses_one_review_folder(self):
+        review_root = self.root / "review-target"
+        review_root.mkdir()
+        first = review_root / "first.jpg"
+        second = review_root / "second.mov"
+        first.write_bytes(b"first")
+        second.write_bytes(b"second")
+        photo_result = Path(waste_reviewer.move_to_review_folder(str(first), str(review_root), "模糊", "photo"))
+        video_result = Path(waste_reviewer.move_to_review_folder(str(second), str(review_root), "黑图", "video"))
+        self.assertEqual(photo_result.parent, review_root / "待确认废片" / "照片")
+        self.assertEqual(video_result.parent, review_root / "待确认废片" / "视频")
+        self.assertTrue(photo_result.exists())
+        self.assertTrue(video_result.exists())
+        self.assertEqual([p.name for p in review_root.iterdir()], ["待确认废片"])
+
+
+class ServerApiSafetyTests(unittest.TestCase):
+    """本地桌面服务的最小安全边界与错误反馈。"""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.old_db_path = db.DB_PATH
+        self.old_config_dir = config_module.CONFIG_DIR
+        db.DB_PATH = self.root / "history.db"
+        config_module.CONFIG_DIR = self.root / "config"
+        config_module.CONFIG_DIR.mkdir(parents=True)
+        db.init_db()
+        # server 在导入时初始化数据库，因此必须先把路径切到隔离目录。
+        from smb import server as server_module
+        self.server_module = server_module
+        self.old_engine_status = server_module.engine.progress.status
+        self.server_module.engine.progress.status = "idle"
+        self.server_module.app.config.update(TESTING=True)
+        self.client = self.server_module.app.test_client()
+
+    def tearDown(self):
+        db.DB_PATH = self.old_db_path
+        config_module.CONFIG_DIR = self.old_config_dir
+        self.server_module.engine.progress.status = self.old_engine_status
+        self.temp.cleanup()
+
+    def test_health_and_inactive_pause_are_explicit(self):
+        health = self.client.get("/api/health")
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.get_json()["status"], "ok")
+        paused = self.client.post("/api/pause_backup")
+        self.assertEqual(paused.status_code, 409)
+        self.assertIn("没有可暂停", paused.get_json()["error"])
+
+    def test_history_clear_requires_confirmation(self):
+        db.create_backup("保留记录", str(self.root / "target"))
+        denied = self.client.post("/api/history/clear", json={})
+        self.assertEqual(denied.status_code, 400)
+        self.assertEqual(db.count_backups(), 1)
+        cleared = self.client.post(
+            "/api/history/clear", json={"confirm": "CLEAR_HISTORY"}
+        )
+        self.assertEqual(cleared.status_code, 200)
+        self.assertEqual(cleared.get_json()["cleared"], 1)
+
+    def test_report_download_rejects_outside_config_directory(self):
+        outside = self.root / "outside.json"
+        outside.write_text("{}", encoding="utf-8")
+        backup_id = db.create_backup("越界报告", str(self.root / "target"))
+        db.finish_backup(backup_id, report_path=str(outside))
+        response = self.client.get(f"/api/history/{backup_id}/report/json")
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("路径无效", response.get_json()["error"])
 
 
 if __name__ == "__main__":
