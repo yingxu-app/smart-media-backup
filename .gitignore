@@ -11,3 +11,4 @@ build/
 venv/
 *.local
 .DS_Store
+.test-config*/

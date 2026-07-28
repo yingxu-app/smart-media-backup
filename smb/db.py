@@ -56,6 +56,20 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_backup_history_started
             ON backup_history(started_at DESC);
+
+        CREATE TABLE IF NOT EXISTS backup_target_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            backup_id INTEGER NOT NULL,
+            target_path TEXT NOT NULL,
+            copied_files INTEGER DEFAULT 0,
+            skipped_files INTEGER DEFAULT 0,
+            failed_files INTEGER DEFAULT 0,
+            verified_files INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'pending',
+            error TEXT DEFAULT '',
+            UNIQUE(backup_id, target_path),
+            FOREIGN KEY (backup_id) REFERENCES backup_history(id)
+        );
     """)
 
     def ensure_column(table: str, column: str, ddl: str):
@@ -66,15 +80,43 @@ def init_db():
         if column not in cols:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
-    ensure_column("backup_history", "skipped_files", "INTEGER DEFAULT 0")
-    ensure_column("backup_history", "reviewed_files", "INTEGER DEFAULT 0")
-    ensure_column("backup_history", "preview_files", "INTEGER DEFAULT 0")
-    ensure_column("backup_history", "report_path", "TEXT")
-    ensure_column("backup_history", "backup_targets", "TEXT DEFAULT '[]'")
-
-    ensure_column("backup_files", "source_hash", "TEXT")
-    ensure_column("backup_files", "source_mtime", "REAL")
-    ensure_column("backup_files", "preview_path", "TEXT")
+    history_columns = {
+        "event_name": "TEXT NOT NULL DEFAULT ''",
+        "backup_root": "TEXT NOT NULL DEFAULT ''",
+        "backup_targets": "TEXT DEFAULT '[]'",
+        "started_at": "TEXT NOT NULL DEFAULT ''",
+        "finished_at": "TEXT",
+        "total_files": "INTEGER DEFAULT 0",
+        "total_size": "INTEGER DEFAULT 0",
+        "verified_files": "INTEGER DEFAULT 0",
+        "skipped_files": "INTEGER DEFAULT 0",
+        "reviewed_files": "INTEGER DEFAULT 0",
+        "preview_files": "INTEGER DEFAULT 0",
+        "failed_files": "INTEGER DEFAULT 0",
+        "duration_seconds": "REAL",
+        "status": "TEXT DEFAULT 'running'",
+        "devices_json": "TEXT DEFAULT '{}'",
+        "report_path": "TEXT",
+        "error": "TEXT",
+    }
+    file_columns = {
+        "backup_id": "INTEGER NOT NULL DEFAULT 0",
+        "source_path": "TEXT NOT NULL DEFAULT ''",
+        "dest_path": "TEXT",
+        "camera": "TEXT",
+        "media_type": "TEXT",
+        "file_size": "INTEGER DEFAULT 0",
+        "verified": "INTEGER DEFAULT 0",
+        "status": "TEXT DEFAULT 'pending'",
+        "error": "TEXT",
+        "source_hash": "TEXT",
+        "source_mtime": "REAL",
+        "preview_path": "TEXT",
+    }
+    for column, ddl in history_columns.items():
+        ensure_column("backup_history", column, ddl)
+    for column, ddl in file_columns.items():
+        ensure_column("backup_files", column, ddl)
 
     conn.commit()
     conn.close()
@@ -266,11 +308,49 @@ def clear_history() -> int:
     """仅清除本地历史数据库，不删除备份文件、报告或任何原卡素材。"""
     conn = get_conn()
     count = conn.execute("SELECT COUNT(*) AS count FROM backup_history").fetchone()["count"]
+    conn.execute("DELETE FROM backup_target_results")
     conn.execute("DELETE FROM backup_files")
     conn.execute("DELETE FROM backup_history")
     conn.commit()
     conn.close()
     return int(count)
+
+
+def upsert_target_result(backup_id: int, target_path: str, copied_files: int = 0,
+                         skipped_files: int = 0, failed_files: int = 0,
+                         verified_files: int = 0, status: str = "pending",
+                         error: str = ""):
+    """记录每个备份目标的独立结果，避免一个目标失败掩盖其他目标。"""
+    conn = get_conn()
+    conn.execute(
+        """
+        INSERT INTO backup_target_results
+            (backup_id, target_path, copied_files, skipped_files, failed_files,
+             verified_files, status, error)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(backup_id, target_path) DO UPDATE SET
+            copied_files=excluded.copied_files,
+            skipped_files=excluded.skipped_files,
+            failed_files=excluded.failed_files,
+            verified_files=excluded.verified_files,
+            status=excluded.status,
+            error=excluded.error
+        """,
+        (backup_id, target_path, copied_files, skipped_files, failed_files,
+         verified_files, status, error),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_target_results(backup_id: int) -> list[dict]:
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM backup_target_results WHERE backup_id=? ORDER BY id",
+        (backup_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 def get_backups(

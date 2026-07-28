@@ -117,7 +117,10 @@ select,input[type=text]{height:44px;padding:10px 14px;background:var(--field);co
 <div class="progress-panel card" id="progressPanel" style="display:none">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h3 id="progressTitle">📤 正在备份...</h3>
-    <button class="btn-cancel" onclick="cancelBackup()">✕ 取消</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-refresh" id="pauseButton" onclick="togglePause()">⏸ 暂停</button>
+      <button class="btn-cancel" onclick="cancelBackup()">✕ 取消</button>
+    </div>
   </div>
   <div class="progress-bar-container">
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
@@ -138,7 +141,7 @@ function applyTheme(theme){document.documentElement.setAttribute('data-theme',th
 function toggleTheme(){applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light')}
 applyTheme(localStorage.getItem('smb-theme')||'dark');
 
-socket.on('scan_progress',d=>{document.getElementById('progressFill').style.width=d.progress+'%';document.getElementById('progressPct').textContent=Math.round(d.progress)+'%';document.getElementById('currentFile').textContent=d.current_file||'—';document.getElementById('currentSpeed').textContent=d.speed||'—';document.getElementById('copiedCount').textContent=d.copied||0;document.getElementById('skippedCount').textContent=d.skipped||0;handleTerminalStatus(d)});
+socket.on('scan_progress',d=>{document.getElementById('progressFill').style.width=(d.phase_progress||0)+'%';document.getElementById('progressPct').textContent=Math.round(d.phase_progress||0)+'%';document.getElementById('currentFile').textContent=d.current_file||'—';document.getElementById('currentSpeed').textContent=(d.current_speed||0)+' MB/s';document.getElementById('copiedCount').textContent=d.copied_files||0;document.getElementById('skippedCount').textContent=d.skipped_files||0;let p=document.getElementById('pauseButton');if(p)p.textContent=d.status==='paused'?'▶ 继续':'⏸ 暂停';handleTerminalStatus(d)});
 socket.on('backup_complete',d=>{alert('✅ 备份完成! '+d.copied+' 个文件已复制, '+d.skipped+' 个已跳过');resetUI();});
 socket.on('backup_error',d=>{alert('❌ 备份出错: '+d.error);resetUI();});
 socket.on('scan_update',d=>{if(!selectedSourceMount||selectedSourceMount===d.mount_point){detectedMount=d.mount_point;scanData=d;renderScan(d.devices,d.total_files,d.total_size,d.source_name)}});
@@ -188,6 +191,7 @@ function startBackup(){let sel=document.getElementById('backupTarget');let back=
 
 function handleTerminalStatus(d){if(!['done','partial','cancelled','error'].includes(d.status)){terminalNotice='';return}let key=d.status+'-'+(d.copied_files||0)+'-'+(d.skipped_files||0);if(terminalNotice===key)return;terminalNotice=key;if(d.status==='partial'||d.status==='cancelled'){alert((d.status==='partial'?'⚠️ 部分完成':'⏹️ 已取消')+'\n已复制 '+(d.copied_files||0)+' 个，已跳过 '+(d.skipped_files||0)+' 个。\n原始素材没有被删除，可重新执行继续备份。');resetUI();return}if(d.status==='done'){alert('✅ 备份完成\n已复制 '+(d.copied_files||0)+' 个，已跳过 '+(d.skipped_files||0)+' 个。');resetUI();return}if(d.status==='error'){alert('❌ 备份失败\n'+(d.error_message||'请查看历史记录后重试。'));resetUI()}}
 function cancelBackup(){document.getElementById('currentFile').textContent='正在取消：会保留已完成文件，原卡不会被删除...';fetch('/api/cancel_backup',{method:'POST'}).then(()=>{document.querySelector('.btn-cancel').disabled=true})}
+function togglePause(){fetch('/api/pause_backup',{method:'POST'}).then(r=>r.json()).then(d=>{if(d.error)alert(d.error)})}
 function resetUI(){document.getElementById('progressPanel').style.display='none';document.getElementById('scanResult').style.display='none';document.getElementById('actionPanel').style.display='none';extraTargets=[];renderTags()}
 
 syncNamingSlots();showQuickStartIfNeeded();let restoredWorkspace=restoreWorkspaceState();refreshTargets();if(restoredWorkspace)monitorSourcePresence();else scan();setInterval(()=>{if(hasWorkspace()&&selectedSourceMount)monitorSourcePresence();else scan()},8000);

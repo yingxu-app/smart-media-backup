@@ -1,4 +1,4 @@
-name: Build Windows .exe
+name: Build Windows preview
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-windows:
@@ -31,12 +31,11 @@ jobs:
           pyinstaller desktop/smb-win.spec --noconfirm
           dir dist\
 
-      - name: Upload to Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = "v1.0.0"
-          $asset = "SmartMediaBackup-Windows.exe"
-          Copy-Item "dist/Smart Media Backup.exe" $asset
-          gh release upload $tag $asset --clobber
-          echo "✅ Windows .exe uploaded"
+      - name: Upload unsigned preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YINGXU-Windows-unsigned-preview
+          path: dist/*.exe
+          if-no-files-found: error
+      - name: Explain release status
+        run: echo "This is an unsigned CI preview. Publish only after Windows real-device acceptance."

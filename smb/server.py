@@ -60,6 +60,18 @@ def dashboard():
     return render_template("dashboard.html")
 
 
+@app.route("/api/health")
+def api_health():
+    """供桌面壳、发布验收和故障排查使用的轻量健康检查。"""
+    from . import __version__
+    return jsonify({
+        "status": "ok",
+        "version": __version__,
+        "database": "ok",
+        "active_backup": engine.progress.status not in ("idle", "done", "error", "cancelled", "partial"),
+    })
+
+
 @app.route("/history")
 def history():
     """历史记录页面"""
@@ -228,10 +240,11 @@ def api_ai_settings():
 @app.route("/api/status")
 def api_status():
     """返回当前状态"""
+    from . import __version__
     return jsonify({
         "status": engine.progress.status,
         "progress": engine.progress.to_dict(),
-        "version": "1.0.28",
+        "version": __version__,
     })
 
 
@@ -437,7 +450,7 @@ def api_sources():
 @app.route("/api/start_backup", methods=["POST"])
 def api_start_backup():
     """开始备份"""
-    if engine.progress.status in ("copying", "verifying"):
+    if engine.progress.status in ("copying", "verifying", "paused"):
         return jsonify({"error": "正在备份中，请等待完成"})
 
     data = request.get_json() or {}
@@ -496,6 +509,18 @@ def api_cancel_backup():
     """取消备份"""
     engine.cancel()
     return jsonify({"status": "cancelling"})
+
+
+@app.route("/api/pause_backup", methods=["POST"])
+def api_pause_backup():
+    """暂停或继续当前任务；暂停发生在完整文件边界。"""
+    if engine.progress.status == "paused":
+        engine.resume()
+        return jsonify({"status": "resumed"})
+    if engine.progress.status not in ("copying", "verifying"):
+        return jsonify({"error": "当前没有可暂停的备份任务"}), 409
+    engine.pause()
+    return jsonify({"status": "paused"})
 
 
 @app.route("/api/cleanup_sd", methods=["POST"])
@@ -615,7 +640,24 @@ def api_history_detail(backup_id):
     """获取单条历史详情"""
     record = db.get_backup(backup_id)
     files = db.get_backup_files(backup_id, 500)
-    return jsonify({"record": record, "files": files})
+    return jsonify({"record": record, "files": files, "targets": db.get_target_results(backup_id)})
+
+
+@app.route("/api/history/<int:backup_id>/report/<report_format>")
+def api_history_report(backup_id, report_format):
+    """下载本机生成的 JSON/CSV/Markdown 报告。"""
+    suffixes = {"json": ".json", "csv": ".csv", "markdown": ".md"}
+    if report_format not in suffixes:
+        return jsonify({"error": "不支持的报告格式"}), 400
+    record = db.get_backup(backup_id)
+    if not record or not record.get("report_path"):
+        return jsonify({"error": "这条记录还没有报告"}), 404
+    report_path = Path(record["report_path"]).with_suffix(suffixes[report_format]).resolve()
+    from .config import CONFIG_DIR
+    reports_root = (CONFIG_DIR / "reports").resolve()
+    if reports_root not in report_path.parents or not report_path.is_file():
+        return jsonify({"error": "报告文件不存在或路径无效"}), 404
+    return send_file(report_path, as_attachment=True, download_name=report_path.name)
 
 
 @app.route("/api/history/<int:backup_id>/rename", methods=["POST"])
@@ -762,7 +804,7 @@ def main(open_browser: bool = True):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.28           ║
+║          影序 YINGXU  v1.0.29           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║

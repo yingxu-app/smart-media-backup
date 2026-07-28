@@ -190,12 +190,23 @@ function showDetail(id) {
                     <div class="ds-item"><label>跳过重复</label><span>${rec.skipped_files || 0}</span></div>
                     <div class="ds-item"><label>待确认废片</label><span>${rec.reviewed_files || 0}</span></div>
                     <div class="ds-item"><label>Windows预览</label><span>${rec.preview_files || 0}</span></div>
-                    <div class="ds-item"><label>报告文件</label><span>${rec.report_path || '--'}</span></div>
+                    <div class="ds-item"><label>报告文件</label><span>${rec.report_path ? `
+                        <a class="report-link" href="/api/history/${rec.id}/report/json">JSON</a>
+                        <a class="report-link" href="/api/history/${rec.id}/report/csv">CSV</a>
+                        <a class="report-link" href="/api/history/${rec.id}/report/markdown">Markdown</a>` : '--'}</span></div>
                     <div class="ds-item"><label>耗时</label><span>${rec.duration_seconds ? Math.round(rec.duration_seconds) + 's' : '--'}</span></div>
                     <div class="ds-item"><label>开始</label><span>${formatDateTime(rec.started_at)}</span></div>
                     ${rec.finished_at ? `<div class="ds-item"><label>完成</label><span>${formatDateTime(rec.finished_at)}</span></div>` : ''}
                 </div>
             `;
+
+            if (data.targets && data.targets.length) {
+                html += `<h4 style="margin-top:20px;">各备份位置结果</h4><div class="target-result-list">` +
+                    data.targets.map(t => `<div class="target-result ${t.status}">
+                        <strong>${escapeHtml(t.target_path)}</strong>
+                        <span>${t.status === 'completed' ? '✅ 完成' : '⚠️ 部分完成'} · 复制 ${t.copied_files} · 跳过 ${t.skipped_files} · 失败 ${t.failed_files}</span>
+                    </div>`).join("") + `</div>`;
+            }
 
             if (data.files && data.files.length > 0) {
                 html += `<h4 style="margin-top:20px;">文件列表 (前 ${data.files.length} 个)</h4>
@@ -257,6 +268,10 @@ function formatDateTime(iso) {
 }
 .history-item:hover { background: var(--hover); }
 .history-count { color: var(--text-dim); font-size: 0.9em; margin-top: 4px; }
+.report-link { display:inline-block; margin-right:8px; color:var(--green); text-decoration:none; }
+.target-result-list { display:grid; gap:8px; }
+.target-result { display:flex; justify-content:space-between; gap:16px; padding:12px 14px; border:1px solid var(--border); border-radius:10px; }
+.target-result.partial { border-color:#8b6d2e; }
 .page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
 .detail-title-row { display:flex; align-items:center; gap:10px; }
 .btn-danger { padding:9px 12px; color:#fecaca; border:1px solid rgba(248,113,113,.45); border-radius:8px; background:rgba(248,113,113,.08); cursor:pointer; }

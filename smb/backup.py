@@ -4,6 +4,8 @@ import time
 import shutil
 import threading
 import json
+import csv
+import tempfile
 import re
 from pathlib import Path
 from typing import Optional, Callable
@@ -94,9 +96,28 @@ class BackupEngine:
     def __init__(self):
         self.progress = BackupProgress()
         self._cancel_flag = threading.Event()
+        self._pause_flag = threading.Event()
         self._verifier = ChecksumVerifier()
         self._preview_builder = windows_preview
         self._speed_bucket: list[tuple[float, int]] = []  # (time, bytes)
+
+    def pause(self):
+        """在当前文件完成后暂停；不终止任务、不触碰原卡。"""
+        self._pause_flag.set()
+        self.progress.status = "paused"
+        self.progress.current_file = "任务已暂停；已完成文件保持安全"
+        self.progress.notify()
+
+    def resume(self):
+        """继续一个已暂停的任务。"""
+        self._pause_flag.clear()
+        self.progress.status = "copying"
+        self.progress.current_file = "正在继续备份..."
+        self.progress.notify()
+
+    def _wait_if_paused(self):
+        while self._pause_flag.is_set() and not self._cancel_flag.is_set():
+            time.sleep(0.1)
 
     def _throttle(self, bytes_copied: int):
         """根据 max_speed_mbps 限速"""
@@ -280,7 +301,7 @@ class BackupEngine:
         review_summary: dict,
         source_mount: str = "",
     ) -> str:
-        """写出 JSON 格式的备份报告"""
+        """写出 JSON、CSV 和 Markdown 三种可读备份报告。"""
         # 报告属于影序的本地历史资料，不应该混进摄影师选择的素材盘根目录。
         # 不能用多日期批次的拼接名称作为目录名：一张长期未导入的卡可能跨越
         # 数十天，名称会超过 APFS 的 255 字符限制。备份编号稳定且可追溯。
@@ -344,8 +365,63 @@ class BackupEngine:
         except Exception:
             payload["files"] = []
 
-        report_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+        target_results = db.get_target_results(backup_id)
+        payload["target_results"] = target_results
+        report_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        csv_path = report_path.with_suffix(".csv")
+        with csv_path.open("w", newline="", encoding="utf-8-sig") as handle:
+            writer = csv.DictWriter(handle, fieldnames=[
+                "source_path", "dest_path", "status", "camera", "media_type",
+                "verified", "error",
+            ])
+            writer.writeheader()
+            writer.writerows(payload["files"])
+
+        md_path = report_path.with_suffix(".md")
+        target_lines = "\n".join(
+            f"- `{item['target_path']}`：{item['status']}，复制 {item['copied_files']}，"
+            f"跳过 {item['skipped_files']}，失败 {item['failed_files']}"
+            for item in target_results
+        ) or f"- `{backup_root}`"
+        md_path.write_text(
+            f"# 影序备份报告 #{backup_id}\n\n"
+            f"- 状态：**{status}**\n- 项目：{event_name}\n"
+            f"- 源卡：`{source_mount}`\n- 开始：{started_at}\n"
+            f"- 完成：{payload['finished_at']}\n- 文件总数：{total_files}\n"
+            f"- 成功复制：{copied_files}\n- 跳过重复：{skipped_files}\n"
+            f"- 校验通过：{verified_files}\n- 失败：{failed_files}\n\n"
+            f"## 目标结果\n\n{target_lines}\n\n"
+            "原始素材不会因备份失败、取消或校验失败而被删除。\n",
+            encoding="utf-8",
+        )
+        payload["csv_report_path"] = str(csv_path)
+        payload["markdown_report_path"] = str(md_path)
+        report_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
         return str(report_path)
+
+    def _validate_target(self, source_mount: str, target: str, required_bytes: int):
+        """在复制前验证目标目录、权限和剩余空间，并给出可理解错误。"""
+        source = Path(source_mount).resolve()
+        destination = Path(target).expanduser().resolve()
+        if destination == source or source in destination.parents:
+            raise RuntimeError("备份位置不能位于原始存储卡内部，请选择电脑或其他磁盘")
+        if destination.exists() and not destination.is_dir():
+            raise RuntimeError(f"备份位置不是文件夹：{destination}")
+        try:
+            destination.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(prefix=".yingxu-write-test-", dir=destination, delete=True):
+                pass
+        except (OSError, PermissionError) as exc:
+            raise RuntimeError(f"没有权限写入备份位置：{destination}（{exc}）") from exc
+        try:
+            free = shutil.disk_usage(destination).free
+        except OSError as exc:
+            raise RuntimeError(f"备份磁盘当前不可用：{destination}（{exc}）") from exc
+        if free < required_bytes:
+            need_gb = required_bytes / (1024 ** 3)
+            free_gb = free / (1024 ** 3)
+            raise RuntimeError(f"备份磁盘空间不足：需要 {need_gb:.2f} GB，可用 {free_gb:.2f} GB")
 
     def _generate_windows_previews(
         self,
@@ -404,13 +480,14 @@ class BackupEngine:
 
     def _copy_to_target(
         self, files: list[dict], target: str, event_name: str,
-        backup_id: int, enable_verify: bool,
+        backup_id: int, enable_verify: bool, record_file_status: bool = True,
     ) -> dict:
         """拷贝文件到单个目标路径，并写入每个文件的真实结果。"""
-        copied = skipped = 0
+        copied = skipped = failed = 0
         copied_bytes = 0
 
         for f in files:
+            self._wait_if_paused()
             if self._cancel_flag.is_set():
                 break
             media_type = f.get("media_type", "other")
@@ -427,11 +504,13 @@ class BackupEngine:
             source_hash = f.get("source_hash") or self._verifier.hash_file(f["path"])
             source_mtime = os.path.getmtime(f["path"]) if os.path.exists(f["path"]) else None
             if not source_hash:
-                db.update_file_status(
-                    backup_id, f["path"], "failed", dest_path,
-                    error="无法读取源文件校验值，未执行复制",
-                    source_mtime=source_mtime,
-                )
+                failed += 1
+                if record_file_status:
+                    db.update_file_status(
+                        backup_id, f["path"], "failed", dest_path,
+                        error="无法读取源文件校验值，未执行复制",
+                        source_mtime=source_mtime,
+                    )
                 self.progress.current_file = f"❌ {f['filename']}（无法读取校验值）"
                 self.progress.notify()
                 continue
@@ -439,15 +518,26 @@ class BackupEngine:
             # 只有同一原始路径已完成备份才算重复；不同素材即使内容或文件名
             # 相同，也必须分别保留，不能被全局哈希去重吞掉。
             prior_dest = db.get_prior_destination(target, f["path"], source_hash)
-            if prior_dest and os.path.isfile(prior_dest) and self._verifier.hash_file(prior_dest) == source_hash:
+            exact_dest_matches = (
+                not record_file_status
+                and
+                os.path.isfile(dest_path)
+                and self._verifier.hash_file(dest_path) == source_hash
+            )
+            if exact_dest_matches or (
+                prior_dest and os.path.isfile(prior_dest)
+                and self._verifier.hash_file(prior_dest) == source_hash
+            ):
                 skipped += 1
-                db.update_file_status(
-                    backup_id, f["path"], "skipped", prior_dest,
-                    verified=True,
-                    error="目标中已存在相同内容，未重复复制",
-                    source_hash=source_hash,
-                    source_mtime=source_mtime,
-                )
+                matched_dest = dest_path if exact_dest_matches else prior_dest
+                if record_file_status:
+                    db.update_file_status(
+                        backup_id, f["path"], "skipped", matched_dest,
+                        verified=True,
+                        error="目标中已存在相同内容，未重复复制",
+                        source_hash=source_hash,
+                        source_mtime=source_mtime,
+                    )
                 self.progress.current_file = f"[跳过] {f['filename']}"
                 self.progress.skipped_files += 1
                 self.progress.notify()
@@ -467,28 +557,31 @@ class BackupEngine:
             if ok:
                 copied += 1
                 copied_bytes += f.get("size", 0)
-                db.update_file_status(
-                    backup_id, f["path"], "completed", dest_path,
-                    verified=enable_verify,
-                    source_hash=source_hash,
-                    source_mtime=source_mtime,
-                )
+                if record_file_status:
+                    db.update_file_status(
+                        backup_id, f["path"], "completed", dest_path,
+                        verified=enable_verify,
+                        source_hash=source_hash,
+                        source_mtime=source_mtime,
+                    )
                 self.progress.current_file = f"✅ {f['filename']}"
                 self._throttle(f.get("size", 0))
             else:
-                db.update_file_status(
-                    backup_id, f["path"], "failed", dest_path,
-                    error=error or "复制失败",
-                    source_hash=source_hash,
-                    source_mtime=source_mtime,
-                )
+                failed += 1
+                if record_file_status:
+                    db.update_file_status(
+                        backup_id, f["path"], "failed", dest_path,
+                        error=error or "复制失败",
+                        source_hash=source_hash,
+                        source_mtime=source_mtime,
+                    )
                 self.progress.current_file = f"❌ {f['filename']}"
 
             self.progress.bytes_copied += f.get("size", 0)
             self.progress.copied_files += 1 if ok else 0
             self.progress.notify()
 
-        return {"copied": copied, "skipped": skipped, "bytes": copied_bytes}
+        return {"copied": copied, "skipped": skipped, "failed": failed, "bytes": copied_bytes}
 
     def _finish_cancelled_backup(
         self, backup_id: int, event_name: str, backup_root: str, devices: dict,
@@ -547,6 +640,7 @@ class BackupEngine:
         backup_root: 目标备份根目录
         """
         self._cancel_flag.clear()
+        self._pause_flag.clear()
         self.progress.status = "scanning"
         self.progress.start_time = time.time()
         self.progress.notify()
@@ -674,11 +768,15 @@ class BackupEngine:
             targets = [backup_root] + (backup_targets or [])
             targets = list(dict.fromkeys(t for t in targets if t.strip()))
 
+            for target in targets:
+                self._validate_target(mount_point, target, self.progress.total_bytes)
+
             # 一次性计算源文件哈希
             for f in files:
                 f["source_hash"] = self._verifier.hash_file(f["path"])
 
             all_copied = all_skipped = 0; all_bytes = 0
+            primary_copied = primary_skipped = primary_bytes = 0
             reviewed_count = previewed_count = 0
             label_counts = {}
 
@@ -697,23 +795,37 @@ class BackupEngine:
 
                 batch_copied = batch_skipped = batch_bytes = 0
 
+                batch_target_results = []
                 for target in targets:
                     if self._cancel_flag.is_set():
                         break
                     result = self._copy_to_target(
-                        group_files, target, ename, cur_id, enable_verify
+                        group_files, target, ename, cur_id, enable_verify,
+                        record_file_status=(target == backup_root),
                     )
                     all_copied += result["copied"]
                     all_skipped += result["skipped"]
                     all_bytes += result["bytes"]
-                    batch_copied += result["copied"]
-                    batch_skipped += result["skipped"]
-                    batch_bytes += result["bytes"]
+                    if target == backup_root:
+                        batch_copied += result["copied"]
+                        batch_skipped += result["skipped"]
+                        batch_bytes += result["bytes"]
+                        primary_copied += result["copied"]
+                        primary_skipped += result["skipped"]
+                        primary_bytes += result["bytes"]
+                    target_status = "completed" if result["failed"] == 0 else "partial"
+                    target_error = "" if result["failed"] == 0 else f"{result['failed']} 个文件未完成"
+                    db.upsert_target_result(
+                        cur_id, target, result["copied"], result["skipped"],
+                        result["failed"], result["copied"] + result["skipped"],
+                        target_status, target_error,
+                    )
+                    batch_target_results.append({"target": target, **result, "status": target_status})
 
                     if self._cancel_flag.is_set():
                         self._finish_cancelled_backup(
                             cur_id, ename, backup_root, devices, total,
-                            all_copied, all_skipped, reviewed_count,
+                            primary_copied, primary_skipped, reviewed_count,
                             previewed_count, label_counts, mount_point,
                         )
                         return
@@ -736,7 +848,7 @@ class BackupEngine:
                 if self._cancel_flag.is_set():
                     self._finish_cancelled_backup(
                         cur_id, ename, backup_root, devices, total,
-                        all_copied, all_skipped, reviewed_count,
+                        primary_copied, primary_skipped, reviewed_count,
                         previewed_count, label_counts, mount_point,
                     )
                     return
@@ -744,14 +856,15 @@ class BackupEngine:
                 if self._cancel_flag.is_set():
                     self._finish_cancelled_backup(
                         cur_id, ename, backup_root, devices, total,
-                        all_copied, all_skipped, reviewed_count,
+                        primary_copied, primary_skipped, reviewed_count,
                         previewed_count, label_counts, mount_point,
                     )
                     return
 
                 # 每个日期文件夹各有一条可打开的报告；避免多日期任务中只有
                 # 第一条历史记录有报告、其他记录显示为空。
-                batch_failed = max(len(group_files) - batch_copied - batch_skipped, 0)
+                batch_failed = sum(item["failed"] for item in batch_target_results)
+                batch_status = "completed" if batch_failed == 0 else "partial"
                 batch_report = self._write_backup_report(
                     backup_id=cur_id,
                     event_name=ename,
@@ -766,15 +879,15 @@ class BackupEngine:
                     verified_files=batch_copied + batch_skipped,
                     total_size=sum(item.get("size", 0) for item in group_files),
                     elapsed_seconds=time.time() - self.progress.start_time,
-                    status="completed",
+                    status=batch_status,
                     review_summary=label_counts,
                     source_mount=mount_point,
                 )
-                db.finish_backup(cur_id, "completed", report_path=batch_report)
+                db.finish_backup(cur_id, batch_status, "" if batch_failed == 0 else "部分目标或文件未完成，原卡安全，可重新执行", batch_report)
 
-            self.progress.copied_files = all_copied
-            self.progress.skipped_files = all_skipped
-            self.progress.bytes_copied = all_bytes
+            self.progress.copied_files = primary_copied
+            self.progress.skipped_files = primary_skipped
+            self.progress.bytes_copied = primary_bytes
             self.progress.notify()
 
             # 生成校验清单（所有事件）
@@ -800,50 +913,79 @@ class BackupEngine:
             # ---- step 8: 完成 ----
             elapsed = time.time() - self.progress.start_time
             self.progress.elapsed_seconds = elapsed
-            self.progress.copied_files = all_copied
-            self.progress.skipped_files = all_skipped
+            self.progress.copied_files = primary_copied
+            self.progress.skipped_files = primary_skipped
             self.progress.reviewed_files = reviewed_count if total_events > 0 else 0
             self.progress.preview_files = previewed_count if total_events > 0 else 0
-            self.progress.processed_files = all_copied + all_skipped
-            self.progress.bytes_copied = all_bytes
+            self.progress.processed_files = primary_copied + primary_skipped
+            self.progress.bytes_copied = primary_bytes
             self.progress.phase_progress = 100
 
-            failed_count = max(total - all_copied - all_skipped, 0)
+            target_results = db.get_target_results(backup_id)
+            failed_count = sum(item.get("failed_files", 0) for item in target_results)
+            final_status = "completed" if failed_count == 0 else "partial"
             report_path = self._write_backup_report(
                 backup_id=backup_id,
                 event_name=" + ".join(events) if total_events > 1 else events[0],
                 backup_root=backup_root,
                 devices=devices,
                 total_files=total,
-                copied_files=all_copied,
-                skipped_files=all_skipped,
+                copied_files=primary_copied,
+                skipped_files=primary_skipped,
                 reviewed_files=reviewed_count,
                 preview_files=previewed_count,
                 failed_files=failed_count,
                 # 跳过的文件已逐个与目标内容一致，也属于已校验素材。
-                verified_files=all_copied + all_skipped,
+                verified_files=primary_copied + primary_skipped,
                 total_size=self.progress.total_bytes,
                 elapsed_seconds=elapsed,
-                status="completed",
+                status=final_status,
                 review_summary=label_counts,
                 source_mount=mount_point,
             )
 
-            db.finish_backup(backup_id, "completed", report_path=report_path)
-            self.progress.status = "done"
-            self.progress.can_cleanup = True
+            db.finish_backup(backup_id, final_status, "" if failed_count == 0 else "部分目标或文件未完成，原卡安全，可重新执行", report_path)
+            self.progress.status = "done" if failed_count == 0 else "partial"
+            self.progress.can_cleanup = failed_count == 0
             self.progress.mount_point = mount_point
             self.progress.notify()
 
             # 通知推送
             if config.webhook_url:
-                self._send_webhook(total, all_copied, all_skipped, events)
+                self._send_webhook(total, primary_copied, primary_skipped, events)
 
             # 后台触发百度网盘上传
             self._trigger_baidu_upload(backup_root, event_name)
 
         except Exception as e:
-            db.finish_backup(backup_id, "error", str(e))
+            report_path = ""
+            try:
+                report_path = self._write_backup_report(
+                    backup_id=backup_id,
+                    event_name=manual_event or "按日期归档",
+                    backup_root=backup_root,
+                    devices=locals().get("devices", {}),
+                    total_files=self.progress.total_files,
+                    copied_files=self.progress.copied_files,
+                    skipped_files=self.progress.skipped_files,
+                    reviewed_files=self.progress.reviewed_files,
+                    preview_files=self.progress.preview_files,
+                    failed_files=max(
+                        self.progress.total_files
+                        - self.progress.copied_files
+                        - self.progress.skipped_files,
+                        0,
+                    ),
+                    verified_files=self.progress.copied_files + self.progress.skipped_files,
+                    total_size=self.progress.total_bytes,
+                    elapsed_seconds=max(time.time() - self.progress.start_time, 0),
+                    status="error",
+                    review_summary={},
+                    source_mount=mount_point,
+                )
+            except Exception:
+                pass
+            db.finish_backup(backup_id, "error", str(e), report_path)
             self.progress.status = "error"
             self.progress.error_message = str(e)
             self.progress.notify()

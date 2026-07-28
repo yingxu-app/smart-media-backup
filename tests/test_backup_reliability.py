@@ -7,10 +7,12 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime
 from pathlib import Path
 
 from smb import backup, db
+from smb import config as config_module
 
 
 class BackupReliabilityTests(unittest.TestCase):
@@ -31,13 +33,22 @@ class BackupReliabilityTests(unittest.TestCase):
         (nested / "IMG_0001.JPG").write_bytes(b"same-photo-content")
 
         self.old_db_path = db.DB_PATH
+        self.old_config_dir = backup.CONFIG_DIR
+        self.old_module_config_dir = config_module.CONFIG_DIR
+        self.old_config_file = config_module.CONFIG_FILE
         db.DB_PATH = self.root / "history.db"
+        config_module.CONFIG_DIR = self.root / "config"
+        config_module.CONFIG_FILE = config_module.CONFIG_DIR / "config.json"
+        backup.CONFIG_DIR = config_module.CONFIG_DIR
         db.init_db()
         backup.config.sort_order = ["device", "event", "type"]
         backup.config.verify_method = "sha256"
 
     def tearDown(self):
         db.DB_PATH = self.old_db_path
+        backup.CONFIG_DIR = self.old_config_dir
+        config_module.CONFIG_DIR = self.old_module_config_dir
+        config_module.CONFIG_FILE = self.old_config_file
         self.temp.cleanup()
 
     def _engine(self):
@@ -74,6 +85,9 @@ class BackupReliabilityTests(unittest.TestCase):
             self.assertEqual(first_report["source_mount"], str(self.source))
             self.assertEqual(first_report["source_name"], "source-card")
             self.assertEqual(first_report["report_path"], record["report_path"])
+            self.assertTrue(Path(record["report_path"]).with_suffix(".csv").is_file())
+            self.assertTrue(Path(record["report_path"]).with_suffix(".md").is_file())
+            self.assertEqual(first_report["target_results"][0]["status"], "completed")
 
             engine.run(str(self.source), "可靠性验收", str(self.target), enable_verify=True)
             second = db.get_all_history()[0]
@@ -178,6 +192,96 @@ class BackupReliabilityTests(unittest.TestCase):
             self.assertFalse((self.target / "2026年07月28日_漫展素材" / "照片").exists())
         finally:
             backup.batch_extract_metadata = self._old_metadata
+
+    def test_target_space_shortage_is_reported_before_copy_and_source_is_safe(self):
+        engine = self._engine()
+        usage = type("Usage", (), {"total": 100, "used": 99, "free": 1})()
+        original = (self.source / "IMG_0001.JPG").read_bytes()
+        try:
+            with mock.patch.object(backup.shutil, "disk_usage", return_value=usage):
+                with self.assertRaisesRegex(RuntimeError, "空间不足"):
+                    engine.run(str(self.source), "空间不足", str(self.target), enable_verify=True)
+            self.assertEqual((self.source / "IMG_0001.JPG").read_bytes(), original)
+            self.assertEqual(db.get_all_history()[0]["status"], "error")
+        finally:
+            backup.batch_extract_metadata = self._old_metadata
+
+    def test_permission_error_is_clear_and_source_is_safe(self):
+        engine = self._engine()
+        original = (self.source / "IMG_0001.JPG").read_bytes()
+        try:
+            with mock.patch.object(backup.tempfile, "NamedTemporaryFile", side_effect=PermissionError("denied")):
+                with self.assertRaisesRegex(RuntimeError, "没有权限写入"):
+                    engine.run(str(self.source), "权限不足", str(self.target), enable_verify=True)
+            self.assertEqual((self.source / "IMG_0001.JPG").read_bytes(), original)
+        finally:
+            backup.batch_extract_metadata = self._old_metadata
+
+    def test_source_disappearing_mid_copy_becomes_partial_and_never_allows_cleanup(self):
+        engine = self._engine()
+        calls = {"count": 0}
+        original_copy = engine._copy_and_verify_with_retry
+        def flaky_copy(src, dest, source_hash, enable_verify):
+            calls["count"] += 1
+            if calls["count"] == 2:
+                return False, "原始存储卡已断开"
+            return original_copy(src, dest, source_hash, enable_verify)
+        engine._copy_and_verify_with_retry = flaky_copy
+        try:
+            engine.run(str(self.source), "拔卡恢复", str(self.target), enable_verify=True)
+            record = db.get_all_history()[0]
+            self.assertEqual(record["status"], "partial")
+            self.assertGreater(record["failed_files"], 0)
+            self.assertFalse(engine.progress.can_cleanup)
+            report = json.loads(Path(record["report_path"]).read_text())
+            self.assertEqual(report["status"], "partial")
+        finally:
+            backup.batch_extract_metadata = self._old_metadata
+
+    def test_multi_target_records_each_target_independently(self):
+        engine = self._engine()
+        second = self.root / "second-target"
+        second.mkdir()
+        original = engine._copy_to_target
+        def target_copy(files, target, event_name, backup_id, enable_verify,
+                        record_file_status=True):
+            if target == str(second):
+                return {"copied": 0, "skipped": 0, "failed": len(files), "bytes": 0}
+            return original(
+                files, target, event_name, backup_id, enable_verify,
+                record_file_status=record_file_status,
+            )
+        engine._copy_to_target = target_copy
+        try:
+            engine.run(
+                str(self.source), "双目标", str(self.target), enable_verify=True,
+                backup_targets=[str(second)],
+            )
+            record = db.get_all_history()[0]
+            self.assertEqual(record["status"], "partial")
+            results = db.get_target_results(record["id"])
+            self.assertEqual(len(results), 2)
+            self.assertEqual(results[0]["status"], "completed")
+            self.assertEqual(results[1]["status"], "partial")
+            self.assertTrue(list(self.target.rglob("*.JPG")))
+            self.assertTrue((self.source / "IMG_0001.JPG").exists())
+        finally:
+            backup.batch_extract_metadata = self._old_metadata
+
+    def test_database_migrates_old_schema_without_losing_history(self):
+        old_path = self.root / "old.db"
+        import sqlite3
+        conn = sqlite3.connect(old_path)
+        conn.execute("CREATE TABLE backup_history (id INTEGER PRIMARY KEY, event_name TEXT NOT NULL, backup_root TEXT NOT NULL, started_at TEXT NOT NULL, status TEXT)")
+        conn.execute("CREATE TABLE backup_files (id INTEGER PRIMARY KEY, backup_id INTEGER NOT NULL, source_path TEXT NOT NULL)")
+        conn.execute("INSERT INTO backup_history VALUES (1, '旧记录', '/old', '2026-01-01T00:00:00', 'completed')")
+        conn.commit(); conn.close()
+        db.DB_PATH = old_path
+        db.init_db()
+        migrated = db.get_backup(1)
+        self.assertEqual(migrated["event_name"], "旧记录")
+        self.assertIn("skipped_files", migrated)
+        self.assertEqual(db.get_target_results(1), [])
 
 
 if __name__ == "__main__":
