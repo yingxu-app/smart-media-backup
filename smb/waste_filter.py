@@ -304,10 +304,13 @@ class WasteReviewer:
         label: str,
         media_type: str,
     ) -> str:
-        """把废片移动到待确认目录，返回新路径"""
-        label_clean = self._safe_name(label)
+        """把待确认素材统一移动到备份根目录的“待确认废片”。
+
+        分类标签仍写入历史和报告，Finder 不再为 iPhone、Windows 预览或
+        每一种标签生成一串重复的技术目录。
+        """
         media_dir = "照片" if media_type in ("photo", "raw") else "视频"
-        dst_dir = Path(review_root) / "废片待确认" / label_clean / media_dir
+        dst_dir = Path(review_root) / "待确认废片" / media_dir
         dst_dir.mkdir(parents=True, exist_ok=True)
 
         src = Path(src_path)

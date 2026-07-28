@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Optional, Callable
 from datetime import datetime
 
-from .config import config
+from .config import config, CONFIG_DIR
 from .organizer import (
-    scan_sd_card, batch_extract_metadata, get_media_type, get_dest_dir, date_group_key
+    scan_sd_card, batch_extract_metadata, get_media_type, get_backup_media_dir,
+    date_group_key, build_backup_folder_name
 )
 from .verifier import ChecksumVerifier
 from .waste_filter import waste_reviewer
@@ -198,10 +199,9 @@ class BackupEngine:
             if self._cancel_flag.is_set():
                 break
 
-            camera = f.get("camera", "Unknown")
-            dest_dir = get_dest_dir(backup_root, camera, event_name, f.get("media_type", "photo"),
-                                    config.sort_order, f.get("date"), f.get("gps"))
-            dest_path = os.path.join(dest_dir, f["filename"])
+            # 复制阶段已经把最终路径写回文件对象；不重新拼目录，避免新目录
+            # 结构下审片找错文件，也确保多设备素材统一进入一个待确认废片目录。
+            dest_path = f.get("dest_path", "")
             if not os.path.exists(dest_path):
                 processed += 1
                 continue
@@ -218,7 +218,7 @@ class BackupEngine:
                 try:
                     new_path = waste_reviewer.move_to_review_folder(
                         dest_path,
-                        os.path.join(backup_root, camera, event_name),
+                        backup_root,
                         label,
                         f.get("media_type", "photo"),
                     )
@@ -281,7 +281,10 @@ class BackupEngine:
         source_mount: str = "",
     ) -> str:
         """写出 JSON 格式的备份报告"""
-        report_dir = Path(backup_root) / "_reports" / self._safe_name(event_name)
+        # 报告属于影序的本地历史资料，不应该混进摄影师选择的素材盘根目录。
+        # 不能用多日期批次的拼接名称作为目录名：一张长期未导入的卡可能跨越
+        # 数十天，名称会超过 APFS 的 255 字符限制。备份编号稳定且可追溯。
+        report_dir = CONFIG_DIR / "reports" / f"backup-{backup_id}"
         report_dir.mkdir(parents=True, exist_ok=True)
 
         started_at = datetime.now().isoformat()
@@ -410,10 +413,9 @@ class BackupEngine:
         for f in files:
             if self._cancel_flag.is_set():
                 break
-            camera = f.get("camera", "Unknown")
             media_type = f.get("media_type", "other")
-            dest_dir = get_dest_dir(target, camera, event_name, media_type,
-                                    config.sort_order, f.get("date"), f.get("gps"))
+            folder_name = f.get("backup_folder_name") or event_name
+            dest_dir = get_backup_media_dir(target, folder_name, media_type)
             dest_path = os.path.join(dest_dir, f["filename"])
             os.makedirs(dest_dir, exist_ok=True)
 
@@ -531,7 +533,8 @@ class BackupEngine:
     def run(self, mount_point: str, event_name: str, backup_root: str,
             enable_verify: bool = True, backup_targets: list[str] | None = None,
             event_names: list[str] | None = None,
-            event_groups: list[dict] | None = None):
+            event_groups: list[dict] | None = None,
+            naming_parts: list[dict] | None = None):
         """
         执行一次完整备份流程。
         mount_point: SD 卡挂载点
@@ -543,16 +546,12 @@ class BackupEngine:
         self.progress.start_time = time.time()
         self.progress.notify()
 
-        # ---- step 1: 解析事件名 ----
-        events = [str(g.get("name", "")).strip() for g in (event_groups or []) if str(g.get("name", "")).strip()]
-        if not events:
-            events = event_names or [event_name]
-        total_events = len(events)
-
-        if total_events == 1:
-            backup_id = db.create_backup(events[0], backup_root, backup_targets)
-        else:
-            backup_id = db.create_backup(f"{events[0]}等{total_events}个事件", backup_root, backup_targets)
+        # ---- step 1: 解析命名规则 ----
+        # 每天都是一个独立的主备份文件夹。事件名只是可选的人工补充，
+        # 即使用户不填事件，也能按日期安全归档。
+        manual_event = (event_name or "").strip()
+        events = event_names or ([manual_event] if manual_event else ["按日期归档"])
+        backup_id = db.create_backup(manual_event or "按日期归档", backup_root, backup_targets)
 
         try:
             # ---- step 2: 扫描 SD 卡 ----
@@ -611,8 +610,8 @@ class BackupEngine:
             ]
             self.progress.notify()
 
-            # 每个事件只处理它所属日期的文件。旧逻辑会将整张卡重复复制到
-            # 每一个事件名，这是严重的数据重复风险，必须在引擎层阻断。
+            # 以真实拍摄日期拆分，而不是把同一张卡整批塞进一个月份目录。
+            # event_groups 仍兼容旧界面：若它带有人工名称，作为对应日期的事件补充。
             requested_names = {
                 str(g.get("date_key", "")): str(g.get("name", "")).strip()
                 for g in (event_groups or []) if str(g.get("name", "")).strip()
@@ -621,13 +620,26 @@ class BackupEngine:
             for file_info in files:
                 grouped_files.setdefault(date_group_key(file_info.get("date")), []).append(file_info)
             event_batches = []
-            if requested_names:
-                for date_key, name in requested_names.items():
-                    selected = grouped_files.get(date_key, [])
-                    if selected:
-                        event_batches.append({"name": name, "files": selected})
-            else:
-                event_batches = [{"name": events[0], "files": files}]
+            for date_key, selected in sorted(grouped_files.items()):
+                event_value = requested_names.get(date_key, manual_event)
+                # 即使旧版调用没有传 naming_parts，也保留“时间/事件/地点/设备/类型”
+                # 的默认语义，避免人工填写的事件名称在新目录中丢失。
+                effective_naming_parts = naming_parts or [
+                    {"kind": "date"}, {"kind": "event"}, {"kind": "location"},
+                    {"kind": "device"}, {"kind": "type"},
+                ]
+                folder_name = build_backup_folder_name(selected, effective_naming_parts)
+                if event_value:
+                    parts_with_event = []
+                    for part in effective_naming_parts:
+                        copy_part = dict(part)
+                        if copy_part.get("kind") == "event" and not copy_part.get("value"):
+                            copy_part["value"] = event_value
+                        parts_with_event.append(copy_part)
+                    folder_name = build_backup_folder_name(selected, parts_with_event)
+                for item in selected:
+                    item["backup_folder_name"] = folder_name
+                event_batches.append({"name": folder_name, "files": selected})
             if not event_batches:
                 raise RuntimeError("没有可用于归档的日期分组")
             events = [batch["name"] for batch in event_batches]
@@ -648,13 +660,17 @@ class BackupEngine:
             for ei, batch in enumerate(event_batches):
                 ename = batch["name"]
                 group_files = batch["files"]
-                cur_id = db.create_backup(ename, backup_root, backup_targets) if total_events > 1 else backup_id
-                if total_events > 1:
+                cur_id = backup_id if ei == 0 else db.create_backup(ename, backup_root, backup_targets)
+                if ei > 0:
                     db.add_files(cur_id, group_files)
+                else:
+                    db.rename_backup(cur_id, ename)
                 label = f"[{ei+1}/{total_events}] {ename}"
                 self.progress.status = "copying"
                 self.progress.current_file = f"事件: {label}"
                 self.progress.notify()
+
+                batch_copied = batch_skipped = batch_bytes = 0
 
                 for target in targets:
                     if self._cancel_flag.is_set():
@@ -665,6 +681,9 @@ class BackupEngine:
                     all_copied += result["copied"]
                     all_skipped += result["skipped"]
                     all_bytes += result["bytes"]
+                    batch_copied += result["copied"]
+                    batch_skipped += result["skipped"]
+                    batch_bytes += result["bytes"]
 
                     if self._cancel_flag.is_set():
                         self._finish_cancelled_backup(
@@ -675,16 +694,15 @@ class BackupEngine:
                         return
 
                     if enable_verify:
-                        for cam in devices:
-                            cam_dir = os.path.join(target, cam, ename)
-                            if os.path.exists(cam_dir):
-                                flist = []
-                                for root, _, fnames in os.walk(cam_dir):
-                                    for fn in fnames:
-                                        if fn != "checksums.json":
-                                            flist.append(os.path.join(root, fn))
-                                if flist:
-                                    self._verifier.generate_manifest(flist, cam_dir)
+                        event_dir = os.path.join(target, ename)
+                        if os.path.exists(event_dir):
+                            flist = []
+                            for root, _, fnames in os.walk(event_dir):
+                                for fn in fnames:
+                                    if fn != "checksums.json":
+                                        flist.append(os.path.join(root, fn))
+                            if flist:
+                                self._verifier.generate_manifest(flist, event_dir)
 
                 # 废片审片
                 reviewed_count, label_counts = self._review_and_quarantine(
@@ -697,9 +715,7 @@ class BackupEngine:
                         previewed_count, label_counts, mount_point,
                     )
                     return
-                # Windows预览（仅第一个事件）
-                if ei == 0:
-                    previewed_count = self._generate_windows_previews(group_files, backup_root, cur_id)
+                # Windows 预览是后续可选导出，不再默认在素材盘根目录生成技术目录。
                 if self._cancel_flag.is_set():
                     self._finish_cancelled_backup(
                         cur_id, ename, backup_root, devices, total,
@@ -708,7 +724,28 @@ class BackupEngine:
                     )
                     return
 
-                db.finish_backup(cur_id, "completed")
+                # 每个日期文件夹各有一条可打开的报告；避免多日期任务中只有
+                # 第一条历史记录有报告、其他记录显示为空。
+                batch_failed = max(len(group_files) - batch_copied - batch_skipped, 0)
+                batch_report = self._write_backup_report(
+                    backup_id=cur_id,
+                    event_name=ename,
+                    backup_root=backup_root,
+                    devices=devices,
+                    total_files=len(group_files),
+                    copied_files=batch_copied,
+                    skipped_files=batch_skipped,
+                    reviewed_files=reviewed_count,
+                    preview_files=0,
+                    failed_files=batch_failed,
+                    verified_files=batch_copied + batch_skipped,
+                    total_size=sum(item.get("size", 0) for item in group_files),
+                    elapsed_seconds=time.time() - self.progress.start_time,
+                    status="completed",
+                    review_summary=label_counts,
+                    source_mount=mount_point,
+                )
+                db.finish_backup(cur_id, "completed", report_path=batch_report)
 
             self.progress.copied_files = all_copied
             self.progress.skipped_files = all_skipped
@@ -722,19 +759,18 @@ class BackupEngine:
                 self.progress.phase_progress = 0
                 self.progress.notify()
 
-                # 按设备+事件目录生成
+                # 按每日主备份文件夹生成校验清单
                 for ename in events:
                     for target in targets:
-                        for cam in devices:
-                            cam_dir = os.path.join(target, cam, ename)
-                            if os.path.exists(cam_dir):
-                                all_files = []
-                                for root, _, fnames in os.walk(cam_dir):
-                                    for fn in fnames:
-                                        if fn != "checksums.json":
-                                            all_files.append(os.path.join(root, fn))
-                                if all_files:
-                                    self._verifier.generate_manifest(all_files, cam_dir)
+                        event_dir = os.path.join(target, ename)
+                        if os.path.exists(event_dir):
+                            all_files = []
+                            for root, _, fnames in os.walk(event_dir):
+                                for fn in fnames:
+                                    if fn != "checksums.json":
+                                        all_files.append(os.path.join(root, fn))
+                            if all_files:
+                                self._verifier.generate_manifest(all_files, event_dir)
 
             # ---- step 8: 完成 ----
             elapsed = time.time() - self.progress.start_time
@@ -777,14 +813,6 @@ class BackupEngine:
             # 通知推送
             if config.webhook_url:
                 self._send_webhook(total, all_copied, all_skipped, events)
-
-            # Lightroom 目录生成
-            try:
-                from .lightroom import generate_lr_catalog
-                generate_lr_catalog(backup_root, events[0], self.progress.detected_devices,
-                                    total, datetime.now().isoformat())
-            except Exception as e:
-                print(f"[SMB] Lightroom 目录生成失败: {e}")
 
             # 后台触发百度网盘上传
             self._trigger_baidu_upload(backup_root, event_name)

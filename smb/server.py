@@ -308,7 +308,7 @@ def api_scan():
     if not mount_point or not os.path.ismount(mount_point):
         return jsonify({"error": "未检测到 SD 卡", "files": [], "devices": []})
 
-    from .organizer import scan_sd_card, batch_extract_metadata, build_date_groups
+    from .organizer import scan_sd_card, batch_extract_metadata, build_date_groups, display_device_name
     raw = scan_sd_card(mount_point)
     if not raw:
         return jsonify({"error": "未找到照片或视频文件", "files": [], "devices": []})
@@ -330,7 +330,7 @@ def api_scan():
             devices[cam]["videos"] += 1
 
     # 构建返回
-    device_list = [{"name": k, **v} for k, v in devices.items()]
+    device_list = [{"name": display_device_name(k), "raw_name": k, **v} for k, v in devices.items()]
     file_list = [{
         "filename": f["filename"],
         "camera": f.get("camera", ""),
@@ -437,9 +437,8 @@ def api_start_backup():
     backup_root = data.get("backup_root", "")
     backup_targets = data.get("backup_targets") or []
     requested_sort_order = data.get("sort_order") or []
+    naming_parts = data.get("naming_parts") or []
 
-    if not event_name and not event_names and not event_groups:
-        return jsonify({"error": "请输入事件文件夹名"})
     if not event_names and event_name:
         event_names = [e.strip() for e in event_name.replace("，", ",").split(",") if e.strip()]
     if not backup_root and not backup_targets:
@@ -468,7 +467,8 @@ def api_start_backup():
                        enable_verify=config.verify_method == "sha256",
                        backup_targets=backup_targets or None,
                        event_names=event_names or None,
-                       event_groups=event_groups or None)
+                       event_groups=event_groups or None,
+                       naming_parts=naming_parts or None)
         except Exception as e:
             print(f"[SMB] 备份失败: {e}", file=sys.stderr)
 

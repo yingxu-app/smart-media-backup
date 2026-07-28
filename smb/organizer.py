@@ -9,6 +9,109 @@ from typing import Optional
 from .config import config
 
 
+# 面向用户的中文显示名。内部仍保留原始识别值，避免影响已有历史记录；
+# 新的备份目录和界面不再把 Unknown 直接暴露给摄影师。
+DEVICE_DISPLAY_NAMES = {
+    "Unknown": "未知设备",
+    "iPhone": "手机",
+    "Sony": "索尼相机",
+    "DJI": "大疆设备",
+    "GoPro": "GoPro",
+}
+
+
+def display_device_name(camera: str) -> str:
+    """把识别结果转换为中文界面名称。"""
+    value = (camera or "Unknown").strip()
+    return DEVICE_DISPLAY_NAMES.get(value, value)
+
+
+def device_category(camera: str) -> str:
+    """目录名称使用摄影师一眼能读懂的设备类别，而不是具体英文机型。"""
+    value = (camera or "Unknown").lower()
+    if value in {"iphone", "android", "phone", "手机"}:
+        return "手机"
+    if any(token in value for token in ("dji", "mavic", "mini", "air", "avata", "drone", "无人机")):
+        return "无人机"
+    if value in {"unknown", "未知设备", ""}:
+        return "未知设备"
+    return "相机"
+
+
+def media_summary(files: list[dict]) -> str:
+    """根据真实扫描结果生成“照片及视频原片”等可读摘要。"""
+    has_photo = any(item.get("media_type") in ("photo", "raw") for item in files)
+    has_video = any(item.get("media_type") == "video" for item in files)
+    if has_photo and has_video:
+        return "照片及视频原片"
+    if has_video:
+        return "视频原片"
+    if has_photo:
+        return "照片原片"
+    return "素材原片"
+
+
+def _safe_folder_name(value: str) -> str:
+    cleaned = re.sub(r'[<>:"/\\|?*]+', "_", (value or "").strip())
+    return re.sub(r"\s+", " ", cleaned).strip(" ._")
+
+
+def _date_label(files: list[dict]) -> str:
+    dates = sorted({item.get("date").date() for item in files if item.get("date")})
+    if len(dates) == 1:
+        return dates[0].strftime("%Y年%m月%d日")
+    if not dates:
+        return "日期待确认"
+    return f"{dates[0].strftime('%Y年%m月%d日')}至{dates[-1].strftime('%m月%d日')}"
+
+
+def build_backup_folder_name(files: list[dict], naming_parts: list[dict] | None = None) -> str:
+    """生成每日主备份文件夹名称。
+
+    例如：2026年04月29日_手机拍摄_照片及视频原片。
+    未识别或未填写的字段会省略，绝不以“未知地点”等占位词污染用户目录。
+    """
+    naming_parts = naming_parts or [
+        {"kind": "date"}, {"kind": "event"}, {"kind": "location"},
+        {"kind": "device"}, {"kind": "type"},
+    ]
+    categories = []
+    for item in files:
+        category = device_category(item.get("camera", "Unknown"))
+        if category not in categories:
+            categories.append(category)
+    device_value = "及".join(categories) + "拍摄" if categories else ""
+    values = {
+        "date": _date_label(files),
+        "device": device_value,
+        "type": media_summary(files),
+        # 事件和地点只能来自用户输入或可信的上游识别；当前离线扫描不会编造。
+        "event": "",
+        "location": "",
+    }
+    result = []
+    for part in naming_parts:
+        kind = str(part.get("kind", "")).strip()
+        if kind == "custom":
+            value = str(part.get("value", "")).strip()
+        elif kind in {"event", "location"}:
+            value = str(part.get("value", "")).strip() or values[kind]
+        elif kind == "omit":
+            value = ""
+        else:
+            value = values.get(kind, "")
+        value = _safe_folder_name(value)
+        if value and value not in result:
+            result.append(value)
+    return "_".join(result) or _date_label(files)
+
+
+def get_backup_media_dir(backup_root: str, folder_name: str, media_type: str) -> str:
+    """新的清晰目录：目标 / 每日主文件夹 / 照片或视频。"""
+    media_dir = "照片" if media_type in ("photo", "raw") else "视频" if media_type == "video" else "其他素材"
+    return str(Path(backup_root) / _safe_folder_name(folder_name) / media_dir)
+
+
 def detect_camera_model(filepath: str) -> str:
     """通过 exiftool 提取相机型号，失败则用文件名启发式"""
     try:
@@ -86,13 +189,13 @@ def _field_value(field: str, camera: str, event: str, mtype: str,
                  fdate=None, fgps=None) -> str:
     """返回单个层级字段的目录名"""
     if field == "device":
-        return re.sub(r'[<>:"/\\|?*]', '_', camera or "Unknown")
+        return _safe_folder_name(display_device_name(camera)) or "未知设备"
     if field == "event":
         return re.sub(r'[<>:"/\\|?*]', '_', event or "未命名事件")
     if field == "type":
         return "照片" if mtype in ("photo", "raw") else "视频"
     if field == "date" and fdate:
-        return fdate.strftime("%Y年%m月")
+        return fdate.strftime("%Y年%m月%d日")
     if field == "date":
         return "未知日期"
     if field == "location" and fgps:
@@ -195,7 +298,7 @@ def build_date_groups(files: list[dict]) -> list[dict]:
         group = groups[key]
         group["files"].append(f)
         group["total_size"] += f.get("size", 0)
-        group["devices"].add(f.get("camera") or "Unknown")
+        group["devices"].add(display_device_name(f.get("camera") or "Unknown"))
         group["has_gps"] = group["has_gps"] or bool(f.get("gps"))
 
     ordered = sorted(groups.values(), key=lambda item: item["date_key"], reverse=True)
@@ -208,6 +311,10 @@ def build_date_groups(files: list[dict]) -> list[dict]:
             "total_size": item["total_size"],
             "devices": sorted(item["devices"]),
             "location_status": "检测到 GPS，地点待确认" if item["has_gps"] else "未记录地点，可补充",
+            "photos": sum(1 for f in item["files"] if f.get("media_type") in ("photo", "raw")),
+            "videos": sum(1 for f in item["files"] if f.get("media_type") == "video"),
+            "media_summary": media_summary(item["files"]),
+            "folder_name": build_backup_folder_name(item["files"]),
         }
         for item in ordered
     ]

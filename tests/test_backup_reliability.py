@@ -138,6 +138,27 @@ class BackupReliabilityTests(unittest.TestCase):
         self.assertIn("src=", detail)
         self.assertEqual(source_file.read_bytes(), b"different-photo-content")
 
+    def test_daily_folder_is_readable_and_keeps_technical_outputs_off_media_disk(self):
+        """新目录以每日主文件夹呈现，素材盘根目录不再出现技术辅助目录。"""
+        engine = self._engine()
+        try:
+            engine.run(
+                str(self.source), "", str(self.target), enable_verify=True,
+                naming_parts=[
+                    {"kind": "date"}, {"kind": "event", "value": ""},
+                    {"kind": "location", "value": ""}, {"kind": "device"},
+                    {"kind": "type"},
+                ],
+            )
+            daily = self.target / "2026年07月28日_相机拍摄_照片原片"
+            self.assertTrue((daily / "照片").is_dir())
+            self.assertEqual(len(list((daily / "照片").glob("*.JPG"))), 4)
+            self.assertFalse((self.target / "_Lightroom").exists())
+            self.assertFalse((self.target / "_Windows预览").exists())
+            self.assertFalse((self.target / "_reports").exists())
+        finally:
+            backup.batch_extract_metadata = self._old_metadata
+
 
 if __name__ == "__main__":
     unittest.main()
