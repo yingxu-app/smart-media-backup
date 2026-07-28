@@ -415,7 +415,12 @@ class BackupEngine:
                 break
             media_type = f.get("media_type", "other")
             folder_name = f.get("backup_folder_name") or event_name
-            dest_dir = get_backup_media_dir(target, folder_name, media_type)
+            dest_dir = get_backup_media_dir(
+                target,
+                folder_name,
+                media_type,
+                f.get("backup_media_folder_name", ""),
+            )
             dest_path = os.path.join(dest_dir, f["filename"])
             os.makedirs(dest_dir, exist_ok=True)
 
@@ -616,6 +621,17 @@ class BackupEngine:
                 str(g.get("date_key", "")): str(g.get("name", "")).strip()
                 for g in (event_groups or []) if str(g.get("name", "")).strip()
             }
+            requested_folders = {
+                str(g.get("date_key", "")): str(g.get("folder_name", "")).strip()
+                for g in (event_groups or []) if str(g.get("folder_name", "")).strip()
+            }
+            requested_media_folders = {
+                str(g.get("date_key", "")): {
+                    "photo": str(g.get("photo_folder_name", "")).strip(),
+                    "video": str(g.get("video_folder_name", "")).strip(),
+                }
+                for g in (event_groups or [])
+            }
             grouped_files: dict[str, list[dict]] = {}
             for file_info in files:
                 grouped_files.setdefault(date_group_key(file_info.get("date")), []).append(file_info)
@@ -628,7 +644,9 @@ class BackupEngine:
                     {"kind": "date"}, {"kind": "event"}, {"kind": "location"},
                     {"kind": "device"}, {"kind": "type"},
                 ]
-                folder_name = build_backup_folder_name(selected, effective_naming_parts)
+                folder_name = requested_folders.get(date_key) or build_backup_folder_name(
+                    selected, effective_naming_parts
+                )
                 if event_value:
                     parts_with_event = []
                     for part in effective_naming_parts:
@@ -636,9 +654,16 @@ class BackupEngine:
                         if copy_part.get("kind") == "event" and not copy_part.get("value"):
                             copy_part["value"] = event_value
                         parts_with_event.append(copy_part)
-                    folder_name = build_backup_folder_name(selected, parts_with_event)
+                    if date_key not in requested_folders:
+                        folder_name = build_backup_folder_name(selected, parts_with_event)
+                media_names = requested_media_folders.get(date_key, {})
                 for item in selected:
                     item["backup_folder_name"] = folder_name
+                    media_type = item.get("media_type", "other")
+                    if media_type in ("photo", "raw"):
+                        item["backup_media_folder_name"] = media_names.get("photo", "")
+                    elif media_type == "video":
+                        item["backup_media_folder_name"] = media_names.get("video", "")
                 event_batches.append({"name": folder_name, "files": selected})
             if not event_batches:
                 raise RuntimeError("没有可用于归档的日期分组")

@@ -106,9 +106,15 @@ def build_backup_folder_name(files: list[dict], naming_parts: list[dict] | None 
     return "_".join(result) or _date_label(files)
 
 
-def get_backup_media_dir(backup_root: str, folder_name: str, media_type: str) -> str:
+def get_backup_media_dir(
+    backup_root: str,
+    folder_name: str,
+    media_type: str,
+    media_folder_name: str = "",
+) -> str:
     """新的清晰目录：目标 / 每日主文件夹 / 照片或视频。"""
-    media_dir = "照片" if media_type in ("photo", "raw") else "视频" if media_type == "video" else "其他素材"
+    default_media_dir = "照片" if media_type in ("photo", "raw") else "视频" if media_type == "video" else "其他素材"
+    media_dir = _safe_folder_name(media_folder_name) or default_media_dir
     return str(Path(backup_root) / _safe_folder_name(folder_name) / media_dir)
 
 

@@ -231,7 +231,7 @@ def api_status():
     return jsonify({
         "status": engine.progress.status,
         "progress": engine.progress.to_dict(),
-        "version": "1.0.25",
+        "version": "1.0.26",
     })
 
 
@@ -308,7 +308,13 @@ def api_scan():
     if not mount_point or not os.path.ismount(mount_point):
         return jsonify({"error": "未检测到 SD 卡", "files": [], "devices": []})
 
-    from .organizer import scan_sd_card, batch_extract_metadata, build_date_groups, display_device_name
+    from .organizer import (
+        scan_sd_card,
+        batch_extract_metadata,
+        build_date_groups,
+        date_group_key,
+        display_device_name,
+    )
     raw = scan_sd_card(mount_point)
     if not raw:
         return jsonify({"error": "未找到照片或视频文件", "files": [], "devices": []})
@@ -339,16 +345,23 @@ def api_scan():
     } for f in files[:500]]  # 前端只展示前 500 个
 
     preview_items = []
+    group_previews = {}
     previewable_extensions = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
     for index, item in enumerate(files):
         suffix = Path(item.get("path", "")).suffix.lower()
         if item.get("media_type") == "photo" and suffix in previewable_extensions:
-            preview_items.append({"id": index, "filename": item.get("filename", "照片")})
-        if len(preview_items) == 4:
-            break
+            preview = {"id": index, "filename": item.get("filename", "照片")}
+            if len(preview_items) < 4:
+                preview_items.append(preview)
+            group_key = date_group_key(item.get("date"))
+            group_previews.setdefault(group_key, [])
+            if len(group_previews[group_key]) < 4:
+                group_previews[group_key].append(preview)
 
     global _scan_cache
     event_groups = build_date_groups(files)
+    for group in event_groups:
+        group["previews"] = group_previews.get(group["date_key"], [])
     _scan_cache = {"files": files, "devices": device_list, "event_groups": event_groups}
 
     # AI 自动命名建议
@@ -749,7 +762,7 @@ def main(open_browser: bool = True):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.25           ║
+║          影序 YINGXU  v1.0.26           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║

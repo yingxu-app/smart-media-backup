@@ -159,6 +159,26 @@ class BackupReliabilityTests(unittest.TestCase):
         finally:
             backup.batch_extract_metadata = self._old_metadata
 
+    def test_edited_preview_names_are_used_by_real_backup(self):
+        """层级预览中的主目录和子目录改名必须真实影响最终复制路径。"""
+        engine = self._engine()
+        try:
+            engine.run(
+                str(self.source), "", str(self.target), enable_verify=True,
+                event_groups=[{
+                    "date_key": "2026-07-28",
+                    "folder_name": "2026年07月28日_漫展素材",
+                    "photo_folder_name": "相机照片原片",
+                    "video_folder_name": "现场视频",
+                }],
+            )
+            edited = self.target / "2026年07月28日_漫展素材" / "相机照片原片"
+            self.assertTrue(edited.is_dir())
+            self.assertEqual(len(list(edited.glob("*.JPG"))), 4)
+            self.assertFalse((self.target / "2026年07月28日_漫展素材" / "照片").exists())
+        finally:
+            backup.batch_extract_metadata = self._old_metadata
+
 
 if __name__ == "__main__":
     unittest.main()
