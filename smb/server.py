@@ -231,7 +231,7 @@ def api_status():
     return jsonify({
         "status": engine.progress.status,
         "progress": engine.progress.to_dict(),
-        "version": "1.0.26",
+        "version": "1.0.27",
     })
 
 
@@ -355,7 +355,7 @@ def api_scan():
                 preview_items.append(preview)
             group_key = date_group_key(item.get("date"))
             group_previews.setdefault(group_key, [])
-            if len(group_previews[group_key]) < 4:
+            if len(group_previews[group_key]) < 8:
                 group_previews[group_key].append(preview)
 
     global _scan_cache
@@ -762,7 +762,7 @@ def main(open_browser: bool = True):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.26           ║
+║          影序 YINGXU  v1.0.27           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║

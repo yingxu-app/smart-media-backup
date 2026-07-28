@@ -7,5 +7,5 @@ Smart Media Backup
 GitHub: https://github.com/luguanlin/smart-media-backup
 """
 
-__version__ = "1.0.26"
+__version__ = "1.0.27"
 __author__ = "Lu Guanlin <luguanlin20050927@icloud.com>"
