@@ -231,7 +231,7 @@ def api_status():
     return jsonify({
         "status": engine.progress.status,
         "progress": engine.progress.to_dict(),
-        "version": "1.0.27",
+        "version": "1.0.28",
     })
 
 
@@ -762,7 +762,7 @@ def main(open_browser: bool = True):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.27           ║
+║          影序 YINGXU  v1.0.28           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║
