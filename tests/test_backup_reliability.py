@@ -327,6 +327,26 @@ class ServerApiSafetyTests(unittest.TestCase):
         self.assertIn('fetch("/api/volumes")', app_js)
         self.assertNotIn('fetch("/api/scan")', app_js)
 
+    def test_concurrent_scan_does_not_start_second_card_walk(self):
+        """卡正在读取时，第二个请求必须立即返回，不得并发遍历外置卡。"""
+        from smb import server as server_module
+        project_root = Path(__file__).resolve().parents[1]
+        dashboard = (project_root / "smb" / "templates" / "dashboard.html").read_text(encoding="utf-8")
+        old_cache = server_module._scan_response_cache
+        server_module._scan_response_cache = {}
+        server_module._scan_lock.acquire()
+        try:
+            with mock.patch.object(server_module.os.path, "ismount", return_value=True):
+                response = server_module.app.test_client().post(
+                    "/api/scan", json={"mount_point": "/Volumes/TestCard"}
+                )
+            self.assertEqual(response.status_code, 409)
+            self.assertTrue(response.get_json()["scanning"])
+            self.assertIn("d.scanning", dashboard)
+        finally:
+            server_module._scan_lock.release()
+            server_module._scan_response_cache = old_cache
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)

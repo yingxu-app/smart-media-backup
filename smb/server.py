@@ -35,6 +35,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 engine = BackupEngine()
 _scan_cache = {"files": [], "volumes": []}
+_scan_response_cache = {}
+_scan_lock = threading.Lock()
 _open_browser_on_start = True
 
 
@@ -321,84 +323,105 @@ def api_scan():
     if not mount_point or not os.path.ismount(mount_point):
         return jsonify({"error": "未检测到 SD 卡", "files": [], "devices": []})
 
-    from .organizer import (
-        scan_sd_card,
-        batch_extract_metadata,
-        build_date_groups,
-        date_group_key,
-        display_device_name,
-    )
-    raw = scan_sd_card(mount_point)
-    if not raw:
-        return jsonify({"error": "未找到照片或视频文件", "files": [], "devices": []})
+    # WebKit 首次进入、自动恢复和用户点击刷新有可能在很短时间内同时请求
+    # 扫描。外置 FAT/exFAT 卡不适合被多个 os.walk 并发遍历：系统调用可能
+    # 长时间等待，表现成首页一直停在“等待插卡”。这里只允许一个真实扫描；
+    # 并发请求直接复用刚完成的同卡结果，或明确告诉前端稍候重试。
+    if not _scan_lock.acquire(blocking=False):
+        cached = _scan_response_cache.get(mount_point)
+        if cached:
+            return jsonify({**cached, "cached": True})
+        return jsonify({
+            "error": "正在读取存储卡，请稍候",
+            "scanning": True,
+            "mount_point": mount_point,
+            "files": [],
+            "devices": [],
+        }), 409
 
-    files = batch_extract_metadata(raw)
+    try:
+        from .organizer import (
+            scan_sd_card,
+            batch_extract_metadata,
+            build_date_groups,
+            date_group_key,
+            display_device_name,
+        )
+        raw = scan_sd_card(mount_point)
+        if not raw:
+            return jsonify({"error": "未找到照片或视频文件", "files": [], "devices": []})
+
+        files = batch_extract_metadata(raw)
 
     # 按设备统计
-    devices = {}
-    for f in files:
-        cam = f.get("camera", "Unknown")
-        if cam not in devices:
-            devices[cam] = {"files": 0, "photos": 0, "videos": 0, "size": 0}
-        devices[cam]["files"] += 1
-        devices[cam]["size"] += f.get("size", 0)
-        mt = f.get("media_type", "other")
-        if mt in ("photo", "raw"):
-            devices[cam]["photos"] += 1
-        elif mt == "video":
-            devices[cam]["videos"] += 1
+        devices = {}
+        for f in files:
+            cam = f.get("camera", "Unknown")
+            if cam not in devices:
+                devices[cam] = {"files": 0, "photos": 0, "videos": 0, "size": 0}
+            devices[cam]["files"] += 1
+            devices[cam]["size"] += f.get("size", 0)
+            mt = f.get("media_type", "other")
+            if mt in ("photo", "raw"):
+                devices[cam]["photos"] += 1
+            elif mt == "video":
+                devices[cam]["videos"] += 1
 
     # 构建返回
-    device_list = [{"name": display_device_name(k), "raw_name": k, **v} for k, v in devices.items()]
-    file_list = [{
-        "filename": f["filename"],
-        "camera": f.get("camera", ""),
-        "media_type": f.get("media_type", ""),
-        "size": f.get("size", 0),
-    } for f in files[:500]]  # 前端只展示前 500 个
+        device_list = [{"name": display_device_name(k), "raw_name": k, **v} for k, v in devices.items()]
+        file_list = [{
+            "filename": f["filename"],
+            "camera": f.get("camera", ""),
+            "media_type": f.get("media_type", ""),
+            "size": f.get("size", 0),
+        } for f in files[:500]]  # 前端只展示前 500 个
 
-    preview_items = []
-    group_previews = {}
-    previewable_extensions = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
-    for index, item in enumerate(files):
-        suffix = Path(item.get("path", "")).suffix.lower()
-        if item.get("media_type") == "photo" and suffix in previewable_extensions:
-            preview = {"id": index, "filename": item.get("filename", "照片")}
-            if len(preview_items) < 4:
-                preview_items.append(preview)
-            group_key = date_group_key(item.get("date"))
-            group_previews.setdefault(group_key, [])
-            if len(group_previews[group_key]) < 8:
-                group_previews[group_key].append(preview)
+        preview_items = []
+        group_previews = {}
+        previewable_extensions = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
+        for index, item in enumerate(files):
+            suffix = Path(item.get("path", "")).suffix.lower()
+            if item.get("media_type") == "photo" and suffix in previewable_extensions:
+                preview = {"id": index, "filename": item.get("filename", "照片")}
+                if len(preview_items) < 4:
+                    preview_items.append(preview)
+                group_key = date_group_key(item.get("date"))
+                group_previews.setdefault(group_key, [])
+                if len(group_previews[group_key]) < 8:
+                    group_previews[group_key].append(preview)
 
-    global _scan_cache
-    event_groups = build_date_groups(files)
-    for group in event_groups:
-        group["previews"] = group_previews.get(group["date_key"], [])
-    _scan_cache = {"files": files, "devices": device_list, "event_groups": event_groups}
+        global _scan_cache
+        event_groups = build_date_groups(files)
+        for group in event_groups:
+            group["previews"] = group_previews.get(group["date_key"], [])
+        _scan_cache = {"files": files, "devices": device_list, "event_groups": event_groups}
 
     # 扫描必须始终快速、离线且可预测。AI 命名属于可选增强，不得阻塞
     # 存储卡识别；尤其不能在首页轮询请求中等待本地模型超时。
     # 基础建议直接使用 EXIF 日期，事件名仍可由用户在工作台中修改。
-    suggested_name = ""
-    if files:
-        from collections import Counter
-        dates = [str(f.get("date", ""))[:10] for f in files if f.get("date", "")]
-        if dates:
-            d = Counter(dates).most_common(1)[0][0]
-            suggested_name = d + "拍摄"
+        suggested_name = ""
+        if files:
+            from collections import Counter
+            dates = [str(f.get("date", ""))[:10] for f in files if f.get("date", "")]
+            if dates:
+                d = Counter(dates).most_common(1)[0][0]
+                suggested_name = d + "拍摄"
 
-    return jsonify({
-        "devices": device_list,
-        "files": file_list,
-        "total_files": len(files),
-        "total_size": sum(f.get("size", 0) for f in files),
-        "mount_point": mount_point,
-        "source_name": Path(mount_point).name,
-        "suggested_name": suggested_name,
-        "event_groups": event_groups,
-        "previews": preview_items,
-    })
+        response = {
+            "devices": device_list,
+            "files": file_list,
+            "total_files": len(files),
+            "total_size": sum(f.get("size", 0) for f in files),
+            "mount_point": mount_point,
+            "source_name": Path(mount_point).name,
+            "suggested_name": suggested_name,
+            "event_groups": event_groups,
+            "previews": preview_items,
+        }
+        _scan_response_cache[mount_point] = response
+        return jsonify(response)
+    finally:
+        _scan_lock.release()
 
 
 @app.route("/api/preview/<int:file_index>")
@@ -797,7 +820,7 @@ def main(open_browser: bool = True):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.30           ║
+║          影序 YINGXU  v1.0.31           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║
