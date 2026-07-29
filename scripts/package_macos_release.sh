@@ -16,6 +16,6 @@ codesign --force --deep --sign - "$STAGE_DIR/影序 YINGXU.app"
 codesign --verify --deep --strict "$STAGE_DIR/影序 YINGXU.app"
 hdiutil create -volname "影序 YINGXU" -srcfolder "$STAGE_DIR" -ov -format UDZO "$DMG_PATH"
 hdiutil verify "$DMG_PATH"
-shasum -a 256 "$DMG_PATH" > "$RELEASE_DIR/SHA256SUMS.txt"
+(cd "$RELEASE_DIR" && shasum -a 256 "$(basename "$DMG_PATH")" > SHA256SUMS.txt)
 print "已生成：$DMG_PATH"
 cat "$RELEASE_DIR/SHA256SUMS.txt"
