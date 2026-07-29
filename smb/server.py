@@ -377,23 +377,16 @@ def api_scan():
         group["previews"] = group_previews.get(group["date_key"], [])
     _scan_cache = {"files": files, "devices": device_list, "event_groups": event_groups}
 
-    # AI 自动命名建议
-    # 智能事件名：从EXIF提取日期+设备
+    # 扫描必须始终快速、离线且可预测。AI 命名属于可选增强，不得阻塞
+    # 存储卡识别；尤其不能在首页轮询请求中等待本地模型超时。
+    # 基础建议直接使用 EXIF 日期，事件名仍可由用户在工作台中修改。
     suggested_name = ""
     if files:
-        # AI 是可选建议，默认不运行；日期和设备识别始终离线可用。
-        from .ai_namer import ai_namer
-        if ai_namer.is_enabled():
-            sample_paths = [f["path"] for f in files[:5] if f.get("media_type") in ("photo", "raw")]
-            if sample_paths:
-                suggested_name = ai_namer.suggest_event_name(sample_paths) or ""
-        # AI不可用时，从EXIF生成基础名
-        if not suggested_name:
-            from collections import Counter
-            dates = [str(f.get("date",""))[:10] for f in files if f.get("date","")]
-            if dates:
-                d = Counter(dates).most_common(1)[0][0]
-                suggested_name = d + "拍摄"
+        from collections import Counter
+        dates = [str(f.get("date", ""))[:10] for f in files if f.get("date", "")]
+        if dates:
+            d = Counter(dates).most_common(1)[0][0]
+            suggested_name = d + "拍摄"
 
     return jsonify({
         "devices": device_list,
@@ -804,7 +797,7 @@ def main(open_browser: bool = True):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.29           ║
+║          影序 YINGXU  v1.0.30           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║

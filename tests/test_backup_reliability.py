@@ -320,6 +320,13 @@ class BackupReliabilityTests(unittest.TestCase):
 class ServerApiSafetyTests(unittest.TestCase):
     """本地桌面服务的最小安全边界与错误反馈。"""
 
+    def test_navigation_readiness_never_rescans_media(self):
+        """归档与设置页的状态灯只能检查挂载状态，不能每五秒重扫原卡。"""
+        project_root = Path(__file__).resolve().parents[1]
+        app_js = (project_root / "smb" / "static" / "js" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('fetch("/api/volumes")', app_js)
+        self.assertNotIn('fetch("/api/scan")', app_js)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
@@ -370,6 +377,28 @@ class ServerApiSafetyTests(unittest.TestCase):
         response = self.client.get(f"/api/history/{backup_id}/report/json")
         self.assertEqual(response.status_code, 404)
         self.assertIn("路径无效", response.get_json()["error"])
+
+    def test_scan_never_waits_for_optional_ai(self):
+        """首页扫描只使用离线元数据；即使 AI 已开启也不能调用模型。"""
+        media = self.root / "card" / "DCIM" / "IMG_0001.JPG"
+        media.parent.mkdir(parents=True)
+        media.write_bytes(b"photo")
+        extracted = [{
+            "path": str(media), "filename": media.name, "size": 5,
+            "camera": "iPhone", "media_type": "photo",
+            "date": datetime(2026, 7, 29), "gps": None,
+        }]
+        with mock.patch.object(self.server_module, "find_likely_media_source", return_value={"mount_point": str(media.parents[1])}), \
+             mock.patch.object(self.server_module.os.path, "ismount", return_value=True), \
+             mock.patch("smb.organizer.scan_sd_card", return_value=[{"path": str(media), "filename": media.name, "size": 5}]), \
+             mock.patch("smb.organizer.batch_extract_metadata", return_value=extracted), \
+             mock.patch.object(ai_namer, "is_enabled", return_value=True), \
+             mock.patch.object(ai_namer, "suggest_event_name", side_effect=AssertionError("扫描不应调用 AI")):
+            response = self.client.get("/api/scan")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["total_files"], 1)
+        self.assertEqual(payload["suggested_name"], "2026-07-29拍摄")
 
 
 if __name__ == "__main__":

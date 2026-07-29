@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="${0:A:h:h}"
-VERSION="1.0.29"
+VERSION="1.0.30"
 RELEASE_DIR="$ROOT/release/v$VERSION"
 STAGE_DIR="$RELEASE_DIR/dmg-root"
 APP_SOURCE="$ROOT/desktop/dist/影序 YINGXU.app"

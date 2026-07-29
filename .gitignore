@@ -15,3 +15,4 @@ venv/
 .app-smoke-config/
 desktop/.pyinstaller/
 release/
+artifacts/
