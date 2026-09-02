@@ -50,6 +50,7 @@ select,input[type=text]{height:44px;padding:10px 14px;background:var(--field);co
 .status-title{font-size:15px;font-weight:600}
 .status-detail{font-size:13px;color:var(--muted)}
 .quick-start{display:flex;align-items:stretch;gap:10px}.quick-step{flex:1;padding:12px;border-radius:9px;background:var(--panel-soft);border:1px solid var(--border);font-size:13px;line-height:1.55}.quick-step b{display:block;color:var(--accent);margin-bottom:3px}.quick-start-close{align-self:flex-start;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;padding:2px 4px}@media(max-width:720px){.quick-start{display:block}.quick-step{margin-bottom:8px}}
+.pocket-handoff{display:none;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;margin-bottom:14px;border:1px solid rgba(74,222,128,.25);border-radius:10px;background:rgba(74,222,128,.06)}.pocket-handoff.show{display:flex}.pocket-handoff-title{font-size:13px;font-weight:700;color:var(--accent)}.pocket-handoff-meta{margin-top:2px;font-size:12px;color:var(--muted)}
 </style><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -86,6 +87,10 @@ select,input[type=text]{height:44px;padding:10px 14px;background:var(--field);co
   <div class="scan-summary"><span id="totalFilesInfo"></span><span id="totalSizeInfo"></span></div>
 </div>
 <div class="action-panel card" id="actionPanel" style="display:none">
+  <div class="pocket-handoff" id="pocketHandoff">
+    <div><div class="pocket-handoff-title">📱 已收到 Pocket 拍摄信息</div><div class="pocket-handoff-meta" id="pocketHandoffMeta"></div></div>
+    <button type="button" class="btn-refresh" onclick="applyPocketNotes()">应用到命名</button>
+  </div>
   <div class="form-row">
     <label>🧩 备份文件夹命名顺序</label>
     <div class="naming-order">
@@ -136,7 +141,7 @@ select,input[type=text]{height:44px;padding:10px 14px;background:var(--field);co
 </div></div>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-const socket=io();const WORKSPACE_CACHE_KEY='yingxu-workspace-v1';const WORKSPACE_CACHE_MAX_AGE=30*60*1000;const QUICK_START_KEY='yingxu-quick-start-dismissed-v1';let detectedMount='';let selectedSourceMount='';let extraTargets=[];let terminalNotice='';let scanData={};let folderOverrides={};let activePreviewGroup='';let scanInFlight=false;let sourcesInFlight=false;
+const socket=io();const WORKSPACE_CACHE_KEY='yingxu-workspace-v1';const WORKSPACE_CACHE_MAX_AGE=30*60*1000;const QUICK_START_KEY='yingxu-quick-start-dismissed-v1';let detectedMount='';let selectedSourceMount='';let extraTargets=[];let terminalNotice='';let scanData={};let folderOverrides={};let activePreviewGroup='';let scanInFlight=false;let sourcesInFlight=false;let pocketDesktopNotes={};
 function applyTheme(theme){document.documentElement.setAttribute('data-theme',theme);localStorage.setItem('smb-theme',theme);document.querySelector('.theme-toggle').textContent=theme==='dark'?'🌙':'☀️'}
 function toggleTheme(){applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light')}
 applyTheme(localStorage.getItem('smb-theme')||'dark');
@@ -149,6 +154,8 @@ socket.on('scan_update',d=>{if(!selectedSourceMount||selectedSourceMount===d.mou
 function setSidebarStatus(ready){let dot=document.getElementById('statusDot'),text=document.getElementById('statusText');dot.classList.toggle('ready',ready);text.classList.toggle('ready',ready);text.textContent=ready?'就绪':'未就绪'}
 function dismissQuickStart(){localStorage.setItem(QUICK_START_KEY,'1');document.getElementById('quickStart').style.display='none'}
 function showQuickStartIfNeeded(){if(!localStorage.getItem(QUICK_START_KEY))document.getElementById('quickStart').style.display='flex'}
+function loadPocketNotes(){fetch('/api/pocket/notes').then(r=>r.ok?r.json():null).then(data=>{pocketDesktopNotes=(data&&data.notes)||{};let values=[pocketDesktopNotes.event,pocketDesktopNotes.location,pocketDesktopNotes.device,pocketDesktopNotes.notes].filter(Boolean);let box=document.getElementById('pocketHandoff');if(!box)return;box.classList.toggle('show',values.length>0);document.getElementById('pocketHandoffMeta').textContent=values.join(' · ')}).catch(()=>{})}
+function applyPocketNotes(){let mapping={event:pocketDesktopNotes.event||'',location:pocketDesktopNotes.location||''};document.querySelectorAll('.name-slot').forEach(slot=>{let kind=slot.querySelector('.name-part').value;if(mapping[kind])slot.querySelector('.name-part-input').value=mapping[kind]});syncNamingSlots();saveWorkspaceState();let device=pocketDesktopNotes.device?`；手机记录设备：${pocketDesktopNotes.device}`:'';alert('已把 Pocket 的事件和地点应用到命名'+device)}
 function hasWorkspace(){return Boolean(scanData&&detectedMount&&scanData.devices&&scanData.devices.length)}
 function saveWorkspaceState(){if(!hasWorkspace())return;try{localStorage.setItem(WORKSPACE_CACHE_KEY,JSON.stringify({savedAt:Date.now(),detectedMount,selectedSourceMount,scanData,namingParts:getNamingParts(),folderOverrides,localFolder:document.getElementById('localFolder').value,extraTargets}))}catch(_){}}
 function restoreWorkspaceState(){try{let cached=JSON.parse(localStorage.getItem(WORKSPACE_CACHE_KEY)||'null');if(!cached||Date.now()-cached.savedAt>WORKSPACE_CACHE_MAX_AGE||!cached.scanData||!cached.detectedMount)return false;detectedMount=cached.detectedMount;selectedSourceMount=cached.selectedSourceMount||cached.detectedMount;scanData=cached.scanData;extraTargets=Array.isArray(cached.extraTargets)?cached.extraTargets:[];folderOverrides=cached.folderOverrides&&typeof cached.folderOverrides==='object'?cached.folderOverrides:{};if(Array.isArray(cached.namingParts)){[...document.querySelectorAll('.name-slot')].forEach((slot,i)=>{let part=cached.namingParts[i];if(!part)return;slot.querySelector('.name-part').value=part.kind||'omit';slot.querySelector('.name-part-input').value=part.value||''})}syncNamingSlots();renderScan(scanData.devices,scanData.total_files,scanData.total_size,scanData.source_name);if(cached.localFolder){document.getElementById('localFolder').value=cached.localFolder;syncManualTarget()}renderTags();document.getElementById('statusTitle').textContent='✅ 已恢复上次检测结果';document.getElementById('statusDetail').textContent=(scanData.source_name||'存储卡')+' · 后台确认中';setSidebarStatus(true);return true}catch(_){return false}}
@@ -194,5 +201,5 @@ function cancelBackup(){document.getElementById('currentFile').textContent='正�
 function togglePause(){fetch('/api/pause_backup',{method:'POST'}).then(r=>r.json()).then(d=>{if(d.error)alert(d.error)})}
 function resetUI(){document.getElementById('progressPanel').style.display='none';document.getElementById('scanResult').style.display='none';document.getElementById('actionPanel').style.display='none';extraTargets=[];renderTags()}
 
-syncNamingSlots();showQuickStartIfNeeded();let restoredWorkspace=restoreWorkspaceState();refreshTargets();if(restoredWorkspace)monitorSourcePresence();else scan();setInterval(()=>{if(hasWorkspace()&&selectedSourceMount)monitorSourcePresence();else scan()},8000);
+syncNamingSlots();showQuickStartIfNeeded();loadPocketNotes();let restoredWorkspace=restoreWorkspaceState();refreshTargets();if(restoredWorkspace)monitorSourcePresence();else scan();setInterval(()=>{if(hasWorkspace()&&selectedSourceMount)monitorSourcePresence();else scan()},8000);
 </script></body></html>

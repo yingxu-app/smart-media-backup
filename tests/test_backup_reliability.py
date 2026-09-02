@@ -389,6 +389,21 @@ class ServerApiSafetyTests(unittest.TestCase):
         self.assertEqual(cleared.status_code, 200)
         self.assertEqual(cleared.get_json()["cleared"], 1)
 
+    def test_history_targets_are_grouped_by_storage_kind(self):
+        """历史筛选必须把本机、外接盘和测试路径分开，避免日常列表混乱。"""
+        targets = [
+            str(Path.home() / "Desktop" / "航材素材"),
+            "/Volumes/SAMSUNG T7/影序备份",
+            str(Path.home() / "Desktop" / "acceptance-v1.0.31"),
+        ]
+        with mock.patch.object(db, "get_backup_targets", return_value=targets):
+            response = self.client.get("/api/history_targets")
+        self.assertEqual(response.status_code, 200)
+        groups = {group["id"]: group for group in response.get_json()["groups"]}
+        self.assertEqual(groups["local"]["items"][0]["label"], "桌面 / 航材素材")
+        self.assertEqual(groups["external"]["items"][0]["label"], "SAMSUNG T7 / 影序备份")
+        self.assertEqual(groups["test"]["items"][0]["label"], "桌面 / acceptance-v1.0.31")
+
     def test_report_download_rejects_outside_config_directory(self):
         outside = self.root / "outside.json"
         outside.write_text("{}", encoding="utf-8")

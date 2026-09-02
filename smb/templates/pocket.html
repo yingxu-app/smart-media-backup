@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#080b0c">
+  <link rel="manifest" href="/pocket/manifest.webmanifest">
+  <link rel="icon" href="/static/img/icon.svg">
+  <title>影序 Pocket</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080b0c;--panel:#111619;--panel2:#151c1f;--line:#243034;--text:#eef6f2;--muted:#8da09a;--accent:#4ade80;--cyan:#4dd9e7;--danger:#ff6b6b}
+    *{box-sizing:border-box}html{background:var(--bg)}body{margin:0;min-height:100vh;background:radial-gradient(circle at 88% 2%,rgba(77,217,231,.12),transparent 28%),radial-gradient(circle at 12% 20%,rgba(74,222,128,.12),transparent 30%),var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif}
+    button,input,textarea{font:inherit}.shell{width:min(720px,100%);margin:auto;padding:max(22px,env(safe-area-inset-top)) 18px max(30px,env(safe-area-inset-bottom))}.brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}.brand img{width:46px;height:46px;border-radius:13px}.eyebrow{font-size:11px;letter-spacing:.18em;color:var(--accent);text-transform:uppercase}.brand h1{font-size:22px;margin:3px 0 0}.card{background:linear-gradient(145deg,rgba(21,28,31,.96),rgba(13,17,19,.96));border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.26);margin-bottom:14px}.hidden{display:none!important}.hero{padding:26px 22px}.hero h2{font-size:30px;line-height:1.16;margin:12px 0}.hero p,.hint{color:var(--muted);line-height:1.65;margin:0}.code{width:100%;height:58px;border:1px solid #334247;border-radius:15px;background:#090c0d;color:var(--text);font-size:25px;letter-spacing:.3em;text-align:center;margin:22px 0 12px;outline:none}.code:focus,input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(74,222,128,.12)}.primary,.ghost{border-radius:14px;height:50px;border:1px solid rgba(74,222,128,.35);font-weight:700}.primary{width:100%;background:var(--accent);color:#07110b}.ghost{background:transparent;color:var(--accent);padding:0 17px}.error{color:#ff9a9a;margin-top:11px;min-height:20px}.status-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.status-title{font-size:22px;margin:2px 0 5px}.status-label{color:var(--accent);font-size:13px}.progress-track{height:9px;background:#20292c;border-radius:10px;overflow:hidden;margin:20px 0 10px}.progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:10px;transition:width .35s}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.metric{padding:12px 8px;border-radius:13px;background:#0c1113;text-align:center}.metric strong{display:block;font-size:20px}.metric span{font-size:11px;color:var(--muted)}.current{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:13px;margin-top:12px}.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:16px 0}.tab{height:42px;border:1px solid var(--line);border-radius:12px;background:#0d1214;color:var(--muted)}.tab.active{color:#07110b;background:var(--accent);border-color:var(--accent);font-weight:700}.panel{display:none}.panel.active{display:block}.field{margin-bottom:13px}.field label{display:block;color:var(--muted);font-size:12px;margin:0 0 7px}.field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:13px;background:#0b0f11;color:var(--text);padding:13px;outline:none}.field textarea{min-height:92px;resize:vertical}.save-row{display:flex;align-items:center;gap:12px}.save-row .primary{width:auto;flex:1}.save-msg{font-size:12px;color:var(--accent)}.history-item{padding:14px 0;border-bottom:1px solid var(--line)}.history-item:last-child{border-bottom:0}.history-top{display:flex;justify-content:space-between;gap:12px;font-weight:650}.history-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;color:var(--muted);font-size:12px}.pill{border:1px solid var(--line);border-radius:999px;padding:3px 8px}.done{color:var(--accent)}.failed,.error-state{color:var(--danger)}.empty{text-align:center;padding:30px;color:var(--muted)}.privacy{font-size:12px;color:var(--muted);text-align:center;padding:6px 18px 0;line-height:1.6}
+    @media(max-width:420px){.hero h2{font-size:27px}.metrics{grid-template-columns:repeat(2,1fr)}.metric:last-child{grid-column:span 2}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="brand"><img src="/static/img/icon.svg" alt="影序"><div><div class="eyebrow">Yingxu Pocket</div><h1>手机协作台</h1></div></header>
+
+  <section id="connectView" class="card hero">
+    <div class="eyebrow">同一 Wi-Fi · 本地配对</div>
+    <h2>手机只做协作<br>原始素材留在电脑</h2>
+    <p>先在 Mac 影序的“偏好设置 → 影序 Pocket”生成 6 位配对码，再在这里输入。</p>
+    <input id="pairCode" class="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+    <button class="primary" onclick="connectPocket()">连接桌面端</button>
+    <div id="pairError" class="error"></div>
+  </section>
+
+  <div id="appView" class="hidden">
+    <section class="card">
+      <div class="status-head"><div><div class="eyebrow">Desktop status</div><h2 id="statusTitle" class="status-title">正在读取状态</h2><div id="statusLabel" class="status-label">已安全配对</div></div><button class="ghost" onclick="disconnectPocket()">断开</button></div>
+      <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+      <div id="progressText" class="hint">等待桌面端任务</div>
+      <div class="metrics"><div class="metric"><strong id="copied">0</strong><span>已复制</span></div><div class="metric"><strong id="skipped">0</strong><span>已跳过</span></div><div class="metric"><strong id="speed">0</strong><span>MB/s</span></div></div>
+      <div id="currentFile" class="current">当前没有正在处理的文件</div>
+    </section>
+
+    <nav class="tabs"><button class="tab active" data-panel="statusPanel">状态</button><button class="tab" data-panel="notesPanel">拍摄信息</button><button class="tab" data-panel="historyPanel">历史</button></nav>
+    <section id="statusPanel" class="panel active card"><h3>连接说明</h3><p class="hint">手机页面每 2 秒读取一次桌面端状态。关闭手机屏幕不会影响 Mac 上的备份；手机不会上传、删除或修改原始素材。</p></section>
+    <section id="notesPanel" class="panel card">
+      <h3>本次拍摄信息</h3><p class="hint" style="margin-bottom:16px">提前填写后可在 Mac 上核对命名。当前版本不会自动开始备份。</p>
+      <div class="field"><label>事件</label><input id="noteEvent" placeholder="例如：上海漫展"></div>
+      <div class="field"><label>地点</label><input id="noteLocation" placeholder="例如：国家会展中心"></div>
+      <div class="field"><label>设备</label><input id="noteDevice" placeholder="例如：Sony A7M4 / DJI Mavic 4 Pro"></div>
+      <div class="field"><label>备注</label><textarea id="noteNotes" placeholder="客户、机位、素材重点等"></textarea></div>
+      <div class="save-row"><button class="primary" onclick="saveNotes()">保存到 Mac</button><span id="saveMsg" class="save-msg"></span></div>
+    </section>
+    <section id="historyPanel" class="panel card"><div id="historyList" class="empty">正在读取历史</div></section>
+  </div>
+  <p class="privacy">影序 Pocket 仅在当前局域网内连接桌面端，不把照片上传到影序服务器。</p>
+</main>
+<script>
+  const $ = id => document.getElementById(id);
+  let poller = null;
+  const labels = {idle:"桌面端已连接",scanning:"正在扫描素材",metadata:"正在读取拍摄信息",copying:"正在备份",paused:"备份已暂停",reviewing:"正在整理待确认素材",previewing:"正在生成预览",verifying:"正在校验",done:"备份已完成",partial:"部分完成",cancelled:"任务已取消",error:"备份遇到问题"};
+  async function api(path, options={}){const r=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||"连接失败");return d}
+  async function connectPocket(){try{$("pairError").textContent="";await api("/api/pocket/connect",{method:"POST",body:JSON.stringify({code:$("pairCode").value})});showApp();}catch(e){$("pairError").textContent=e.message}}
+  async function disconnectPocket(){await api("/api/pocket/disconnect",{method:"POST"}).catch(()=>{});clearInterval(poller);location.reload()}
+  async function showApp(){try{await loadStatus();$("connectView").classList.add("hidden");$("appView").classList.remove("hidden");await Promise.all([loadNotes(),loadHistory()]);clearInterval(poller);poller=setInterval(loadStatus,2000)}catch(e){$("connectView").classList.remove("hidden");$("appView").classList.add("hidden")}}
+  async function loadStatus(){const d=await api("/api/pocket/status");const p=d.progress||{};const total=Math.max(Number(p.total_files)||0,1);const processed=Number(p.processed_files)||Number(p.copied_files)||0;const percent=Math.max(0,Math.min(100,Number(p.phase_progress)||processed/total*100));$("statusTitle").textContent=labels[d.status]||"桌面端已连接";$("statusLabel").textContent=d.source?`当前来源：${d.source}`:"已安全配对";$("progressBar").style.width=`${percent}%`;$("progressText").textContent=`${Math.round(percent)}% · ${processed}/${p.total_files||0} 个文件`;$("copied").textContent=p.copied_files||0;$("skipped").textContent=p.skipped_files||0;$("speed").textContent=Number(p.current_speed||0).toFixed(1);$("currentFile").textContent=p.current_file||"当前没有正在处理的文件"}
+  async function loadNotes(){const d=await api("/api/pocket/notes");const n=d.notes||{};$("noteEvent").value=n.event||"";$("noteLocation").value=n.location||"";$("noteDevice").value=n.device||"";$("noteNotes").value=n.notes||""}
+  async function saveNotes(){try{await api("/api/pocket/notes",{method:"POST",body:JSON.stringify({event:$("noteEvent").value,location:$("noteLocation").value,device:$("noteDevice").value,notes:$("noteNotes").value})});$("saveMsg").textContent="已保存";setTimeout(()=>$("saveMsg").textContent="",1800)}catch(e){$("saveMsg").textContent=e.message}}
+  async function loadHistory(){try{const d=await api("/api/pocket/history?limit=20");const list=d.items||[];$("historyList").className=list.length?"":"empty";$("historyList").innerHTML=list.length?list.map(item=>`<article class="history-item"><div class="history-top"><span>${escapeHtml(item.event_name)}</span><span class="${item.status==='done'?'done':item.status==='error'?'failed':''}">${statusIcon(item.status)}</span></div><div class="history-meta"><span class="pill">${formatTime(item.started_at)}</span><span class="pill">${item.total_files||0} 文件</span><span class="pill">${escapeHtml(item.target)}</span>${item.skipped_files?`<span class="pill">跳过 ${item.skipped_files}</span>`:""}</div></article>`).join(""):"还没有归档记录"}catch(e){$("historyList").textContent=e.message}}
+  function statusIcon(s){return s==='done'?'已完成':s==='running'?'进行中':s==='error'?'失败':s==='cancelled'?'已取消':s==='partial'?'部分完成':'待处理'}
+  function formatTime(v){if(!v)return"时间未知";const d=new Date(v);return Number.isNaN(d.getTime())?v:d.toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})}
+  function escapeHtml(v){const el=document.createElement("span");el.textContent=String(v??"");return el.innerHTML}
+  document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>{document.querySelectorAll(".tab,.panel").forEach(el=>el.classList.remove("active"));tab.classList.add("active");$(tab.dataset.panel).classList.add("active");if(tab.dataset.panel==="historyPanel")loadHistory()});
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("/pocket/sw.js").catch(()=>{});
+  showApp();
+</script>
+</body>
+</html>

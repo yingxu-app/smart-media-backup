@@ -175,13 +175,28 @@
     <small style="color:var(--muted);">两台电脑需在同一网络且另一台也打开影序。输入另一台显示的地址后，可导出或拉取“历史记录”；不会自动传输原始照片。</small>
 </div>
 
+<!-- 影序 Pocket -->
+<div class="card pocket-setup" style="margin-top:16px;">
+    <div class="card-header"><h3>📱 影序 Pocket</h3></div>
+    <p class="pocket-copy">让手机在同一 Wi‑Fi 下查看桌面备份进度、归档记录，并提前填写事件、地点和设备。原始照片不会传到手机，也不会上传到影序服务器。</p>
+    <div class="pocket-actions">
+        <button class="btn-primary" onclick="createPocketPairing()">生成 6 位配对码</button>
+        <a class="btn-secondary pocket-open" href="/pocket/" target="_blank">本机预览</a>
+    </div>
+    <div id="pocketPairing" class="pocket-pairing" style="display:none;">
+        <div><span class="pocket-caption">手机访问地址</span><strong id="pocketUrl">—</strong></div>
+        <div><span class="pocket-caption">10 分钟有效配对码</span><strong id="pocketCode" class="pocket-code">—</strong></div>
+    </div>
+    <small class="setting-help">iPhone：Safari 打开地址并配对后，可点“分享 → 添加到主屏幕”。此网页不能像原生 App 一样读取手机全部照片或在后台自动复制。</small>
+</div>
+
 <div class="card" style="margin-top:16px;">
     <h4 style="margin-bottom:12px;">📊 存储概览</h4>
     <canvas id="storageChart" height="200"></canvas>
 </div>
 
 <div class="card" style="margin-top:16px;text-align:center;color:var(--text-dim);font-size:0.85em;">
-    影序 YINGXU v1.0.31<br>
+    影序 YINGXU v1.0.33<br>
     By 陆冠霖
 </div>
 {% endblock %}
@@ -459,6 +474,21 @@ function showSyncMsg(msg, isError) {
     el.style.color = isError ? "#e74c3c" : "#2ecc71";
 }
 
+async function createPocketPairing() {
+    const panel = document.getElementById("pocketPairing");
+    try {
+        const response = await fetch("/api/pocket/pairing", {method:"POST"});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "生成失败");
+        document.getElementById("pocketUrl").textContent = data.url;
+        document.getElementById("pocketCode").textContent = data.code;
+        panel.style.display = "grid";
+    } catch (error) {
+        panel.style.display = "block";
+        panel.textContent = `❌ ${error.message}`;
+    }
+}
+
 // === 高级设置 ===
 let currentSortOrder = ["device", "event", "type"];
 const FIELD_NAMES = {device:"📷设备", event:"📁事件", type:"📂类型", date:"📅日期", location:"📍地点"};
@@ -528,6 +558,15 @@ document.addEventListener("DOMContentLoaded", function() { loadAdvancedSettings(
 .form-actions { margin-top: 20px; }
 .save-msg { margin-top: 12px; font-weight: 500; }
 .setting-help { display:block; width:100%; margin-top:2px; color:var(--text-dim); font-size:.84em; line-height:1.55; }
+.pocket-copy { color:var(--text-dim); line-height:1.65; margin-bottom:16px; }
+.pocket-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.pocket-open { display:inline-grid; place-items:center; text-decoration:none; }
+.pocket-pairing { grid-template-columns:minmax(0,1fr) auto; gap:12px; margin-top:16px; padding:16px; border:1px solid var(--border); border-radius:14px; background:var(--bg); }
+.pocket-pairing > div { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.pocket-caption { color:var(--text-dim); font-size:.78em; }
+.pocket-pairing strong { overflow-wrap:anywhere; }
+.pocket-code { color:var(--accent); font-size:1.7em; letter-spacing:.18em; }
+@media (max-width:680px) { .pocket-pairing { grid-template-columns:1fr; } }
 
 /* Toggle开关 */
 .toggle { position: relative; display: inline-block; width: 48px; height: 26px; }

@@ -21,6 +21,12 @@
             </select>
         </div>
         <div class="form-row">
+            <label for="historyTargetCategory">位置类别</label>
+            <select id="historyTargetCategory" onchange="updateHistoryTargetOptions()">
+                <option value="">全部类别</option>
+            </select>
+        </div>
+        <div class="form-row">
             <label for="historyTarget">备份位置</label>
             <select id="historyTarget"><option value="">全部位置</option></select>
         </div>
@@ -78,16 +84,75 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
+let historyTargetGroups = [];
+let openHistoryDays = new Set();
+
 function loadHistoryTargets() {
-    fetch("/api/history_targets").then(r => r.json()).then(items => {
-        const select = document.getElementById("historyTarget");
-        select.innerHTML = '<option value="">全部位置</option>' + (items || []).map(item =>
-            `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`
+    fetch("/api/history_targets").then(r => r.json()).then(payload => {
+        historyTargetGroups = payload.groups || [];
+        const category = document.getElementById("historyTargetCategory");
+        category.innerHTML = '<option value="">全部类别</option>' + historyTargetGroups.map(group =>
+            `<option value="${escapeHtml(group.id)}">${escapeHtml(group.label)}（${group.items.length}）</option>`
         ).join("");
+        updateHistoryTargetOptions();
+    }).catch(() => {
+        historyTargetGroups = [];
+        updateHistoryTargetOptions();
     });
 }
 
+function updateHistoryTargetOptions() {
+    const category = document.getElementById("historyTargetCategory").value;
+    const select = document.getElementById("historyTarget");
+    const visibleGroups = category
+        ? historyTargetGroups.filter(group => group.id === category)
+        : historyTargetGroups;
+    select.innerHTML = '<option value="">全部位置</option>' + visibleGroups.flatMap(group =>
+        group.items.map(item => ({...item, groupLabel: group.label}))
+    ).map(item =>
+        `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)} · ${escapeHtml(item.groupLabel)}</option>`
+    ).join("");
+}
+
 function escapeHtml(value) { const d = document.createElement("div"); d.textContent = value || ""; return d.innerHTML; }
+
+function historyDayKey(iso) {
+    if (!iso) return "未知日期";
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "未知日期";
+    return date.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function statusLabel(status) {
+    return ({
+        completed: "✅ 成功", partial: "⚠️ 部分完成", cancelled: "⏹️ 已取消",
+        error: "❌ 失败", running: "⏳ 进行中"
+    })[status] || "⏳ 处理中";
+}
+
+function toggleHistoryDay(day) {
+    if (openHistoryDays.has(day)) openHistoryDays.delete(day);
+    else openHistoryDays.add(day);
+    loadHistory();
+}
+
+function renderHistoryRecord(record) {
+    const icon = record.status === "completed" ? "✅" : record.status === "partial" ? "⚠️" : record.status === "cancelled" ? "⏹️" : record.status === "error" ? "❌" : "⏳";
+    return `
+        <div class="history-item" onclick="showDetail(${record.id})">
+            <div class="h-left">
+                <span class="h-icon">${icon}</span>
+                <div class="h-info">
+                    <div class="h-event">${escapeHtml(record.event_name || "未命名备份")}</div>
+                    <div class="h-meta">${escapeHtml(record.backup_root || "未记录目标位置")}</div>
+                </div>
+            </div>
+            <div class="h-right">
+                <div class="h-count">${record.total_files || 0} 文件</div>
+                <div class="h-date">${statusLabel(record.status)} · ${formatDateTime(record.started_at)}</div>
+            </div>
+        </div>`;
+}
 
 function loadHistory() {
     const params = new URLSearchParams();
@@ -117,29 +182,30 @@ function loadHistory() {
                 container.innerHTML = '<div class="empty-state">没有找到匹配的备份记录</div>';
                 return;
             }
-            container.innerHTML = records.map(r => `
-                <div class="history-item" onclick="showDetail(${r.id})">
-                    <div class="h-left">
-                        <span class="h-icon ${r.status === 'completed' ? 'ok' : r.status === 'error' ? 'err' : r.status === 'partial' ? 'warn' : ''}">
-                            ${r.status === 'completed' ? '✅' : r.status === 'partial' ? '⚠️' : r.status === 'cancelled' ? '⏹️' : r.status === 'error' ? '❌' : '⏳'}
-                        </span>
-                        <div class="h-info">
-                            <div class="h-event">${r.event_name}</div>
-                            <div class="h-meta">${r.backup_root}</div>
-                        </div>
-                    </div>
-                    <div class="h-right">
-                        <div class="h-count">${r.total_files || 0} 文件</div>
-                        <div class="h-date">${formatDateTime(r.started_at)}</div>
-                    </div>
-                </div>
-            `).join("");
+            const groups = records.reduce((result, record) => {
+                const day = historyDayKey(record.started_at);
+                (result[day] ||= []).push(record);
+                return result;
+            }, {});
+            container.innerHTML = Object.entries(groups).map(([day, dayRecords]) => {
+                const isOpen = openHistoryDays.has(day);
+                const copied = dayRecords.reduce((sum, item) => sum + (item.copied_files || 0), 0);
+                return `<section class="history-day-group ${isOpen ? 'open' : ''}">
+                    <button class="history-day-toggle" onclick='toggleHistoryDay(${JSON.stringify(day)})' aria-expanded="${isOpen}">
+                        <span class="history-day-chevron">${isOpen ? '⌄' : '›'}</span>
+                        <span><strong>${day}</strong><small>本次共 ${dayRecords.length} 个备份任务 · 已复制 ${copied} 个文件</small></span>
+                    </button>
+                    <div class="history-day-records" ${isOpen ? '' : 'hidden'}>${dayRecords.map(renderHistoryRecord).join("")}</div>
+                </section>`;
+            }).join("");
         });
 }
 
 function clearHistorySearch() {
     document.getElementById("historyQuery").value = "";
     document.getElementById("historyStatus").value = "";
+    document.getElementById("historyTargetCategory").value = "";
+    updateHistoryTargetOptions();
     document.getElementById("historyTarget").value = "";
     document.getElementById("historySearchMode").value = "";
     toggleHistoryQuery();
@@ -267,6 +333,14 @@ function formatDateTime(iso) {
     transition: background 0.2s;
 }
 .history-item:hover { background: var(--hover); }
+.history-day-group { border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:10px; background:var(--panel); }
+.history-day-toggle { width:100%; border:0; background:var(--panel-soft); color:var(--text); padding:14px 16px; display:flex; gap:12px; align-items:center; text-align:left; cursor:pointer; }
+.history-day-toggle:hover { background:var(--hover); }
+.history-day-toggle strong { display:block; font-size:1em; }
+.history-day-toggle small { display:block; color:var(--text-dim); margin-top:3px; font-size:.84em; }
+.history-day-chevron { color:var(--green); font-size:1.4em; width:14px; line-height:1; }
+.history-day-records { border-top:1px solid var(--border); }
+.history-day-records[hidden] { display:none; }
 .history-count { color: var(--text-dim); font-size: 0.9em; margin-top: 4px; }
 .report-link { display:inline-block; margin-right:8px; color:var(--green); text-decoration:none; }
 .target-result-list { display:grid; gap:8px; }

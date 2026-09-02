@@ -60,6 +60,10 @@ class AppConfig:
     web_host: str = "127.0.0.1"
     web_port: int = 8080
 
+    # === 影序 Pocket（同一局域网内的手机协作页） ===
+    pocket_enabled: bool = True
+    pocket_session_hours: int = 12
+
     # === 扫描目录（平台自动探测） ===
     mount_points: list = field(default_factory=lambda: [
         "/media", "/mnt", "/run/media", "/media/pi", "/Volumes",

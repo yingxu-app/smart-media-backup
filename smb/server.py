@@ -5,6 +5,9 @@ import json
 import threading
 import webbrowser
 import subprocess
+import ipaddress
+import socket
+from functools import wraps
 from pathlib import Path
 
 import flask
@@ -27,6 +30,7 @@ from .detector import (list_removable_volumes, list_all_volumes,
                        find_likely_media_source, SDCardWatcher)
 from .backup import BackupEngine
 from . import db
+from .pocket import PocketPairingManager, PocketNotesStore
 
 # 初始化数据库
 db.init_db()
@@ -38,6 +42,67 @@ _scan_cache = {"files": [], "volumes": []}
 _scan_response_cache = {}
 _scan_lock = threading.Lock()
 _open_browser_on_start = True
+pocket_pairing = PocketPairingManager(session_hours=config.pocket_session_hours)
+pocket_notes = PocketNotesStore()
+
+
+def _is_loopback_request() -> bool:
+    try:
+        return ipaddress.ip_address(request.remote_addr or "").is_loopback
+    except ValueError:
+        return False
+
+
+def _pocket_token() -> str | None:
+    return request.cookies.get("yingxu_pocket") or request.headers.get("X-Yingxu-Pocket")
+
+
+def _pocket_authorized() -> bool:
+    return pocket_pairing.is_authorized(_pocket_token())
+
+
+def _local_ip() -> str:
+    """获取手机可访问的局域网地址；不向公网发送数据。"""
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("192.0.2.1", 9))
+        return probe.getsockname()[0]
+    except OSError:
+        try:
+            return socket.gethostbyname(socket.gethostname())
+        except OSError:
+            return "127.0.0.1"
+    finally:
+        probe.close()
+
+
+def pocket_login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        # 桌面工作台运行在 loopback，属于受信任的本机界面；手机仍必须配对。
+        if _is_loopback_request():
+            return view(*args, **kwargs)
+        if not _pocket_authorized():
+            return jsonify({"error": "请先与桌面端配对", "paired": False}), 401
+        return view(*args, **kwargs)
+    return wrapped
+
+
+@app.before_request
+def restrict_lan_surface():
+    """非本机只能访问 Pocket 壳和配对后的 Pocket API。"""
+    if _is_loopback_request():
+        return None
+    allowed_public = {
+        "/pocket", "/pocket/", "/pocket/manifest.webmanifest",
+        "/pocket/sw.js", "/static/img/icon.svg",
+        "/api/pocket/connect",
+    }
+    if not config.pocket_enabled:
+        return jsonify({"error": "影序 Pocket 未启用"}), 403
+    if request.path in allowed_public or request.path.startswith("/api/pocket/"):
+        return None
+    return jsonify({"error": "桌面工作台仅允许在本机访问"}), 403
 
 
 # ====== SocketIO 实时推送 ======
@@ -84,6 +149,101 @@ def history():
 def settings():
     """设置页面"""
     return render_template("settings.html")
+
+
+@app.route("/pocket")
+@app.route("/pocket/")
+def pocket_page():
+    return render_template("pocket.html")
+
+
+@app.route("/pocket/manifest.webmanifest")
+def pocket_manifest():
+    return flask.send_from_directory(app.static_folder, "pocket/manifest.webmanifest",
+                                     mimetype="application/manifest+json")
+
+
+@app.route("/pocket/sw.js")
+def pocket_service_worker():
+    response = flask.send_from_directory(app.static_folder, "pocket/sw.js",
+                                         mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/pocket/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+@app.route("/api/pocket/pairing", methods=["POST"])
+def api_pocket_pairing():
+    if not _is_loopback_request():
+        return jsonify({"error": "只能从桌面端生成配对码"}), 403
+    issued = pocket_pairing.issue_code()
+    issued.update({
+        "url": f"http://{_local_ip()}:{config.web_port}/pocket/",
+        "enabled": config.pocket_enabled,
+    })
+    return jsonify(issued)
+
+
+@app.route("/api/pocket/connect", methods=["POST"])
+def api_pocket_connect():
+    data = request.get_json(silent=True) or {}
+    token = pocket_pairing.connect(str(data.get("code", "")))
+    if not token:
+        return jsonify({"error": "配对码无效或已过期"}), 401
+    response = jsonify({"status": "ok", "paired": True})
+    response.set_cookie(
+        "yingxu_pocket", token, max_age=config.pocket_session_hours * 3600,
+        httponly=True, samesite="Lax", path="/",
+    )
+    return response
+
+
+@app.route("/api/pocket/disconnect", methods=["POST"])
+def api_pocket_disconnect():
+    pocket_pairing.revoke(_pocket_token())
+    response = jsonify({"status": "ok"})
+    response.delete_cookie("yingxu_pocket", path="/")
+    return response
+
+
+@app.route("/api/pocket/status")
+@pocket_login_required
+def api_pocket_status():
+    progress = engine.progress.to_dict()
+    return jsonify({
+        "paired": True,
+        "status": progress.get("status", "idle"),
+        "progress": progress,
+        "source": os.path.basename(progress.get("mount_point") or ""),
+    })
+
+
+@app.route("/api/pocket/history")
+@pocket_login_required
+def api_pocket_history():
+    records = db.get_backups(limit=min(request.args.get("limit", 20, type=int), 50))
+    clean = []
+    for record in records:
+        root = str(record.get("backup_root") or "")
+        clean.append({
+            "id": record.get("id"),
+            "event_name": record.get("event_name") or "未命名任务",
+            "started_at": record.get("started_at"),
+            "status": record.get("status"),
+            "total_files": record.get("total_files", 0),
+            "skipped_files": record.get("skipped_files", 0),
+            "failed_files": record.get("failed_files", 0),
+            "target": os.path.basename(root.rstrip(os.sep)) or "本机",
+        })
+    return jsonify({"items": clean})
+
+
+@app.route("/api/pocket/notes", methods=["GET", "POST"])
+@pocket_login_required
+def api_pocket_notes():
+    if request.method == "POST":
+        return jsonify({"status": "ok", "notes": pocket_notes.save(request.get_json(silent=True) or {})})
+    return jsonify({"notes": pocket_notes.load()})
 
 
 @app.route("/website")
@@ -639,16 +799,54 @@ def api_history():
 
 @app.route("/api/history_targets")
 def api_history_targets():
-    """返回历史备份位置下拉选项，不要求用户手输路径。"""
-    items = []
-    for path in db.get_backup_targets():
-        normalized = path.rstrip("/")
-        tail = os.path.basename(normalized) or normalized
-        aliases = {"Desktop": "桌面", "Documents": "文稿", "Downloads": "下载", "Pictures": "图片", "Movies": "影片"}
-        label = aliases.get(tail, tail)
-        kind = "本地位置" if tail in aliases else "备份位置"
-        items.append({"value": path, "label": f"{label}（{kind}）"})
-    return jsonify(items)
+    """按位置类别返回历史目标，避免把本机、外置盘和测试目录混在同一列表。"""
+    home = Path.home().resolve()
+    local_aliases = {
+        "Desktop": "桌面", "Documents": "文稿", "Downloads": "下载",
+        "Pictures": "图片", "Movies": "影片",
+    }
+    groups = {
+        "local": {"id": "local", "label": "本机位置", "items": []},
+        "external": {"id": "external", "label": "外接存储", "items": []},
+        "other": {"id": "other", "label": "其他位置", "items": []},
+        "test": {"id": "test", "label": "历史测试目录", "items": []},
+    }
+
+    for raw_path in db.get_backup_targets():
+        normalized = os.path.normpath(raw_path)
+        path_obj = Path(normalized)
+        path_parts = {part.lower() for part in path_obj.parts}
+        is_test_path = any(marker in part for part in path_parts for marker in (
+            "acceptance", "validation", "fixture", "test", "tmp",
+        ))
+
+        category = "other"
+        label = normalized
+        try:
+            relative = path_obj.resolve().relative_to(home)
+            parts = relative.parts
+            if parts:
+                root_label = local_aliases.get(parts[0], parts[0])
+                label = " / ".join((root_label, *parts[1:]))
+            else:
+                label = "个人目录"
+            category = "local"
+        except (ValueError, OSError):
+            if len(path_obj.parts) >= 3 and path_obj.parts[1] == "Volumes":
+                volume_name = path_obj.parts[2]
+                label = " / ".join((volume_name, *path_obj.parts[3:]))
+                category = "external"
+            else:
+                label = path_obj.name or normalized
+
+        # 验收和临时目录仍可查询，但不干扰摄影师日常的目标盘选择。
+        if is_test_path:
+            category = "test"
+        groups[category]["items"].append({"value": raw_path, "label": label})
+
+    for group in groups.values():
+        group["items"].sort(key=lambda item: item["label"].casefold())
+    return jsonify({"groups": [group for group in groups.values() if group["items"]]})
 
 
 @app.route("/api/history/<int:backup_id>")
@@ -789,13 +987,13 @@ def api_setup_pull_model():
 
 # ====== 启动 ======
 
-def main(open_browser: bool = True):
+def main(open_browser: bool = True, host_override: str | None = None):
     """启动 Web 服务"""
     import socket
 
     # 找可用端口
     port = config.web_port
-    host = config.web_host
+    host = host_override or config.web_host
 
     # 数据库初始化
     db.init_db()
@@ -820,7 +1018,7 @@ def main(open_browser: bool = True):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.31           ║
+║          影序 YINGXU  v1.0.33           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║

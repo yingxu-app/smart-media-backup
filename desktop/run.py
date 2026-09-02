@@ -27,7 +27,8 @@ def main():
     url = f"http://127.0.0.1:{config.web_port}"
     threading.Thread(
         target=server_main,
-        kwargs={"open_browser": False},
+        # 桌面页仍只通过 127.0.0.1 打开；监听局域网是为了经过配对的 Pocket。
+        kwargs={"open_browser": False, "host_override": "0.0.0.0"},
         daemon=True,
         name="yingxu-local-server",
     ).start()
