@@ -1,5 +1,6 @@
 """Flask + SocketIO Web 服务端 — 仪表盘 + 备份控制"""
 import os
+import shutil
 import sys
 import json
 import threading
@@ -289,28 +290,45 @@ def api_open_folder():
 
 @app.route("/api/choose_folder", methods=["POST"])
 def api_choose_folder():
-    """使用 macOS 原生选择器，让普通用户无需输入 POSIX 路径。"""
-    if sys.platform != "darwin":
-        return jsonify({"error": "当前平台暂不支持原生文件夹选择器"}), 501
-    try:
-        result = subprocess.run(
-            ["osascript", "-e", 'POSIX path of (choose folder with prompt "选择影序备份位置")'],
-            capture_output=True, text=True, timeout=120,
-        )
-        if result.returncode != 0:
+    """选择备份目标文件夹（macOS 原生 / Windows 原生对话框）"""
+    if sys.platform == "darwin":
+        try:
+            result = subprocess.run(
+                ["osascript", "-e", 'POSIX path of (choose folder with prompt "选择影序备份位置")'],
+                capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode != 0:
+                return jsonify({"status": "cancelled"})
+            folder = result.stdout.strip().rstrip("/")
+        except Exception as exc:
+            return jsonify({"error": f"打开文件夹选择器失败: {exc}"}), 500
+    elif sys.platform.startswith("win"):
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        try:
+            folder = filedialog.askdirectory(title="选择影序备份位置")
+        finally:
+            root.destroy()
+        if not folder:
             return jsonify({"status": "cancelled"})
-        folder = result.stdout.strip().rstrip("/")
-        if not folder or not os.path.isdir(folder):
-            return jsonify({"error": "未选择有效文件夹"}), 400
-        st = os.statvfs(folder)
-        return jsonify({
-            "status": "ok",
-            "name": os.path.basename(folder) or folder,
-            "mount_point": folder,
-            "size_free": st.f_frsize * st.f_bavail,
-        })
-    except Exception as exc:
-        return jsonify({"error": f"打开文件夹选择器失败: {exc}"}), 500
+    else:
+        return jsonify({"error": "当前平台暂不支持原生文件夹选择器"}), 501
+    if not folder or not os.path.isdir(folder):
+        return jsonify({"error": "未选择有效文件夹"}), 400
+    try:
+        usage = shutil.disk_usage(folder)
+        size_free = usage.free
+    except OSError:
+        size_free = 0
+    return jsonify({
+        "status": "ok",
+        "name": os.path.basename(folder) or folder,
+        "mount_point": folder,
+        "size_free": size_free,
+    })
 
 
 # ====== 百度网盘 API ======
@@ -422,23 +440,32 @@ def api_volumes():
 
     # 常用本地文件夹
     import os as _os
-    local_folders = [
-        _os.path.expanduser('~/Desktop'),
-        _os.path.expanduser('~/Documents'),
-        _os.path.expanduser('~/Downloads'),
-        _os.path.expanduser('~/Pictures'),
-        _os.path.expanduser('~/Movies'),
-    ]
+    if sys.platform.startswith("win"):
+        local_folders = [
+            _os.path.expanduser('~/Desktop'),
+            _os.path.expanduser('~/Documents'),
+            _os.path.expanduser('~/Downloads'),
+            _os.path.expanduser('~/Pictures'),
+            _os.path.expanduser('~/Videos'),
+        ]
+    else:
+        local_folders = [
+            _os.path.expanduser('~/Desktop'),
+            _os.path.expanduser('~/Documents'),
+            _os.path.expanduser('~/Downloads'),
+            _os.path.expanduser('~/Pictures'),
+            _os.path.expanduser('~/Movies'),
+        ]
     for p in local_folders:
         if _os.path.isdir(p):
             try:
-                st = _os.statvfs(p)
+                usage = shutil.disk_usage(p)
                 result.append({
                     'name': '📁 ' + _os.path.basename(p),
                     'mount_point': p,
-                    'size_total': st.f_frsize * st.f_blocks,
-                    'size_used': st.f_frsize * (st.f_blocks - st.f_bfree),
-                    'size_free': st.f_frsize * st.f_bavail,
+                    'size_total': usage.total,
+                    'size_used': usage.used,
+                    'size_free': usage.free,
                     'fstype': 'local',
                 })
             except OSError:
@@ -1009,8 +1036,8 @@ def main(open_browser: bool = True, host_override: str | None = None):
     def _on_sd_insert(volume: dict):
         # 自动打开浏览器（macOS）
         if _open_browser_on_start and config.auto_open_browser:
-            import subprocess as sp
-            sp.run(['open', f'http://localhost:{port}'], check=False)
+            import webbrowser
+            webbrowser.open(f'http://localhost:{port}')
         print(f"[SMB] 📸 SD 卡已插入: {volume['name']} ({volume['mount_point']})")
 
     watcher = SDCardWatcher(on_insert=_on_sd_insert)
@@ -1038,8 +1065,8 @@ def main(open_browser: bool = True, host_override: str | None = None):
             except Exception:
                 time.sleep(0.5)
         if _open_browser_on_start and config.auto_open_browser:
-            import subprocess as sp
-            sp.run(['open', f'http://localhost:{port}'], check=False)
+            import webbrowser
+            webbrowser.open(f'http://localhost:{port}')
 
     threading.Thread(target=_open_when_ready, daemon=True).start()
 

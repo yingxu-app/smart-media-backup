@@ -530,6 +530,7 @@ class BackupEngine:
             ):
                 skipped += 1
                 matched_dest = dest_path if exact_dest_matches else prior_dest
+                f["dest_path"] = matched_dest  # 回写最终路径，供审片/预览使用
                 if record_file_status:
                     db.update_file_status(
                         backup_id, f["path"], "skipped", matched_dest,
@@ -557,6 +558,7 @@ class BackupEngine:
             if ok:
                 copied += 1
                 copied_bytes += f.get("size", 0)
+                f["dest_path"] = dest_path  # 回写最终路径，供审片/预览使用
                 if record_file_status:
                     db.update_file_status(
                         backup_id, f["path"], "completed", dest_path,
@@ -860,6 +862,11 @@ class BackupEngine:
                         previewed_count, label_counts, mount_point,
                     )
                     return
+                # 在审片之后生成（审片可能改名/移走废片，需用最终 dest_path）
+                previewed_in_batch = self._generate_windows_previews(
+                    group_files, backup_root, cur_id
+                )
+                previewed_count += previewed_in_batch
 
                 # 每个日期文件夹各有一条可打开的报告；避免多日期任务中只有
                 # 第一条历史记录有报告、其他记录显示为空。
@@ -874,7 +881,7 @@ class BackupEngine:
                     copied_files=batch_copied,
                     skipped_files=batch_skipped,
                     reviewed_files=reviewed_count,
-                    preview_files=0,
+                    preview_files=previewed_in_batch,
                     failed_files=batch_failed,
                     verified_files=batch_copied + batch_skipped,
                     total_size=sum(item.get("size", 0) for item in group_files),

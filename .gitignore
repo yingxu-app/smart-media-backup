@@ -14,5 +14,6 @@ venv/
 .test-config*/
 .app-smoke-config/
 desktop/.pyinstaller/
+desktop/icon.ico
 release/
 artifacts/

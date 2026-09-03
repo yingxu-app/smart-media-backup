@@ -1,37 +1,42 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec for Smart Media Backup Windows .exe
-Run: pyinstaller smb-win.spec --noconfirm
+PyInstaller spec for Smart Media Backup Windows 桌面版
+入口: desktop/run.py (pywebview 窗口壳 + 本地 Flask 服务)
+Run: pyinstaller desktop/smb-win.spec --noconfirm
 """
 import os
 from pathlib import Path
 
 ROOT = Path(os.getcwd()).resolve()
 SMB = ROOT / "smb"
+DESKTOP = ROOT / "desktop"
 
 block_cipher = None
 
 a = Analysis(
-    [str(SMB / "server.py")],
+    [str(DESKTOP / "run.py")],
     pathex=[str(ROOT)],
     binaries=[],
     datas=[
         (str(SMB / "templates"), "smb/templates"),
         (str(SMB / "static"), "smb/static"),
+        (str(DESKTOP / "icon.ico"), "desktop"),
     ],
     hiddenimports=[
         "smb", "smb.config", "smb.detector", "smb.backup",
         "smb.organizer", "smb.verifier", "smb.db", "smb.cli", "smb.baidu", "smb.ai_namer",
+        "smb.windows_preview", "smb.waste_filter", "smb.lightroom", "smb.phash",
         "flask", "flask_socketio", "engineio", "engineio.async_drivers.threading",
         "socketio", "psutil", "humanize", "dateutil", "werkzeug", "jinja2",
         "markupsafe", "itsdangerous", "click", "bidict", "requests",
         "json", "sqlite3", "threading", "webbrowser", "hashlib",
         "concurrent", "concurrent.futures",
+        "webview", "clr_loader", "pythonnet",
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "PyQt5", "matplotlib", "scipy", "numpy", "pandas", "cv2"],
+    excludes=["PyQt5", "PyQt6", "PySide2", "PySide6", "matplotlib", "scipy", "numpy", "pandas", "cv2"],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -47,7 +52,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name="Smart Media Backup",
+    name="影序 YINGXU",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -60,6 +65,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=str(DESKTOP / "icon.ico"),
 )
 
 # Windows doesn't need BUNDLE (that's for .app)

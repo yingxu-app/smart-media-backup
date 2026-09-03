@@ -1,5 +1,6 @@
 """SD 卡 / 可移动磁盘检测器 — 跨平台"""
 import os
+import shutil
 import sys
 import time
 import threading
@@ -7,6 +8,22 @@ from pathlib import Path
 from typing import Optional, Callable
 
 from .config import config
+
+
+def _disk_usage(path: str) -> tuple:
+    """跨平台磁盘用量 (total, used)。Windows 的 os 模块没有 statvfs，改用 shutil.disk_usage。"""
+    try:
+        st = os.statvfs(path)
+        return st.f_frsize * st.f_blocks, st.f_frsize * (st.f_blocks - st.f_bfree)
+    except AttributeError:
+        pass
+    except OSError:
+        return 0, 0
+    try:
+        usage = shutil.disk_usage(path)
+        return usage.total, usage.used
+    except OSError:
+        return 0, 0
 
 
 def list_removable_volumes() -> list[dict]:
@@ -28,12 +45,7 @@ def list_removable_volumes() -> list[dict]:
                 if name.startswith(".") or name in ("MobileBackups", "com.apple.TimeMachine"):
                     continue
                 mount_point = str(v)
-                try:
-                    st = os.statvfs(mount_point)
-                    size_total = st.f_frsize * st.f_blocks
-                    size_used = st.f_frsize * (st.f_blocks - st.f_bfree)
-                except OSError:
-                    size_total = size_used = 0
+                size_total, size_used = _disk_usage(mount_point)
                 volumes.append({
                     "name": name,
                     "mount_point": mount_point,
@@ -52,12 +64,7 @@ def list_removable_volumes() -> list[dict]:
                 drive_type = ctypes.windll.kernel32.GetDriveTypeW(drive)
                 # DRIVE_REMOVABLE = 2
                 if drive_type == 2:
-                    try:
-                        st = os.statvfs(drive)
-                        size_total = st.f_frsize * st.f_blocks
-                        size_used = st.f_frsize * (st.f_blocks - st.f_bfree)
-                    except OSError:
-                        size_total = size_used = 0
+                    size_total, size_used = _disk_usage(drive)
                     volumes.append({
                         "name": f"{letter}:",
                         "mount_point": drive,
@@ -75,12 +82,7 @@ def list_removable_volumes() -> list[dict]:
             for v in base_path.iterdir():
                 if not v.is_dir():
                     continue
-                try:
-                    st = os.statvfs(str(v))
-                    size_total = st.f_frsize * st.f_blocks
-                    size_used = st.f_frsize * (st.f_blocks - st.f_bfree)
-                except OSError:
-                    size_total = size_used = 0
+                size_total, size_used = _disk_usage(str(v))
                 volumes.append({
                     "name": v.name,
                     "mount_point": str(v),
