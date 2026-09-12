@@ -17,3 +17,9 @@ desktop/.pyinstaller/
 desktop/icon.ico
 release/
 artifacts/
+# 本机验收运行产物（脚本本身入库，日志与结果不入库）
+e2e-run.log
+exe-launch.log
+smoke-result.json
+e2e-result.json
+.git-commit-msg.tmp

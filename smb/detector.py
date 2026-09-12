@@ -94,6 +94,69 @@ def list_removable_volumes() -> list[dict]:
     return volumes
 
 
+def _windows_system_drives() -> set:
+    """返回 Windows 上不应被当作备份来源的盘符集合（系统盘、光驱等）。"""
+    import ctypes
+    import string
+    system = set()
+    try:
+        windir = os.environ.get("SystemRoot") or os.environ.get("WINDIR") or "C:\\"
+        system.add(windir[:1].upper() + ":\\")
+    except Exception:
+        system.add("C:\\")
+    # 把纯光驱也排除（DRIVE_CDROM = 5）
+    for letter in string.ascii_uppercase:
+        drive = f"{letter}:\\"
+        if os.path.exists(drive):
+            try:
+                if ctypes.windll.kernel32.GetDriveTypeW(drive) == 5:
+                    system.add(drive)
+            except Exception:
+                pass
+    return system
+
+
+def list_candidate_source_volumes() -> list[dict]:
+    """列出所有可能作为相机存储卡来源的卷。
+
+    Windows 上不少读卡器把 SD 卡报成 DRIVE_FIXED(3) 而非 DRIVE_REMOVABLE(2)，
+    如果只认可移动盘会导致那些机器全程显示“未检测到 SD 卡”。这里在 Windows
+    上额外纳入非系统盘的固定卷，再交给 find_likely_media_source 用 DCIM/PRIVATE
+    等目录特征甄别，宁可多列出候选也不能漏掉真正的相机卡。
+    """
+    removable = list_removable_volumes()
+    if sys.platform != "win32":
+        return removable
+
+    known = {v["mount_point"] for v in removable}
+    system = _windows_system_drives()
+    merged = list(removable)
+    import string
+    import ctypes
+    for letter in string.ascii_uppercase:
+        drive = f"{letter}:\\"
+        if drive in known or drive in system:
+            continue
+        if not os.path.exists(drive):
+            continue
+        try:
+            drive_type = ctypes.windll.kernel32.GetDriveTypeW(drive)
+        except Exception:
+            drive_type = -1
+        # DRIVE_FIXED = 3：读卡器常把卡报成固定盘，纳入候选；其余类型跳过。
+        if drive_type != 3:
+            continue
+        size_total, size_used = _disk_usage(drive)
+        merged.append({
+            "name": f"{letter}:",
+            "mount_point": drive,
+            "size_total": size_total,
+            "size_used": size_used,
+            "fstype": "fixed",
+        })
+    return merged
+
+
 def list_all_volumes() -> list[dict]:
     """列出所有挂载卷（包括内置磁盘）用于目标选择"""
     volumes = []
@@ -201,8 +264,8 @@ class SDCardWatcher:
 
     def start(self):
         self._running = True
-        # 初始化已知卷列表
-        for v in list_removable_volumes():
+        # 初始化已知卷列表（含读卡器报成固定盘的候选来源）
+        for v in list_candidate_source_volumes():
             self._known_volumes.add(v["mount_point"])
 
         self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -213,7 +276,7 @@ class SDCardWatcher:
 
     def _loop(self):
         while self._running:
-            current = list_removable_volumes()
+            current = list_candidate_source_volumes()
             current_mounts = {v["mount_point"] for v in current}
 
             # 检测新插入

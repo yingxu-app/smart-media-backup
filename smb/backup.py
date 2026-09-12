@@ -25,6 +25,17 @@ except ImportError:
 from . import db
 
 
+def _is_within(path: str, folder: str) -> bool:
+    """判断 path 是否落在 folder 之内（含大小写不敏感平台）。"""
+    if not path or not folder:
+        return False
+    try:
+        Path(path).resolve().relative_to(Path(folder).resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
 class BackupProgress:
     """备份进度追踪器，通过回调通知前端"""
 
@@ -47,6 +58,8 @@ class BackupProgress:
         self.current_device = ""
         self.current_media_type = ""
         self.preview_files = 0
+        self.verified_files = 0
+        self.failed_files = 0
         self.can_cleanup = False       # 备份完成可清理SD卡
         self.mount_point = ""          # SD卡挂载点
 
@@ -60,6 +73,8 @@ class BackupProgress:
             "reviewed_files": self.reviewed_files,
             "processed_files": self.processed_files,
             "preview_files": self.preview_files,
+            "verified_files": self.verified_files,
+            "failed_files": self.failed_files,
             "current_file": self.current_file,
             "current_speed": round(self.current_speed, 1),
             "bytes_copied": self.bytes_copied,
@@ -225,6 +240,15 @@ class BackupEngine:
             dest_path = f.get("dest_path", "")
             if not os.path.exists(dest_path):
                 processed += 1
+                continue
+
+            # 已经归档进待确认废片的文件不再重复"移动"：它已经在本次审片的
+            # 目标位置，再走一次 move_to_review_folder 会让文件被反复改名
+            # （xxx_1、xxx_1_1…），同一张卡备份多次就会留下越来越长的文件名。
+            if _is_within(dest_path, os.path.join(backup_root, "待确认废片")):
+                reviewed_count += 1
+                processed += 1
+                self.progress.reviewed_files = reviewed_count
                 continue
 
             # 本机 Pillow 未具备 HEIC/HEIF 解码能力时，跳过可选审片；
@@ -625,6 +649,8 @@ class BackupEngine:
         self.progress.copied_files = copied_files
         self.progress.skipped_files = skipped_files
         self.progress.processed_files = copied_files + skipped_files
+        self.progress.verified_files = copied_files + skipped_files
+        self.progress.failed_files = 0
         self.progress.status = status
         self.progress.error_message = message
         self.progress.can_cleanup = False
@@ -931,6 +957,12 @@ class BackupEngine:
             target_results = db.get_target_results(backup_id)
             failed_count = sum(item.get("failed_files", 0) for item in target_results)
             final_status = "completed" if failed_count == 0 else "partial"
+
+            # 校验结果写入进度，前端可实时展示；跳过的文件已逐个与目标内容一致，
+            # 同样计入已校验。
+            self.progress.verified_files = primary_copied + primary_skipped
+            self.progress.failed_files = failed_count
+
             report_path = self._write_backup_report(
                 backup_id=backup_id,
                 event_name=" + ".join(events) if total_events > 1 else events[0],

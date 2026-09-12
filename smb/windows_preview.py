@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 import re
 import shutil
@@ -18,6 +19,9 @@ from pathlib import Path
 from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont
+
+# 记录"最终素材路径 → 预览文件"，保证重复备份复用同一张预览而不是不断新建副本。
+PREVIEW_MANIFEST_NAME = ".preview-manifest.json"
 
 
 class WindowsPreviewBuilder:
@@ -179,10 +183,9 @@ class WindowsPreviewBuilder:
 
         src = Path(src_path)
         out_path = preview_dir / f"{src.stem}.jpg"
-        idx = 1
-        while out_path.exists():
-            out_path = preview_dir / f"{src.stem}_{idx}.jpg"
-            idx += 1
+        if out_path.exists():
+            # 同一素材重复生成时复用已有预览，不新建 xxx_1.jpg 副本。
+            return str(out_path)
 
         image = self._create_preview_image(src_path, media_type)
         image.save(out_path, format="JPEG", quality=85, optimize=True)
@@ -192,6 +195,11 @@ class WindowsPreviewBuilder:
         """
         根据最终备份路径生成对应预览。
         预览树会镜像真实目录结构，只是统一放在 _Windows预览 下。
+
+        同一份素材反复备份时必须复用已生成的预览。旧实现每次都走
+        ``while out_path.exists()``，于是第二次备份会再产出一张 xxx_1.jpg，
+        备份三、四次就变成 xxx_2、xxx_3…，预览树随备份次数无上限膨胀。
+        现在用一份清单记住"最终素材路径 → 预览文件"，命中就直接复用。
         """
         if not self.enabled:
             return None
@@ -207,15 +215,49 @@ class WindowsPreviewBuilder:
         preview_dir = base / "_Windows预览" / rel_dir
         preview_dir.mkdir(parents=True, exist_ok=True)
 
+        manifest = self._read_preview_manifest(base)
+        key = self._manifest_key(final)
+        recorded = manifest.get(key)
+        if recorded and Path(recorded).exists():
+            return recorded
+
         out_path = preview_dir / f"{final.stem}.jpg"
+        known = set(manifest.values())
         idx = 1
-        while out_path.exists():
+        while out_path.exists() and str(out_path) not in known:
             out_path = preview_dir / f"{final.stem}_{idx}.jpg"
             idx += 1
 
         image = self._create_preview_image(str(final), media_type)
         image.save(out_path, format="JPEG", quality=85, optimize=True)
+        manifest[key] = str(out_path)
+        self._write_preview_manifest(base, manifest)
         return str(out_path)
+
+    @staticmethod
+    def _manifest_key(final: Path) -> str:
+        try:
+            return str(final.resolve())
+        except OSError:
+            return str(final)
+
+    def _read_preview_manifest(self, backup_root: Path) -> dict:
+        manifest_file = backup_root / "_Windows预览" / PREVIEW_MANIFEST_NAME
+        try:
+            data = json.loads(manifest_file.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _write_preview_manifest(self, backup_root: Path, manifest: dict) -> None:
+        manifest_file = backup_root / "_Windows预览" / PREVIEW_MANIFEST_NAME
+        try:
+            manifest_file.parent.mkdir(parents=True, exist_ok=True)
+            manifest_file.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except OSError:
+            pass
 
     def build_contact_sheet(self, files: list[str], output_path: str, title: str = "") -> Optional[str]:
         """可选：生成一张拼图式总览缩略图"""

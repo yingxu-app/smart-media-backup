@@ -314,6 +314,15 @@ class WasteReviewer:
         dst_dir.mkdir(parents=True, exist_ok=True)
 
         src = Path(src_path)
+        # 幂等：文件已经躺在待确认废片目录里就原样返回。否则 while 循环会
+        # 因为"目标名与自身同名"而把文件重命名成 xxx_1、xxx_1_1…，同一张卡
+        # 反复备份时文件名会不断变长。
+        try:
+            if src.parent.resolve() == dst_dir.resolve():
+                return str(src)
+        except OSError:
+            pass
+
         dst = dst_dir / src.name
         idx = 1
         while dst.exists():

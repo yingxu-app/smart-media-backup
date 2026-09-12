@@ -27,7 +27,7 @@ app = Flask(__name__,
 app.config["SECRET_KEY"] = os.urandom(16).hex()
 
 from .config import config
-from .detector import (list_removable_volumes, list_all_volumes,
+from .detector import (list_removable_volumes, list_all_volumes, list_candidate_source_volumes,
                        find_likely_media_source, SDCardWatcher)
 from .backup import BackupEngine
 from . import db
@@ -51,6 +51,27 @@ def _is_loopback_request() -> bool:
     try:
         return ipaddress.ip_address(request.remote_addr or "").is_loopback
     except ValueError:
+        return False
+
+
+def _is_existing_mount(path: str) -> bool:
+    """判断一个路径是否是当前已挂载、可直接遍历的卷。
+
+    Windows 的盘符根路径（如 ``D:\\``）与 POSIX 挂载点一样，``os.path.ismount``
+    都能正确返回 True；个别读卡器若返回 False，用“目录存在”兜底，避免漏掉
+    真实来源卷。统一封装便于测试与后续扩展。
+    """
+    if not path:
+        return False
+    try:
+        if os.path.ismount(path):
+            return True
+    except OSError:
+        pass
+    # 兜底：某些挂载点/盘符在部分系统上 ismount 会误判，目录存在即可遍历。
+    try:
+        return os.path.isdir(path)
+    except OSError:
         return False
 
 
@@ -503,11 +524,12 @@ def api_scan():
 
     if not mount_point:
         # macOS 上 /Volumes 同时包含外置 SSD 和 SD 卡，不能按枚举顺序误选。
-        source = find_likely_media_source(list_removable_volumes())
+        # Windows 读卡器可能把卡报成固定盘，因此用候选来源卷（removable + 非系统 fixed）。
+        source = find_likely_media_source(list_candidate_source_volumes())
         if source:
             mount_point = source["mount_point"]
 
-    if not mount_point or not os.path.ismount(mount_point):
+    if not mount_point or not _is_existing_mount(mount_point):
         return jsonify({"error": "未检测到 SD 卡", "files": [], "devices": []})
 
     # WebKit 首次进入、自动恢复和用户点击刷新有可能在很短时间内同时请求
@@ -630,9 +652,9 @@ def api_sources():
     """列出可作为备份来源的已挂载卡/磁盘，供用户明确选择。"""
     from .organizer import scan_sd_card
     sources = []
-    for volume in list_removable_volumes():
+    for volume in list_candidate_source_volumes():
         mount = volume.get("mount_point", "")
-        if not mount or not os.path.ismount(mount):
+        if not mount or not _is_existing_mount(mount):
             continue
         media = scan_sd_card(mount)
         if not media:
@@ -654,9 +676,9 @@ def api_sources():
 def api_start_backup():
     """开始备份"""
     if engine.progress.status in ("copying", "verifying", "paused"):
-        return jsonify({"error": "正在备份中，请等待完成"})
+        return jsonify({"error": "正在备份中，请等待完成"}), 409
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     mount_point = data.get("mount_point", "")
     event_name = data.get("event_name", "").strip()
     event_names = data.get("event_names") or []
@@ -671,13 +693,13 @@ def api_start_backup():
     if not event_names and event_name:
         event_names = [e.strip() for e in event_name.replace("，", ",").split(",") if e.strip()]
     if not backup_root and not backup_targets:
-        return jsonify({"error": "请选择备份目标位置"})
+        return jsonify({"error": "请选择备份目标位置"}), 400
     if not mount_point:
-        source = find_likely_media_source(list_removable_volumes())
+        source = find_likely_media_source(list_candidate_source_volumes())
         if source:
             mount_point = source["mount_point"]
     if not mount_point or not os.path.isdir(mount_point):
-        return jsonify({"error": "未检测到 SD 卡"})
+        return jsonify({"error": "未检测到 SD 卡"}), 400
 
     # 保存配置
     config.last_backup_root = backup_root
@@ -726,35 +748,117 @@ def api_pause_backup():
     return jsonify({"status": "paused"})
 
 
+def _windows_send_to_recycle_bin(paths: list[str]) -> tuple[bool, str]:
+    """Windows：把一批文件移入回收站（可恢复），而不是永久删除。
+
+    返回 (成功?, 失败原因)。任何失败都必须由调用方转成错误，绝不能退化成
+    os.remove 永久删除——原卡素材一旦被硬删就无法找回。
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    FO_DELETE = 3
+    FOF_SILENT = 0x0004
+    FOF_NOCONFIRMATION = 0x0010
+    FOF_ALLOWUNDO = 0x0040          # 关键：进回收站而非直接抹除
+    FOF_NOERRORUI = 0x0400
+
+    class SHFILEOPSTRUCTW(ctypes.Structure):
+        _fields_ = [
+            ("hwnd", wintypes.HWND),
+            ("wFunc", wintypes.UINT),
+            ("pFrom", ctypes.c_void_p),
+            ("pTo", ctypes.c_void_p),
+            ("fFlags", wintypes.WORD),
+            ("fAnyOperationsAborted", wintypes.BOOL),
+            ("hNameMappings", ctypes.c_void_p),
+            ("lpszProgressTitle", ctypes.c_void_p),
+        ]
+
+    # SHFileOperationW 需要双 \0 结尾的路径列表。
+    joined = "\0".join(os.path.abspath(p) for p in paths) + "\0"
+    buffer = ctypes.create_unicode_buffer(joined)
+
+    op = SHFILEOPSTRUCTW()
+    op.hwnd = None
+    op.wFunc = FO_DELETE
+    op.pFrom = ctypes.cast(buffer, ctypes.c_void_p)
+    op.pTo = None
+    op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI
+    op.fAnyOperationsAborted = False
+    op.hNameMappings = None
+    op.lpszProgressTitle = None
+
+    result = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+    if result != 0:
+        return False, f"系统回收站操作失败（代码 {result}）"
+    if op.fAnyOperationsAborted:
+        return False, "操作被中止"
+    return True, ""
+
+
+def _remove_empty_dirs(root: str):
+    """素材搬走后清掉留下的空目录，交给系统的失败一律忽略。"""
+    for current, dirs, files in os.walk(root, topdown=False):
+        if os.path.abspath(current) == os.path.abspath(root):
+            continue
+        try:
+            if not os.listdir(current):
+                os.rmdir(current)
+        except OSError:
+            pass
+
+
 @app.route("/api/cleanup_sd", methods=["POST"])
 def api_cleanup_sd():
-    """备份完成后删除SD卡文件（移到废纸篓）"""
+    """备份完成后把 SD 卡文件移入系统废纸篓/回收站（绝不永久删除）。"""
     mp = engine.progress.mount_point
     if not mp:
-        return jsonify({"error": "没有可清理的SD卡"})
+        return jsonify({"error": "没有可清理的SD卡"}), 400
     if not engine.progress.can_cleanup:
-        return jsonify({"error": "备份未完成，不能清理"})
+        return jsonify({"error": "备份未完成，不能清理"}), 400
     try:
-        deleted = []
+        files_to_clear = []
         for root, dirs, files in os.walk(mp):
             for f in files:
-                fp = os.path.join(root, f)
-                try:
-                    if sys.platform == "darwin":
-                        import subprocess
-                        subprocess.run(["osascript", "-e",
-                            f'tell app "Finder" to delete (POSIX file "{fp}" as alias)'],
-                            capture_output=True, timeout=30)
-                    else:
-                        os.remove(fp)
-                    deleted.append(f)
-                except Exception:
-                    pass
+                files_to_clear.append(os.path.join(root, f))
+        if not files_to_clear:
+            engine.progress.can_cleanup = False
+            engine.progress.notify()
+            return jsonify({"status": "cleaned", "deleted": 0})
+
+        if sys.platform == "darwin":
+            failed = 0
+            for fp in files_to_clear:
+                done = subprocess.run(
+                    ["osascript", "-e",
+                     f'tell app "Finder" to delete (POSIX file "{fp}" as alias)'],
+                    capture_output=True, timeout=30,
+                )
+                if done.returncode != 0:
+                    failed += 1
+            if failed:
+                return jsonify({
+                    "error": f"{failed} 个文件未能移入废纸篓，已停止清理；原卡素材未被永久删除。"
+                }), 500
+        elif sys.platform.startswith("win"):
+            ok, reason = _windows_send_to_recycle_bin(files_to_clear)
+            if not ok:
+                return jsonify({
+                    "error": f"无法移入回收站，已停止清理（原卡素材保持原样）: {reason}"
+                }), 500
+        else:
+            # 没有统一、可恢复的回收站时宁可拒绝，也不做不可逆的永久删除。
+            return jsonify({
+                "error": "当前平台没有可恢复的回收站，已拒绝清理以避免素材无法找回。"
+            }), 501
+
+        _remove_empty_dirs(mp)
         engine.progress.can_cleanup = False
         engine.progress.notify()
-        return jsonify({"status": "cleaned", "deleted": len(deleted)})
+        return jsonify({"status": "cleaned", "deleted": len(files_to_clear)})
     except Exception as e:
-        return jsonify({"error": f"清理失败: {e}"})
+        return jsonify({"error": f"清理失败: {e}"}), 500
 
 
 @app.route("/api/sync/export")
@@ -1045,7 +1149,7 @@ def main(open_browser: bool = True, host_override: str | None = None):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.33           ║
+║          影序 YINGXU  v1.0.34           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║
