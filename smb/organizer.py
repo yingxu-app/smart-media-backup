@@ -56,13 +56,23 @@ def _safe_folder_name(value: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip(" ._")
 
 
+def _cn_date(d) -> str:
+    """用纯 Python 拼接中文日期，绕开 strftime 在 Windows 上的 locale 编码问题。
+
+    datetime.strftime("%Y年%m月%d日") 在 Windows 默认 cp1252 locale 下会因无法编码
+    中文而抛 UnicodeEncodeError（CI 的 Windows runner 即如此），改用 f-string 直接
+    拼中文，完全不经过 CRT locale 编码。
+    """
+    return f"{d.year}年{d.month:02d}月{d.day:02d}日"
+
+
 def _date_label(files: list[dict]) -> str:
     dates = sorted({item.get("date").date() for item in files if item.get("date")})
     if len(dates) == 1:
-        return dates[0].strftime("%Y年%m月%d日")
+        return _cn_date(dates[0])
     if not dates:
         return "日期待确认"
-    return f"{dates[0].strftime('%Y年%m月%d日')}至{dates[-1].strftime('%m月%d日')}"
+    return f"{_cn_date(dates[0])}至{dates[-1].month:02d}月{dates[-1].day:02d}日"
 
 
 def build_backup_folder_name(files: list[dict], naming_parts: list[dict] | None = None) -> str:
@@ -201,7 +211,7 @@ def _field_value(field: str, camera: str, event: str, mtype: str,
     if field == "type":
         return "照片" if mtype in ("photo", "raw") else "视频"
     if field == "date" and fdate:
-        return fdate.strftime("%Y年%m月%d日")
+        return _cn_date(fdate)
     if field == "date":
         return "未知日期"
     if field == "location" and fgps:
@@ -290,7 +300,7 @@ def build_date_groups(files: list[dict]) -> list[dict]:
                 display_date = "日期待确认"
             else:
                 dt = f["date"]
-                display_date = dt.strftime("%Y年%m月%d日")
+                display_date = _cn_date(dt)
                 suggested = f"{display_date}拍摄"
             groups[key] = {
                 "date_key": key,
