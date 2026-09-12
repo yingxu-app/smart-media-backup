@@ -27,4 +27,8 @@ jobs:
       - name: Run reliability suite
         env:
           SMB_CONFIG_DIR: ${{ runner.temp }}/yingxu-test-config
+          # Windows runner 的 stdout 默认 cp1252，打印中文日期（如"2026年04月"）
+          # 会抛 UnicodeEncodeError 导致测试崩溃；强制 UTF-8 输出。
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
         run: python -m unittest discover -s tests -v

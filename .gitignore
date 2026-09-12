@@ -3,7 +3,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-*.spec
 *.app
 *.dmg
 .env
@@ -14,7 +13,6 @@ venv/
 .test-config*/
 .app-smoke-config/
 desktop/.pyinstaller/
-desktop/icon.ico
 release/
 artifacts/
 # 本机验收运行产物（脚本本身入库，日志与结果不入库）
