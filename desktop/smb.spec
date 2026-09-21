@@ -107,7 +107,7 @@ app = BUNDLE(
         "CFBundleInfoDictionaryVersion": "6.0",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
-        "NSHumanReadableCopyright": "© 2025 陆冠霖",
+        "NSHumanReadableCopyright": "© 2025 nanyu-lu",
         "NSSupportsAutomaticTermination": False,
         "LSBackgroundOnly": False,
         "CFBundlePackageType": "APPL",

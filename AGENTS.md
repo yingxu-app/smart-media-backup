@@ -6,12 +6,10 @@
 ---
 
 ## 用户信息
-- 姓名：陆冠霖（冠霖兄）
+- GitHub 账号：nanyu-lu（组织：yingxu-app）
 - 微信：通过微信与Hermes沟通
 - 设备：MacBook Air M3 + 16GB RAM, macOS Sequoia
 - 摄影师/视频创作者，Sony A7 + DJI，11TB外置盘"回忆"
-- GitHub: luguanlin20050927
-- Gitee: luguanlin
 - 百度网盘已注册开发者（App ID: 123996589）
 
 ---
@@ -48,13 +46,10 @@
 │   ├── setup.py                  # py2app 配置（已弃用，保留参考）
 │   ├── icon.icns                 # 应用图标（相机+SD卡）
 │   └── dist/                     # 打包输出
-├── website/                      # 官网
-│   └── index.html                # 单页官网（含下载+安装教程）
 ├── .github/workflows/
-│   ├── deploy-website.yml        # 部署 GitHub Pages
+│   ├── release-macos.yml         # macOS DMG 自动发布
 │   ├── build-windows.yml         # Windows .exe 自动构建
-│   └── sync-gitee.yml            # 同步到 Gitee
-├── vercel.json                   # Vercel 部署配置
+│   └── test.yml                  # 测试
 ├── setup.py                      # pip install 配置
 ├── requirements.txt              # Python 依赖
 └── AGENTS.md                     # 本文件
@@ -208,7 +203,10 @@ pyinstaller smb-win.spec --noconfirm
 ---
 
 ## 部署
-- GitHub Pages: https://luguanlin20050927.github.io/smart-media-backup
-- Vercel: https://smart-media-backup.vercel.app （国内可访问）
-- Windows下载: https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.0/SmartMediaBackup-Windows.exe
-- macOS下载: https://github.com/luguanlin20050927/smart-media-backup/releases/download/v1.0.0/SmartMediaBackup-macOS.dmg
+
+**托管平台只有一个：GitHub**（`yingxu-app/smart-media-backup`）。全部安装包从 Releases 下载。
+
+- 发布页（含 macOS DMG / Windows EXE）：https://github.com/yingxu-app/smart-media-backup/releases/latest
+
+> 2026-09-21 废弃：GitHub Pages 官网、Vercel、Gitee 镜像、仓库内 `website/` 目录。
+> 已归档副本见 `~/Documents/项目/_归档/影序-已废弃官网与Gitee同步/`。

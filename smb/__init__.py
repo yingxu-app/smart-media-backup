@@ -8,4 +8,4 @@ GitHub: https://github.com/luguanlin/smart-media-backup
 """
 
 __version__ = "1.0.34"
-__author__ = "Lu Guanlin <luguanlin20050927@icloud.com>"
+__author__ = "nanyu-lu <302085429+nanyu-lu@users.noreply.github.com>"

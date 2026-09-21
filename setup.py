@@ -7,12 +7,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="smart-media-backup",
     version="1.0.34",
-    author="Lu Guanlin",
-    author_email="luguanlin20050927@icloud.com",
+    author="nanyu-lu",
+    author_email="302085429+nanyu-lu@users.noreply.github.com",
     description="插卡自动备份 → 按设备→事件→照片/视频分类整理 → Web 面板可视化",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/luguanlin/smart-media-backup",
+    url="https://github.com/yingxu-app/smart-media-backup",
     packages=find_packages(include=["smb", "smb.*"]),
     include_package_data=True,
     package_data={

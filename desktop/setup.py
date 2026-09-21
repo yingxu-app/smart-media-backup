@@ -28,7 +28,7 @@ OPTIONS = {
         "LSMinimumSystemVersion": "11.0",
         "NSSupportsAutomaticTermination": False,
         "CFBundleInfoDictionaryVersion": "6.0",
-        "NSHumanReadableCopyright": "© 2025 陆冠霖",
+        "NSHumanReadableCopyright": "© 2025 nanyu-lu",
     },
     "packages": ["smb", "flask", "flask_socketio", "engineio", "socketio",
                   "psutil", "humanize", "dateutil", "werkzeug", "jinja2",

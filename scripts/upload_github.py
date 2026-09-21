@@ -1,7 +1,7 @@
 """Upload all remaining project files to GitHub via API"""
 import json, base64, subprocess, os, sys
 
-REPO = "luguanlin20050927/smart-media-backup"
+REPO = "yingxu-app/smart-media-backup"
 ROOT = os.path.expanduser("~/smart-media-backup")
 TOKEN = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True).stdout.strip()
 

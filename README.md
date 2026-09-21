@@ -2,11 +2,11 @@
 
 > 摄影师的本地优先素材备份与归档工具。插卡、确认、备份、校验、可追溯。
 
-[官网](https://yingxu-app.github.io) · [下载 macOS 版](https://github.com/luguanlin20050927/smart-media-backup/releases/latest) · [更新日志](https://yingxu-app.github.io/changelog.html) · [问题反馈](https://github.com/luguanlin20050927/smart-media-backup/issues)
+[下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
 
 ## 给摄影师的三个步骤
 
-1. 从官网下载 DMG，打开后把“影序 YINGXU”拖到“应用程序”。
+1. 从 Releases 下载 DMG，打开后把“影序 YINGXU”拖到“应用程序”。
 2. 插入相机存储卡或读卡器，影序会扫描来源、文件数量、照片和视频。
 3. 选择备份位置，确认事件名称和目录预览，点击“开始备份”。完成后可在“归档记录”打开报告、查询素材位置。
 
@@ -41,7 +41,7 @@ Pocket 默认只在本地局域网工作，配对码十分钟后失效且只能�
 3. 第一次打开时，因当前版本尚未完成 Apple 公证，macOS 可能提示“无法验证开发者”或“已损坏”。这是系统保护提示，不代表素材被修改。
 4. 在“系统设置 → 隐私与安全性”找到影序，点击“仍要打开”；随后再打开即可。
 
-请只从官网或本仓库 Releases 下载。发布页会提供对应 DMG 的 SHA-256，下载后可核对完整性。
+请只从本仓库 Releases 下载。发布页会提供对应 DMG 的 SHA-256，下载后可核对完整性。
 
 ## 目录与安全原则
 
@@ -71,7 +71,7 @@ Windows 安装包 `YINGXU-Windows-v1.0.33.exe` 已在 Windows 11 真机启动并
 ## 开发与测试
 
 ```bash
-git clone https://github.com/luguanlin20050927/smart-media-backup.git
+git clone https://github.com/yingxu-app/smart-media-backup.git
 cd smart-media-backup
 python3 -m unittest discover -s tests -v
 ```
