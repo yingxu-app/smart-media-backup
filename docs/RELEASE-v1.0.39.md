@@ -40,3 +40,13 @@
 - 微信开发者工具使用真实 AppID 编译预览，并在 iPhone、Android 连接本地桌面服务。
 - 桌面设置开关实际绑定/释放端口、端口占用恢复、防火墙提示、会话过期/撤销和网络切换。
 - macOS LaunchServices 首次读卡停滞问题仍未解决；此原型不能视作该问题的修复或正式发布。
+
+## 本机安装与真实存储卡验收（2026-10-16，后续补充）
+
+本节更新上方“未安装/未运行”及“LaunchServices 停滞仍未解决”的历史状态。之前的 1.0.38 LaunchServices 问题不能再描述为 1.0.39 未验证；本节只覆盖当前这台 Apple Silicon Mac 与当前插入的 SD 卡。
+
+- 从 macOS candidate run `38898226636` 下载 DMG，SHA-256 为 `df39b52afd67e7f6503e5870f94cb8506ab27712872bb2461ef3cf08163c95e3`；`hdiutil verify`、随包 SHA256SUMS 与只读挂载检查通过。
+- 安装前将 v1.0.38 App 完整备份到 `/tmp/yingxu-app-1.0.38-backup-2026-10-16/`，附有恢复说明；随后从 `/Applications/影序 YINGXU.app` 启动 v1.0.39。
+- `/api/status` 返回版本 `1.0.39`；原生首页显示 SD_Card 已扫描完成。`/api/sources` 实际读到 828 个文件、784 张照片、44 个视频，共 29,545,956,809 字节。首页、`/transfer`、`/history`、`/settings`、`/pocket/` 均返回 HTTP 200。
+- 活动进程路径为 `/Applications/影序 YINGXU.app/Contents/MacOS/影序 YINGXU`；应用监听 `*:8080`。`/api/pocket/tcp-settings` 返回 `enabled=false, running=false`，TCP 端口 18080 未监听，符合默认关闭。
+- 本次没有向 SD 卡写入、备份或转移文件；Windows、其他 Mac、手机与小程序仍未验收。应用仍是 ad-hoc 签名、无 Team ID，不能称为公证或公开发行版本。
