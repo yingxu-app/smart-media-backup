@@ -1,0 +1,6 @@
+# PR4 官网冲突前备份
+
+保留 PR #4 当前分支 79a5250 的官网首页和 README 原文，用于与 origin/main 的 Pages 更新做三方合并；恢复时按本目录文件分别覆盖 site/index.html 与 site/README.md。
+
+- `index.html` SHA-256 `5c33c8c29ca57b14090892dfe37ea0836674d4900c11f25fdfaa7ed3d452c9b2`
+- `README.md` SHA-256 `5646817f03b323ff2a6cff9e4449763a8902f9972674f9cf2fac5eb45b38427e`
