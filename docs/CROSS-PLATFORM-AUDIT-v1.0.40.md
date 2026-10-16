@@ -1,6 +1,6 @@
 # 影序全端闭环状态审计 v1.0.40
 
-审计日期：2026-10-16。范围依据用户目标覆盖 PC 桌面、手机端、网页、小程序、多端测试、部署与上架。本文把源码、CI、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。
+审计日期：2026-10-17。范围依据用户目标覆盖 PC 桌面、手机端、网页、小程序、多端测试、部署与上架。本文把源码、CI、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。
 
 ## 当前证据矩阵
 
@@ -16,8 +16,9 @@
 ## 本轮代码与 CI 进展
 
 - `977058b` 修复 Windows 默认代码页下报告测试读取和 AI 离线诊断写入问题。Windows run `38926884128` 全绿，artifact 下载后独立验收；证据在 [RELEASE-v1.0.40.md](RELEASE-v1.0.40.md)。
-- `393e035` 将 Windows preview workflow 增加到主分支相关文件推送和 PR 变更触发，并纳入 `tests/**` 与工作流自身变更；YAML 解析和 diff 检查通过，当前分支手动运行 `38927983658` 全绿。
-- 新触发器的自动 PR 执行尚未由当前 draft PR 证明：GitHub 根据默认分支中的 workflow 定义处理 PR 事件；需待触发器进入默认分支后，下一次相关 PR 才能验证自动运行。PR #4 仍为 OPEN/DRAFT，不能把手动 dispatch 写成自动 PR gate 已启用。
+- `393e035` 将 Windows preview workflow 增加到主分支相关文件推送和 PR 变更触发，并纳入 `tests/**` 与工作流自身变更；YAML 解析和 diff 检查通过，手动运行 `38927983658` 全绿。
+- 与 main 同步发现官网首页和 README 存在内容冲突；先备份 PR 分支原文到 `docs/site-history/2026-10-17-pre-main-sync/`，再保留 main 上 Pocket/手机发布状态与下载页更新，并保留 PR 分支 macOS Releases 直达链接。首页、下载页、隐私页和 404 页的本地相对链接检查通过。合并提交为 `84fc951`。
+- 当前 PR head `84fc951` 上，Windows preview 自动 `pull_request` run `38928587103` 全部步骤成功；Reliability `pull_request` run `38928587182` 六矩阵全部成功。此证据确认 PR 自动打包门禁已生效。PR #4 仍为 OPEN/DRAFT，未合并。
 - 本机 Python 测试 78 项通过、2 项 Windows 条件跳过；小程序 Node 测试 4 项通过。该结果不替代 iPhone、Android 或 Windows 真机验收。
 
 ## 影响全端实现的待决项
