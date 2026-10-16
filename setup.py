@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="smart-media-backup",
-    version="1.0.37",
+    version="1.0.38",
     author="nanyu-lu",
     author_email="302085429+nanyu-lu@users.noreply.github.com",
     description="插卡自动备份 → 按设备→事件→照片/视频分类整理 → Web 面板可视化",

@@ -63,6 +63,35 @@ class CandidateSourceVolumeTests(unittest.TestCase):
             self.assertEqual(detector.list_candidate_source_volumes(), fake)
 
 
+class LikelyMediaSourceTests(unittest.TestCase):
+    def test_named_card_with_dcim_is_checked_before_unrelated_large_volume(self):
+        from pathlib import Path
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            ssd = root / "SAMSUT7固态硬盘"
+            card = root / "SD_Card"
+            ssd.mkdir()
+            (card / "DCIM").mkdir(parents=True)
+            volumes = [
+                {"name": ssd.name, "mount_point": str(ssd)},
+                {"name": card.name, "mount_point": str(card)},
+            ]
+            original_iterdir = Path.iterdir
+
+            def fail_if_unrelated_mount_is_opened(path):
+                if path == ssd:
+                    raise AssertionError("unrelated external volume root was opened")
+                return original_iterdir(path)
+
+            with mock.patch.object(detector.os.path, "ismount", return_value=True), \
+                 mock.patch.object(Path, "iterdir", fail_if_unrelated_mount_is_opened):
+                selected = detector.find_likely_media_source(volumes)
+
+        self.assertEqual(selected["mount_point"], str(card))
+
+
 class ProgressFieldsTests(unittest.TestCase):
     """实时进度必须包含校验通过/失败数量。"""
 

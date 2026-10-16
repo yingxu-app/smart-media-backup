@@ -101,8 +101,8 @@ app = BUNDLE(
         "CFBundleName": "影序 YINGXU",
         "CFBundleDisplayName": "影序 YINGXU",
         "CFBundleIdentifier": "com.luguanlin.yingxu",
-        "CFBundleVersion": "1.0.37",
-        "CFBundleShortVersionString": "1.0.37",
+        "CFBundleVersion": "1.0.38",
+        "CFBundleShortVersionString": "1.0.38",
         "CFBundleExecutable": "影序 YINGXU",
         "CFBundleInfoDictionaryVersion": "6.0",
         "NSHighResolutionCapable": True,
@@ -111,5 +111,6 @@ app = BUNDLE(
         "NSSupportsAutomaticTermination": False,
         "LSBackgroundOnly": False,
         "CFBundlePackageType": "APPL",
+        "NSRemovableVolumesUsageDescription": "影序需要读取相机存储卡和外接硬盘中的素材，以便扫描、备份并校验文件；默认不会删除原卡素材。",
     },
 )
