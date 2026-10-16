@@ -20,6 +20,7 @@
 - 安装版 `/api/sources` 返回 HTTP 200，来源列表识别出外置 SSD 的 2774 个文件和 SD 卡的 828 个文件；`/transfer` 返回 HTTP 200。
 - 通过安装版 HTTP 接口在隔离临时目录中完成 1 个虚拟 JPG 的扫描、分析和转移。目标字节 SHA-256 一致，校验完成后源测试文件才被移除；未对真实用户素材执行转移。
 - 提交 `2941a30` 的 GitHub Actions Reliability tests 六个矩阵任务全部成功（Windows/macOS/Ubuntu × Python 3.11/3.12）；Windows preview workflow 成功构建并上传 unsigned EXE。下载检查为 PE32+ x86-64，27,744,013 bytes，SHA-256 `1765a491845d0a94ec02ab395e35ef6a124a8c99c9863f33c70bc08e6f6abbcb`。此证据只证明 Windows runner 构建，不证明真实 Windows 机器可运行。
+- GitHub macOS workflow run `38854341034`（源代码 commit `e736d15`）成功构建 DMG。下载后 `hdiutil verify` 通过；只读挂载确认含 v1.0.36 arm64 App；`codesign --verify --deep --strict` 通过，签名为 ad-hoc。CI DMG SHA-256：`2feaff9c13db0018fe62c38713521a065ef1c0cc806be121c66dc5d81483526c`。这只证明 runner 构建与包完整性，不代表公证或真实升级验收。
 
 ## 回滚与未完成门槛
 

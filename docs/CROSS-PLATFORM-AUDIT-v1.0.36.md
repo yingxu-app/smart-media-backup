@@ -6,7 +6,7 @@
 
 | 端 / 交付项 | 已有证据 | 当前结论 | 仍需通过的门槛 |
 | --- | --- | --- | --- |
-| macOS 桌面 | v1.0.36 Apple Silicon DMG 已构建；`codesign --verify --deep --strict`、`hdiutil verify` 通过；已安装到 `/Applications/影序 YINGXU.app`；原生首页识别真实 SD 卡 828 个文件；隔离目录单文件转移通过 SHA-256 | 本地候选运行闭环已验收 | Windows/macOS 多版本配置迁移、外置盘拔出与中断恢复；Apple Developer 签名、公证与公开 Release |
+| macOS 桌面 | 本地安装的 v1.0.36 Apple Silicon DMG 与 GitHub macOS runner 构建的 DMG 均通过完整性校验；runner DMG SHA-256 `2feaff9c13db0018fe62c38713521a065ef1c0cc806be121c66dc5d81483526c`，挂载后确认 App 版本 1.0.36、arm64，`codesign --verify --deep --strict` 通过但为 ad-hoc；本机安装版原生首页识别真实 SD 卡 828 个文件，隔离目录单文件转移通过 SHA-256 | macOS 源码、CI 构建与本机候选运行均已验证 | 多版本配置迁移、外置盘拔出与中断恢复；Apple Developer 签名、公证与公开 Release |
 | Windows 桌面 | `2941a30` 在 GitHub Actions Windows runner 构建成功；unsigned preview EXE 为 PE32+ x86-64，27,744,013 bytes，SHA-256 `1765a491845d0a94ec02ab395e35ef6a124a8c99c9863f33c70bc08e6f6abbcb`；同提交 Windows Python 3.11/3.12 测试通过 | 当前源码可在 Windows runner 构建；仍无 Windows 真机运行证据，预览包未签名 | Windows 真实 PC 安装、Defender、读卡器、备份/转移和拔盘恢复验收；正式签名与公开发布 |
 | iPhone / Android | 当前只有 Pocket 局域网网页：配对、状态、历史与拍摄备注；4 项 API/权限测试覆盖配对及访问隔离 | 移动网页能力存在；没有原生 iOS/Android 工程、安装包或商店版 | 明确原生 App / PWA 交付范围；实际 iPhone Safari 与 Android 浏览器配对测试；后台与网络切换验证；若要商店上架，补齐对应签名和商店资料 |
 | Pocket 安全上下文 | 桌面生成的配对地址为 `http://<局域网地址>:<端口>/pocket/`；页面尝试注册 Service Worker，失败会静默忽略 | HTTP 页面与配对接口已有源码；离线缓存、安装体验未在真实手机验证 | 真实 iPhone/Android 在同 Wi-Fi 验收；确认当前 HTTP 环境下的主屏幕与离线行为，并决定是否需要受信任 HTTPS |
@@ -16,7 +16,7 @@
 
 ## 当前主机的构建能力
 
-- 已验证可构建 Apple Silicon macOS App/DMG。
+- 已验证本机及 GitHub macOS runner 可构建 Apple Silicon macOS App/DMG；runner artifact run `38854341034` 已下载、挂载、校验版本/架构/签名并验证 DMG checksum。候选仍 ad-hoc，未公证。
 - `xcode-select -p` 指向 Command Line Tools；`xcodebuild -version` 报告需要完整 Xcode，当前没有可用 Xcode 工程构建环境。
 - 本机没有 Android SDK / `adb` / Gradle；`java` 命令提示找不到 Java Runtime。
 - Windows PyInstaller 规格只能在 Windows 环境构建；提交 `2941a30` 的 GitHub Windows runner 构建已成功，产物已下载检查为 PE32+ x86-64。当前主机仍无 Windows 设备，无法以此替代安装与运行验收。
