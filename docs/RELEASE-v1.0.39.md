@@ -68,3 +68,20 @@
 - iPhone Mirroring 后续已连上 iPhone 17 Pro。当前 Safari 的状态栏显示 5G，没有 Wi-Fi 标志，因此设备当前不具备与 Mac 同一局域网的已核实条件。
 - 本轮没有更改 iPhone 网络设置，也没有提交配对码、备注或其他数据。Safari 停留在此前打开的页面；没有完成 Pocket LAN 请求。
 - 下一步需在设备接入与 Mac 相同 Wi-Fi 后，实测 Pocket 打开、配对、状态/历史、备注、离线与网络切换。当前结果是环境条件未满足，不代表应用端 LAN 连接成功或失败。
+
+## 跨平台修复与当前候选复验（2026-10-16）
+
+- 修复 Pillow 灰度像素读取仍调用 `Image.getdata()` 触发弃用警告的问题，改用 `gray.tobytes()`；两项废片检测测试通过，明确验证实现不调用 `get_flattened_data()` 或弃用的 `getdata()`。本机完整测试 76 项运行、74 项通过、2 项因 Windows 平台条件跳过；将 `DeprecationWarning` 设为错误后整套测试仍通过。
+- CI 工作流固定 Linux runner 为 Ubuntu 24.04；`actions/checkout@v7.0.1`、`actions/setup-python@v7.0.0`、`actions/upload-artifact@v7.0.2`、Pages artifact v5.0.0、deploy-pages v5.0.1 和 configure-pages v6.0.0 已更新。
+- PR #4 当前 head `61248912a860d6d44ce3bb500f422ffd1d0c9232` 的 macOS / Ubuntu 24.04 / Windows × Python 3.11 / 3.12 六矩阵 CI 全部成功；小程序 Node 测试 4 项通过。
+- Windows unsigned preview run `38918099130` 成功。下载核对文件为 PE32+ x86-64 GUI，27,757,332 bytes，SHA-256 `929781b66ce147483263301371bcd3bd6cabaa87258a6cf3b4e49dc01e17385f`。此项只验证 CI 构建与 artifact，不代表 Windows 真机验收。
+- macOS release-candidate run `38918494881` 成功。DMG 为 22,255,777 bytes，SHA-256 `2512cacd14b2648b1c77a42b5267f7921caac17c4ee8d0e9a400667020674346`；`hdiutil verify`、随包 SHA256SUMS 比对、版本 `1.0.39`、Apple Silicon arm64 和深度代码签名验证均通过。签名仍为 ad-hoc、无 Team ID、未公证。
+- 已将该 DMG 安装到 `/Applications/影序 YINGXU.app`。替换前旧 1.0.39 App 备份在 `/tmp/yingxu-installed-v1.0.39-before-6124891-2026-10-16/`，含恢复说明。新安装版从 `/Applications` 启动后 `/api/status` 返回 `1.0.39`，原生窗口再次扫描实际 SD_Card 完成：828 个文件、784 张照片、44 个视频、约 28,177.2 MB；本轮未对卡片写入或删除。
+- 公网首页与 `/download/` HTTP 200，当前公开 Release 仍为 v1.0.34 Windows 包。Pages 部署工作流已升级，但从候选分支手动 dispatch 在 job 开始前被 `github-pages` 环境策略拒绝；该环境只允许 `main`。没有改动保护策略，本分支 `site/` 与 `origin/main` 一致。
+
+## 当前仍未闭环
+
+- Windows 真实设备安装、启动、SD 卡读写器和转移恢复验收。
+- Apple Developer ID 签名/公证、公开 macOS Release 和下载端验收。
+- iPhone 当前显示 5G，尚无 Mac 与手机同 Wi-Fi 条件；未做 Pocket 真机配对和网络切换验收。
+- 原生 iOS/Android 工程仍未建立。微信小程序使用占位 `touristappid`，正式连接路径未确认；开发者工具预览、iPhone/Android 真机、隐私审核和上架均未完成。
