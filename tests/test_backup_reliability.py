@@ -14,7 +14,33 @@ from pathlib import Path
 from smb import backup, db
 from smb import config as config_module
 from smb.ai_namer import ai_namer
+from smb.verifier import ChecksumVerifier
 from smb.waste_filter import waste_reviewer
+
+
+class ManifestEncodingTests(unittest.TestCase):
+    def test_manifest_with_non_ascii_paths_is_written_as_utf8(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "归档目标"
+            media_dir = target / "Sony 相机" / "城市夜景" / "照片"
+            media_dir.mkdir(parents=True)
+            photo = media_dir / "IMG_0001.JPG"
+            photo.write_bytes(b"photo-bytes")
+
+            write_text = Path.write_text
+
+            def write_with_legacy_default(path, data, *args, **kwargs):
+                kwargs.setdefault("encoding", "cp1252")
+                return write_text(path, data, *args, **kwargs)
+
+            with mock.patch.object(Path, "write_text", write_with_legacy_default):
+                manifest_path = Path(ChecksumVerifier().generate_manifest([str(photo)], str(target)))
+            encoded = manifest_path.read_bytes()
+            data = json.loads(encoded.decode("utf-8"))
+
+            self.assertIn(os.path.join("Sony 相机", "城市夜景", "照片", "IMG_0001.JPG"), data)
+            self.assertEqual(data[os.path.join("Sony 相机", "城市夜景", "照片", "IMG_0001.JPG")],
+                             ChecksumVerifier().hash_file(str(photo)))
 
 
 class BackupReliabilityTests(unittest.TestCase):
