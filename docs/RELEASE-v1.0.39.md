@@ -62,3 +62,9 @@
 - 已安装 v1.0.39 运行时的 `/pocket/`、`/pocket/manifest.webmanifest`、`/pocket/sw.js`、`/api/pocket/status` 和 `/api/pocket/history` 均返回 HTTP 200。Manifest 的 `display` 为 `standalone`；Service Worker 脚本缓存 Pocket 页面、manifest 与图标 shell，并将 `/api/` 请求排除在缓存之外。
 - 本机浏览器页面可打开并显示桌面状态；macOS 防火墙处于开启状态，影序安装路径已列为允许入站连接，服务监听 `*:8080`。这些证据只说明本机服务和浏览器资源可用。
 - 已尝试检查 iPhone 镜像；系统提示 iPhone 17 Pro 正在使用，需设备空闲才会连接。本轮未完成真实 iPhone/Android 同 Wi-Fi 访问、主屏幕安装、离线缓存、休眠唤醒或网络切换验收；不得把 localhost 页面测试视作手机实测。
+
+## iPhone 镜像复核（2026-10-16，后续状态更新）
+
+- iPhone Mirroring 后续已连上 iPhone 17 Pro。当前 Safari 的状态栏显示 5G，没有 Wi-Fi 标志，因此设备当前不具备与 Mac 同一局域网的已核实条件。
+- 本轮没有更改 iPhone 网络设置，也没有提交配对码、备注或其他数据。Safari 停留在此前打开的页面；没有完成 Pocket LAN 请求。
+- 下一步需在设备接入与 Mac 相同 Wi-Fi 后，实测 Pocket 打开、配对、状态/历史、备注、离线与网络切换。当前结果是环境条件未满足，不代表应用端 LAN 连接成功或失败。
