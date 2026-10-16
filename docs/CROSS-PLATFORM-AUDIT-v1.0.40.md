@@ -50,3 +50,12 @@
 
 - 小程序 TCP 配对令牌现在绑定到建立配对的 TCP socket；其他 socket 即使拿到令牌也不能复用，连接关闭时桌面端自动撤销会话。小程序收到连接错误后关闭失效 socket、清除旧会话并回到配对界面。
 - 新增真实本机 TCP 回归，验证跨连接令牌拒绝及异常断开后令牌撤销。Python 完整测试 79 项：77 通过、2 项 Windows 条件跳过；小程序 Node 测试 5 项通过。微信开发者工具仍因占位 `touristappid` 返回 code 10，未编译/预览。
+
+## 2026-10-17 全端续核（提交 ff4d177）
+
+- 当前工作树干净，分支 `codex/v1.0.39-miniprogram-lan-tcp`，HEAD `ff4d17744f08b4ed873f3eddac91ec5cd85201b3`。本机 `.venv/bin/python -m unittest discover -s tests -v`：79 项运行，77 通过、2 项 Windows 条件跳过；`node --test miniprogram/tests/*.test.cjs`：5 项通过；小程序 JS 语法、JSON 解析和 `git diff --check` 通过。系统 Python 缺少 Flask 的首次尝试不作为项目测试结果。
+- 对 `ff4d177` 的 GitHub Reliability run `38932408213`（六矩阵）和 Windows preview run `38932408167` 均为 success；PR 自动检查与 push 检查均完成。
+- 从 run `38932408167` 下载 artifact `12060016185` 并独立读取：`影序 YINGXU.exe` 是 x64 PE（machine `0x8664`），大小 27,759,055 bytes，SHA-256 `d5b252b8b7a1004d5a0ad917cececf2a6ee777ba202d8a9434f942bdd191f9af`，与包内 `SHA256SUMS.txt` 一致。该包为 unsigned preview，未在 Windows 实机安装或运行；本机副本位于 `/tmp/yingxu-windows-preview-ff4d177/`。
+- 当前 `/Applications/影序 YINGXU.app` 仍运行 1.0.40；安装主程序 SHA-256 `8235e90d0b168bf0113dcb6d2c26e38b9427b80300bf61b7cb234ef8b0ea864c`，arm64、ad-hoc、无 Team ID。实时 API 返回 `status=idle`、`version=1.0.40`；`/`、`/transfer`、`/history`、`/settings`、`/pocket/`、`/pocket/manifest.webmanifest`、`/pocket/sw.js`、`/api/status` 均 HTTP 200。此次没有插入素材卡，故不把该次启动计为素材扫描验收。
+- GitHub Pages 规范首页、`/download/`、`/privacy.html` 当前均 HTTP 200。Latest Release 仍为 `v1.0.34`，资产仅 Windows EXE 与 `SHA256SUMS.txt`。PR #4 仍 OPEN/DRAFT、mergeable，head 为 `ff4d177`；没有合并或发布。
+- 本轮仍未完成：Windows 真机、iPhone/Android Pocket、原生 iOS/Android 工程与商店包、真实微信 AppID/工具编译/真机/审核、Developer ID 与公证、v1.0.40 正式 Release。网页在线备份服务也没有定义或部署；静态网站 200 不代表在线备份功能已完成。

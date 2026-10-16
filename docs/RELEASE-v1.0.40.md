@@ -35,3 +35,10 @@
 - Windows preview run `38926884128` 的可靠性套件、版本解析、PyInstaller、x64 PE 校验、SHA-256 清单读回和 artifact 上传全部成功。
 - 实际下载 artifact `12057256711` 后再次独立检查：内含 `影序 YINGXU.exe`（27,759,001 bytes）和 `SHA256SUMS.txt`；PE machine 为 `0x8664`（x64）；EXE SHA-256 `72e9ec1f55b3378e466bdaa273cbe59ed9f1b7422a23a0fa709dcdd0c42057b8` 与清单逐字匹配。artifact ZIP SHA-256 `30e3d47e67ebe25767a268897e38705bd5c33cf57d7e9ccfeab0703897cbd566`。
 - 这是可下载、可校验的 unsigned preview，仍未在 Windows 真机安装或运行，也未作为正式 Release 发布。
+
+## 2026-10-17 最新分支候选复核（ff4d177）
+
+- 当前候选代码分支 `codex/v1.0.39-miniprogram-lan-tcp` 的 HEAD 为 `ff4d17744f08b4ed873f3eddac91ec5cd85201b3`，工作区干净。Python 测试通过 79 项、Windows 条件跳过 2 项；小程序 Node 测试 5 项通过，JS/JSON 静态解析与 `git diff --check` 通过。
+- 最新 Reliability run `38932408213` 六矩阵成功；Windows preview run `38932408167` 成功。其 artifact `12060016185` 下载后核实为 x64 PE EXE，27,759,055 bytes，SHA-256 `d5b252b8b7a1004d5a0ad917cececf2a6ee777ba202d8a9434f942bdd191f9af`，包内清单校验匹配。artifact 为 unsigned preview，尚无 Windows 实机安装证据。
+- 当前安装版仍是 `/Applications/影序 YINGXU.app` v1.0.40、arm64、ad-hoc、无 Team ID；主程序 SHA-256 `8235e90d0b168bf0113dcb6d2c26e38b9427b80300bf61b7cb234ef8b0ea864c`。本次本机 API 状态为 idle，桌面主页面、转移、历史、设置、Pocket、Pocket manifest/service worker 路由和状态 API 均返回 200；没有插卡，本次不代表真实媒体读写验收。
+- 公开 GitHub Release 仍为 v1.0.34（Windows EXE 和校验文件）。v1.0.40 未公开发行；PR #4 仍为 OPEN/DRAFT。签名、公证、Windows 实机、移动设备、微信 AppID/编译/审核和商店发布仍未完成。
