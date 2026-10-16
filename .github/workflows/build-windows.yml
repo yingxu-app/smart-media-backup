@@ -74,8 +74,9 @@ jobs:
           $hash = (Get-FileHash -Algorithm SHA256 $executable.FullName).Hash.ToLowerInvariant()
           $manifestLine = "$hash  $($executable.Name)"
           $manifestPath = Join-Path $executable.DirectoryName 'SHA256SUMS.txt'
-          [System.IO.File]::WriteAllText($manifestPath, $manifestLine + "`n", [System.Text.Encoding]::ASCII)
-          $readBack = (Get-Content $manifestPath -Raw).Trim()
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          [System.IO.File]::WriteAllText($manifestPath, $manifestLine + "`n", $utf8NoBom)
+          $readBack = (Get-Content $manifestPath -Raw -Encoding UTF8).Trim()
           if ($readBack -cne $manifestLine) {
             throw 'SHA-256 manifest read-back mismatch'
           }
