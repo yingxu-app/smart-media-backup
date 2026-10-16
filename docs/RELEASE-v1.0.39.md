@@ -85,3 +85,9 @@
 - Apple Developer ID 签名/公证、公开 macOS Release 和下载端验收。
 - iPhone 当前显示 5G，尚无 Mac 与手机同 Wi-Fi 条件；未做 Pocket 真机配对和网络切换验收。
 - 原生 iOS/Android 工程仍未建立。微信小程序使用占位 `touristappid`，正式连接路径未确认；开发者工具预览、iPhone/Android 真机、隐私审核和上架均未完成。
+
+## Windows 预览 artifact 架构与校验补充（2026-10-16）
+
+- 在提交 `a3dc691` 上首次加入 Windows x64 PE 与 SHA-256 manifest 检查时，run `38919632876` 的构建成功，但清单回读失败。根因是 PowerShell ASCII 写入把中文 EXE 文件名替换为 `?`。
+- 提交 `f2d9105` 改用 UTF-8 无 BOM 写入并明确以 UTF-8 回读。Windows preview run `38920093241` 全部成功，包括 PyInstaller 构建、x64 PE 检查、清单回读和 artifact 上传；同提交 Reliability tests run `38920081951` 与 `38920092240` 成功，覆盖 macOS / Ubuntu 24.04 / Windows × Python 3.11 / 3.12 六矩阵。
+- 下载 artifact 再次验证为 PE32+ x86-64 GUI；`SHA256SUMS.txt` 对应的 `影序 YINGXU.exe` SHA-256 为 `3b6d42350b7eded002baf375edbad6a138ca059ac3de97f761d41a20a61ef44e`，本地清单校验通过。artifact 是 unsigned CI preview，未在 Windows 真机安装或运行。
