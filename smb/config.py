@@ -1,12 +1,28 @@
 """系统配置管理"""
 import json
 import os
+import tempfile
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 
 CONFIG_DIR = Path(os.environ.get("SMB_CONFIG_DIR", "~/.config/smb")).expanduser()
 CONFIG_FILE = CONFIG_DIR / "config.json"
+CONFIG_SCHEMA_FILE = CONFIG_DIR / "config.schema.json"
 DB_PATH = CONFIG_DIR / "backup_history.db"
+CONFIG_SCHEMA_VERSION = 2
+
+
+def _migrate_config_v1_to_v2(data: dict) -> dict:
+    """为增加 Pocket 的旧配置补齐安全默认值。"""
+    migrated = dict(data)
+    migrated.setdefault("pocket_enabled", True)
+    migrated.setdefault("pocket_session_hours", 12)
+    return migrated
+
+
+_CONFIG_MIGRATIONS = {
+    1: _migrate_config_v1_to_v2,
+}
 
 
 @dataclass
@@ -82,22 +98,67 @@ class AppConfig:
 
     def save(self):
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        data = {k: v for k, v in asdict(self).items()}
-        CONFIG_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+        _atomic_write_json(CONFIG_FILE, asdict(self))
+        # Keep schema metadata separate so older released apps ignore it instead of
+        # rejecting an otherwise compatible config.json with an unknown field.
+        _atomic_write_json(CONFIG_SCHEMA_FILE, {"schema_version": CONFIG_SCHEMA_VERSION})
         return self
 
     @classmethod
     def load(cls) -> "AppConfig":
         if CONFIG_FILE.exists():
-            data = json.loads(CONFIG_FILE.read_text())
+            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("影序配置文件必须是 JSON 对象")
+            # A schema marker was briefly used in an unreleased draft. Ignore it
+            # during migration and keep the supported on-disk config backward compatible.
+            data.pop("schema_version", None)
+            version = 1
+            if CONFIG_SCHEMA_FILE.exists():
+                metadata = json.loads(CONFIG_SCHEMA_FILE.read_text(encoding="utf-8"))
+                if not isinstance(metadata, dict):
+                    raise ValueError("影序配置版本文件必须是 JSON 对象")
+                version = metadata.get("schema_version", 1)
+                if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+                    raise ValueError("影序配置版本号无效")
+            if version > CONFIG_SCHEMA_VERSION:
+                raise ValueError(
+                    f"配置由更新版本创建（schema {version}），当前版本最多支持 {CONFIG_SCHEMA_VERSION}；"
+                    "为避免覆盖新设置，未加载或修改该文件"
+                )
+            while version < CONFIG_SCHEMA_VERSION:
+                migrate = _CONFIG_MIGRATIONS.get(version)
+                if migrate is None:
+                    raise ValueError(f"没有从配置版本 {version} 升级的迁移规则")
+                data = migrate(data)
+                version += 1
             return cls(**data)
         return cls()
 
     @classmethod
     def reset(cls) -> "AppConfig":
-        if CONFIG_FILE.exists():
-            CONFIG_FILE.unlink()
+        for path in (CONFIG_FILE, CONFIG_SCHEMA_FILE):
+            if path.exists():
+                path.unlink()
         return cls()
+
+
+def _atomic_write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(
+        prefix=f"{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(data, stream, indent=2, ensure_ascii=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_path, path)
+    finally:
+        try:
+            os.unlink(temp_path)
+        except FileNotFoundError:
+            pass
 
 
 config: AppConfig = AppConfig.load()
