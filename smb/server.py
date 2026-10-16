@@ -32,6 +32,7 @@ from .detector import (list_removable_volumes, list_all_volumes, list_candidate_
 from .backup import BackupEngine
 from . import db
 from .pocket import PocketPairingManager, PocketNotesStore
+from .transfer import transfer_manager
 
 # 初始化数据库
 db.init_db()
@@ -171,6 +172,107 @@ def history():
 def settings():
     """设置页面"""
     return render_template("settings.html")
+
+
+@app.route("/transfer")
+def transfer_page():
+    return render_template("transfer.html")
+
+
+@app.route("/api/transfer/choose_folder", methods=["POST"])
+def api_transfer_choose_folder():
+    data = request.get_json(silent=True) or {}
+    purpose = "转移来源" if data.get("purpose") == "source" else "转移目标"
+    if sys.platform == "darwin":
+        try:
+            script = f'POSIX path of (choose folder with prompt "选择影序{purpose}文件夹")'
+            result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=120)
+            if result.returncode != 0:
+                return jsonify({"status": "cancelled"})
+            folder = result.stdout.strip().rstrip("/")
+        except Exception as exc:
+            return jsonify({"error": f"打开文件夹选择器失败: {exc}"}), 500
+    elif sys.platform.startswith("win"):
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        try:
+            folder = filedialog.askdirectory(title=f"选择影序{purpose}文件夹")
+        finally:
+            root.destroy()
+        if not folder:
+            return jsonify({"status": "cancelled"})
+    else:
+        return jsonify({"error": "当前平台暂不支持原生文件夹选择器"}), 501
+    if not folder or not os.path.isdir(folder):
+        return jsonify({"error": "未选择有效文件夹"}), 400
+    return jsonify({"status": "ok", "path": os.path.realpath(folder), "name": os.path.basename(folder) or folder})
+
+
+@app.route("/api/transfer/scan", methods=["POST"])
+def api_transfer_scan():
+    data = request.get_json(silent=True) or {}
+    try:
+        transfer_manager.start_scan(str(data.get("source", "")))
+        return jsonify({"status": "scanning"})
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/transfer/scan/status")
+def api_transfer_scan_status():
+    return jsonify(transfer_manager.snapshot_scan())
+
+
+@app.route("/api/transfer/analyze", methods=["POST"])
+def api_transfer_analyze():
+    data = request.get_json(silent=True) or {}
+    try:
+        items = transfer_manager.analyze(data.get("ids", []), str(data.get("target", "")),
+                                         bool(data.get("check_waste")), bool(data.get("check_similar")))
+        return jsonify({"items": items})
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/transfer/suggest_name", methods=["POST"])
+def api_transfer_suggest_name():
+    data = request.get_json(silent=True) or {}
+    ids = set(data.get("ids", []))
+    with transfer_manager.lock:
+        images = [x["path"] for x in transfer_manager.scan_state["items"]
+                  if x["id"] in ids and x.get("media_type") == "photo"][:3]
+    if not images:
+        return jsonify({"error": "所选内容中没有可用于命名建议的照片"}), 400
+    from .ai_namer import ai_namer
+    suggestion = ai_namer.suggest_event_name(images)
+    if not suggestion:
+        return jsonify({"error": "AI 命名未启用或暂时无法生成建议，请在偏好设置中配置后重试"}), 400
+    return jsonify({"name": suggestion})
+
+
+@app.route("/api/transfer/start", methods=["POST"])
+def api_transfer_start():
+    data = request.get_json(silent=True) or {}
+    try:
+        transfer_manager.start(data.get("ids", []), str(data.get("target", "")),
+                               str(data.get("event", "")), move=True)
+        return jsonify({"status": "running"})
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/transfer/status")
+def api_transfer_status():
+    return jsonify(transfer_manager.snapshot_job())
+
+
+@app.route("/api/transfer/cancel", methods=["POST"])
+def api_transfer_cancel():
+    transfer_manager.cancel()
+    return jsonify({"status": "cancelling"})
 
 
 @app.route("/pocket")
@@ -1149,7 +1251,7 @@ def main(open_browser: bool = True, host_override: str | None = None):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.34           ║
+║          影序 YINGXU  v1.0.36           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║

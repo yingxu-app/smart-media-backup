@@ -48,7 +48,7 @@ class StartBackupErrorVisibilityTests(unittest.TestCase):
         self.assertIn("备份目标", response.get_json()["error"])
 
     def test_missing_source_card_returns_400(self):
-        with mock.patch.object(server, "list_removable_volumes", return_value=[]):
+        with mock.patch.object(server, "list_candidate_source_volumes", return_value=[]):
             response = self.client.post(
                 "/api/start_backup",
                 json={"mount_point": "", "event_name": "x", "backup_root": str(self.root / "target")},

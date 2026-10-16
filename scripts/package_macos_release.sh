@@ -2,10 +2,11 @@
 set -euo pipefail
 
 ROOT="${0:A:h:h}"
-VERSION="1.0.33"
-RELEASE_DIR="$ROOT/release/v$VERSION"
+VERSION="$(/usr/bin/sed -n 's/^__version__ = "\(.*\)"/\1/p' "$ROOT/smb/__init__.py")"
+[[ -n "$VERSION" ]] || { print -u2 "无法从 smb/__init__.py 读取版本"; exit 1; }
+RELEASE_DIR="${RELEASE_DIR:-$ROOT/release/v$VERSION}"
 STAGE_DIR="$RELEASE_DIR/dmg-root"
-APP_SOURCE="$ROOT/desktop/dist/影序 YINGXU.app"
+APP_SOURCE="${APP_SOURCE:-$ROOT/desktop/dist/影序 YINGXU.app}"
 DMG_PATH="$RELEASE_DIR/YINGXU-macOS-v$VERSION.dmg"
 
 [[ -d "$APP_SOURCE" ]] || { print -u2 "缺少已构建应用：$APP_SOURCE"; exit 1; }

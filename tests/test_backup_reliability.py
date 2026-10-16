@@ -347,6 +347,14 @@ class ServerApiSafetyTests(unittest.TestCase):
             server_module._scan_lock.release()
             server_module._scan_response_cache = old_cache
 
+    def test_dashboard_shows_scan_state_before_card_metadata_finishes(self):
+        project_root = Path(__file__).resolve().parents[1]
+        dashboard = (project_root / "smb" / "templates" / "dashboard.html").read_text(encoding="utf-8")
+        scan_start = dashboard.index("function scan(){")
+        scan_request = dashboard.index("fetch('/api/scan')", scan_start)
+        self.assertLess(dashboard.index("textContent='正在读取存储卡'", scan_start), scan_request)
+        self.assertLess(dashboard.index("textContent='正在识别照片、视频与拍摄日期，请稍候'", scan_start), scan_request)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)

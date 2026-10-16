@@ -1,7 +1,9 @@
 """文件整理器 — EXIF 元数据提取 + 分类"""
 import os
 import re
+import shutil
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -18,6 +20,17 @@ DEVICE_DISPLAY_NAMES = {
     "DJI": "大疆设备",
     "GoPro": "GoPro",
 }
+
+
+@lru_cache(maxsize=1)
+def _exiftool_executable() -> Optional[str]:
+    """Resolve ExifTool once per process.
+
+    Frozen desktop builds may not include ExifTool. Repeatedly starting a missing
+    executable once or more for every media file is especially expensive on macOS;
+    cache the lookup and use the existing metadata fallbacks when it is absent.
+    """
+    return shutil.which("exiftool")
 
 
 def display_device_name(camera: str) -> str:
@@ -130,17 +143,19 @@ def get_backup_media_dir(
 
 def detect_camera_model(filepath: str) -> str:
     """通过 exiftool 提取相机型号，失败则用文件名启发式"""
-    try:
-        result = subprocess.run(
-            ["exiftool", "-Model", "-s", "-s", "-s", filepath],
-            capture_output=True, text=True, timeout=10
-        )
-        model = result.stdout.strip()
-        if model:
-            # 清理多余空格
-            return re.sub(r'\s+', ' ', model)
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
+    exiftool = _exiftool_executable()
+    if exiftool:
+        try:
+            result = subprocess.run(
+                [exiftool, "-Model", "-s", "-s", "-s", filepath],
+                capture_output=True, text=True, timeout=10
+            )
+            model = result.stdout.strip()
+            if model:
+                # 清理多余空格
+                return re.sub(r'\s+', ' ', model)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
 
     fname = Path(filepath).name.upper()
     if fname.startswith("DSC"):
@@ -156,15 +171,17 @@ def detect_camera_model(filepath: str) -> str:
 
 def extract_date(filepath: str) -> Optional[datetime]:
     """从 EXIF DateTimeOriginal 提取拍摄日期，回退文件修改时间"""
-    try:
-        result = subprocess.run(
-            ["exiftool", "-DateTimeOriginal", "-d", "%Y-%m-%d %H:%M:%S", "-s3", filepath],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return datetime.strptime(result.stdout.strip(), "%Y-%m-%d %H:%M:%S")
-    except (subprocess.TimeoutExpired, ValueError, FileNotFoundError):
-        pass
+    exiftool = _exiftool_executable()
+    if exiftool:
+        try:
+            result = subprocess.run(
+                [exiftool, "-DateTimeOriginal", "-d", "%Y-%m-%d %H:%M:%S", "-s3", filepath],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return datetime.strptime(result.stdout.strip(), "%Y-%m-%d %H:%M:%S")
+        except (subprocess.TimeoutExpired, ValueError, FileNotFoundError):
+            pass
     try:
         return datetime.fromtimestamp(os.path.getmtime(filepath))
     except OSError:
@@ -173,19 +190,21 @@ def extract_date(filepath: str) -> Optional[datetime]:
 
 def extract_gps(filepath: str) -> Optional[dict]:
     """提取 GPS 坐标"""
-    try:
-        lat = subprocess.run(
-            ["exiftool", "-GPSLatitude", "-s3", filepath],
-            capture_output=True, text=True, timeout=5
-        ).stdout.strip()
-        lon = subprocess.run(
-            ["exiftool", "-GPSLongitude", "-s3", filepath],
-            capture_output=True, text=True, timeout=5
-        ).stdout.strip()
-        if lat and lon and lat != "0" and lon != "0":
-            return {"lat": float(lat), "lon": float(lon)}
-    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
-        pass
+    exiftool = _exiftool_executable()
+    if exiftool:
+        try:
+            lat = subprocess.run(
+                [exiftool, "-GPSLatitude", "-s3", filepath],
+                capture_output=True, text=True, timeout=5
+            ).stdout.strip()
+            lon = subprocess.run(
+                [exiftool, "-GPSLongitude", "-s3", filepath],
+                capture_output=True, text=True, timeout=5
+            ).stdout.strip()
+            if lat and lon and lat != "0" and lon != "0":
+                return {"lat": float(lat), "lon": float(lon)}
+        except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+            pass
     return None
 
 
