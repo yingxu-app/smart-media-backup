@@ -4,17 +4,17 @@
 
 [官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
 
-> **版本状态（2026-10-16）**：GitHub 最新公开版为 v1.0.34，Release 目前只有 Windows 安装包。macOS v1.0.36 是本地候选，已经安装和验收，但尚未发布或公证；不要把本地候选当作公开下载。详见 [v1.0.36 验收记录](docs/RELEASE-v1.0.36.md) 与 [多端差距审计](docs/CROSS-PLATFORM-AUDIT-v1.0.36.md)。
+> **版本状态（2026-10-16）**：GitHub 最新公开版为 v1.0.34，Release 目前只有 Windows 安装包。macOS v1.0.37 为候选版本，构建与安装验收进行中，尚未发布或公证；不要把候选当作公开下载。详见 [v1.0.37 候选验收记录](docs/RELEASE-v1.0.37.md) 与 [v1.0.36 多端差距审计](docs/CROSS-PLATFORM-AUDIT-v1.0.36.md)。
 
 ## 给摄影师的三个步骤
 
-1. 从 Releases 下载当前系统已有的正式安装包；macOS v1.0.36 仍是本地候选，没有公开 DMG。
+1. 从 Releases 下载当前系统已有的正式安装包；macOS v1.0.37 仍是候选，没有公开 DMG。
 2. 插入相机存储卡或读卡器，影序会扫描来源、文件数量、照片和视频。
 3. 选择备份位置，确认事件名称和目录预览，点击“开始备份”。完成后可在“归档记录”打开报告、查询素材位置。
 
 默认只读取、复制和校验，**绝不自动删除原卡素材**。首次备份保留每一个文件；再次备份同一来源到同一目标时会逐个跳过已完成文件。
 
-## 当前本地候选：v1.0.36（未发布）
+## 当前本地候选：v1.0.37（未发布）
 
 | 能力 | 当前行为 |
 | --- | --- |
@@ -39,7 +39,7 @@ Pocket 默认只在本地局域网工作，配对码十分钟后失效且只能�
 
 ## macOS 安装与首次打开
 
-当前 GitHub Release 尚无 macOS v1.0.36 下载包。v1.0.36 DMG 仍是本地候选，待完成发布门槛后才会出现在公开下载页。
+当前 GitHub Release 尚无 macOS v1.0.37 下载包。v1.0.37 DMG 仍是候选，待完成发布门槛后才会出现在公开下载页。
 
 公开版发布后，请只从本仓库 Releases 下载并核对该 Release 提供的 SHA-256。未公证的候选可能触发 macOS Gatekeeper 提示；不要对来源不明的安装包放行。
 
