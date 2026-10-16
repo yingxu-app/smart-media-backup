@@ -41,7 +41,7 @@ jobs:
           shasum -a 256 "YINGXU-macOS-v${APP_VERSION}.dmg" > SHA256SUMS.txt
         env:
           APP_VERSION: ${{ steps.app-version.outputs.version }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: YINGXU-macOS-v${{ steps.app-version.outputs.version }}
           path: |

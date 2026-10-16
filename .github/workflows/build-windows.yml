@@ -32,7 +32,7 @@ jobs:
           dir dist\
 
       - name: Upload unsigned preview artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: YINGXU-Windows-unsigned-preview
           path: dist/*.exe
