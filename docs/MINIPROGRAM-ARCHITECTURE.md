@@ -64,3 +64,10 @@
 - 正式路线选择仍待用户确认；公开发布门槛包括真实 AppID、开发者工具编译、iPhone 与 Android 微信同 Wi-Fi 实测、前后台/网络切换、权限与隐私审查和微信审核上架。
 
 因此当前已有客户端和桌面桥接原型，但微信小程序尚未完成真机或生产验收。
+
+## 2026-10-17 当前工作树复核
+
+- 当前分支 `codex/v1.0.39-miniprogram-lan-tcp` 的 `miniprogram/` 已包含 `app.json`、`app.js`、`app.wxss`、`sitemap.json`、`project.config.json`、首页四件套和 TCP 服务；因此项目入口骨架已存在。
+- `project.config.json` 仍使用占位 `touristappid`。在已登录的微信开发者工具 2.02.2608080 中，通过 CLI 打开该项目返回 `code 10：不存在此 AppID`；未进入编译或预览。
+- 当前复核执行 `node --check` 检查 3 个 JavaScript 文件，并解析 4 个 JSON 配置，均通过。这些语法检查不等于微信开发者工具编译成功。
+- 小程序 TCP 客户端 Node 测试为 4 项通过。真实 AppID、开发者工具编译/预览、iPhone/Android 微信真机与审核发布仍未完成。
