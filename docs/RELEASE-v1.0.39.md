@@ -91,3 +91,12 @@
 - 在提交 `a3dc691` 上首次加入 Windows x64 PE 与 SHA-256 manifest 检查时，run `38919632876` 的构建成功，但清单回读失败。根因是 PowerShell ASCII 写入把中文 EXE 文件名替换为 `?`。
 - 提交 `f2d9105` 改用 UTF-8 无 BOM 写入并明确以 UTF-8 回读。Windows preview run `38920093241` 全部成功，包括 PyInstaller 构建、x64 PE 检查、清单回读和 artifact 上传；同提交 Reliability tests run `38920081951` 与 `38920092240` 成功，覆盖 macOS / Ubuntu 24.04 / Windows × Python 3.11 / 3.12 六矩阵。
 - 下载 artifact 再次验证为 PE32+ x86-64 GUI；`SHA256SUMS.txt` 对应的 `影序 YINGXU.exe` SHA-256 为 `3b6d42350b7eded002baf375edbad6a138ca059ac3de97f761d41a20a61ef44e`，本地清单校验通过。artifact 是 unsigned CI preview，未在 Windows 真机安装或运行。
+
+## Reliability 矩阵最终状态（2026-10-16）
+
+- 提交 `be4f8e9` 对应 Reliability run `38920454177` 已完成；macOS / Ubuntu 24.04 / Windows × Python 3.11 / 3.12 六个矩阵全部成功。此前记录中两个 macOS job 排队是查询当时的中间状态，现已完成。
+- PR #4 仍为 open draft；CI 成功只证明自动化环境中的测试通过，不代表 Windows 或其他平台的实机验收、正式签名、公证或发布。
+
+## Reliability 复核（最终完成状态）
+
+- 本次读取 run `38920454177` 的最终状态：`success`，macOS / Ubuntu 24.04 / Windows × Python 3.11 / 3.12 六项均完成并通过。此前排队状态和 GitHub API EOF 是临时观察结果，不是失败结论。
