@@ -1,6 +1,6 @@
 # v1.0.39 小程序局域网直连原型记录
 
-状态：独立开发分支中的未打包候选；桌面 TCP 服务默认关闭。正式连接路线、真实 AppID、微信预览和 iPhone/Android 真机验收仍未完成。
+状态：独立开发分支中的未安装、未发布候选；桌面 TCP 服务默认关闭。正式连接路线、真实 AppID、微信预览和 iPhone/Android 真机验收仍未完成。
 
 ## 改动
 
@@ -23,12 +23,20 @@
 - 完整 Python 测试：76 项运行、74 项通过、2 项平台条件跳过；`compileall` 与 `git diff --check` 通过。
 - `tests/test_pocket_tcp.py` 5 项通过；新增 4 项 Pocket API 测试覆盖 TCP 设置的 loopback 限制、严格输入、持久化、真实监听器启停与状态。
 - 小程序 Node 测试 4 项通过，覆盖 UTF-8 往返、错误响应、超长帧和无效协议帧；三份 JS 文件语法检查及全部 JSON 配置解析通过。
-- macOS Apple Silicon 隔离构建成功，生成 47 MB `.app`；Info.plist 两个版本字段均为 1.0.39，PyInstaller 归档中含 `smb.server`、`smb.pocket_tcp`、`smb.transfer`，`codesign --verify --deep --strict` 通过。签名为 ad-hoc、无 Team ID；本轮未安装或运行该候选。
+- GitHub Reliability run `38897911009` 在 macOS/Ubuntu/Windows × Python 3.11/3.12 六矩阵全部成功。
+- Windows preview run `38897916810` 成功；下载回读的 unsigned x86-64 PE32+ EXE 为 27,757,920 字节，SHA-256 `fc7b67573af5e2a4bab51fa0274e85ed981da791401591dd01bee93dca14fd39`。未在 Windows 真机安装或运行。
+- macOS Apple Silicon 隔离构建成功，生成 47 MB `.app`；Info.plist 两个版本字段均为 1.0.39，PyInstaller 归档中含 `smb.server`、`smb.pocket_tcp`、`smb.transfer`，`codesign --verify --deep --strict` 通过。签名为 ad-hoc、无 Team ID；本机候选未安装或运行。
+- macOS candidate run `38898226636` 成功；DMG SHA-256 `df39b52afd67e7f6503e5870f94cb8506ab27712872bb2461ef3cf08163c95e3`，`hdiutil verify`、随包 SHA256SUMS、只读挂载和 App `codesign --verify --deep --strict` 均通过，Info.plist 两字段为 1.0.39。没有安装候选 App。
+- GitHub Pages 项目首页与下载页均 HTTP 200，仍显示正式版 Windows v1.0.34；本候选没有发布到公开下载页或 GitHub Release。
 - 微信开发者工具 36.6.0 CLI 启动正常，但打开占位 AppID 项目失败，返回 `AppID 不存在 (code 10)`；没有小程序运行态或真机证据。
+
+## 构建过程问题
+
+- macOS run `38898040431` 的 App 构建和 ad-hoc 签名通过，但 DMG 步骤失败：手动 dispatch 的 `GITHUB_REF_NAME` 是带斜杠的功能分支名，被直接用于输出文件路径。工作流现从 `smb.__version__` 生成安全文件名；修正后的 run `38898226636` 成功完成 DMG 与 artifact 上传。
 
 ## 待验收
 
-- GitHub macOS/Windows/Ubuntu 六矩阵 CI、Windows EXE 候选构建，以及 macOS 候选实际启动/安装验收。
+- Windows 真机安装/操作；macOS 候选首次启动和 Pocket 端口启停；Apple Developer ID 签名与公证。
 - 微信开发者工具使用真实 AppID 编译预览，并在 iPhone、Android 连接本地桌面服务。
 - 桌面设置开关实际绑定/释放端口、端口占用恢复、防火墙提示、会话过期/撤销和网络切换。
 - macOS LaunchServices 首次读卡停滞问题仍未解决；此原型不能视作该问题的修复或正式发布。
