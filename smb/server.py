@@ -1369,7 +1369,7 @@ def main(open_browser: bool = True, host_override: str | None = None):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.39           ║
+║          影序 YINGXU  v1.0.40           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║

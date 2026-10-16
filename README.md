@@ -2,19 +2,19 @@
 
 > 摄影师的本地优先素材备份与归档工具。插卡、确认、备份、校验、可追溯。
 
-[官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
+[官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [全端闭环计划](docs/PROJECT-CLOSURE-PLAN-v1.0.40.md) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
 
-> **版本状态（2026-10-16）**：GitHub 最新正式版仍为 v1.0.34，只有 Windows 安装包。v1.0.39 macOS 候选已在本机 `/Applications` 安装并通过真实 SD_Card 扫描（828 个文件）；候选为 ad-hoc 签名、无 Team ID、未公证，未公开下载。当前 v1.0.39 开发分支 PR #4 仍为草稿，含默认关闭的 Pocket TCP 服务与微信小程序原型；正式连接路线、真实 AppID、开发者工具预览和 iPhone/Android 真机验收仍未完成。详见 [v1.0.39 候选验收记录](docs/RELEASE-v1.0.39.md)。
+> **版本状态（2026-10-16）**：GitHub 最新正式版仍为 v1.0.34，只有 Windows 安装包。v1.0.39 macOS 候选已在本机 `/Applications` 安装并通过真实 SD_Card 扫描（828 个文件）；候选为 ad-hoc 签名、无 Team ID、未公证，未公开下载。当前 PR #4 是 open draft；分支增加 v1.0.40 源码候选与 Pocket 离线状态提示，尚未构建、安装或实机验收。小程序正式连接路线、真实 AppID、开发者工具预览和 iPhone/Android 真机验收仍未完成。详见 [v1.0.39 候选验收记录](docs/RELEASE-v1.0.39.md) 和 [v1.0.40 全端闭环计划](docs/PROJECT-CLOSURE-PLAN-v1.0.40.md)。
 
 ## 给摄影师的三个步骤
 
-1. 从 Releases 下载当前系统已有的正式安装包；macOS 的 v1.0.39 仍是未发布候选，小程序原型也未上架。
+1. 从 Releases 下载当前系统已有的正式安装包；macOS 的 v1.0.39 已安装候选是未发布版本，v1.0.40 源码候选尚未构建，小程序原型也未上架。
 2. 插入相机存储卡或读卡器，影序会扫描来源、文件数量、照片和视频。
 3. 选择备份位置，确认事件名称和目录预览，点击“开始备份”。完成后可在“归档记录”打开报告、查询素材位置。
 
 新内容备份默认只读、复制和校验，**不会自动删除原卡素材**。首次备份保留每一个文件；再次备份同一来源到同一目标时会逐个跳过已完成文件。“转移老内容”是单独的用户主动操作：目标副本通过 SHA-256 校验后才移除来源，取消或失败会保留来源。
 
-## 当前开发版本：v1.0.39（候选；未公开发行）
+## 当前开发版本：v1.0.40（源码候选；未构建、未公开发行）
 
 | 能力 | 当前行为 |
 | --- | --- |
@@ -36,11 +36,13 @@
 3. 输入配对码后，可查看实时进度、历史记录，并把事件、地点、设备和备注发送到当前 Mac。
 4. iPhone 可在 Safari 的“分享 → 添加到主屏幕”中把它保存为接近 App 的入口。
 
+当前 Pocket 使用局域网 HTTP 连接；页面会报告 Service Worker 离线缓存状态。局域网 HTTP 不提供可信安全上下文，因此手机端的离线页面缓存不可用；实时状态、历史和备注需要 Mac 在线且手机保持同一局域网。离线使用需另行配置受信任 HTTPS 或选择原生客户端。
+
 Pocket 默认只在本地局域网工作，配对码十分钟后失效且只能使用一次。它不会读取、上传、删除或修改手机照片，也不能替代桌面端在后台读取整张存储卡。详见 [Pocket 使用说明](docs/POCKET.md)。
 
 ## macOS 安装与首次打开
 
-当前 GitHub Release 尚无 macOS v1.0.39 下载包。本机已安装的候选仅用于验收，不是公开发行版；小程序尚未上架。
+当前 GitHub Release 尚无 macOS v1.0.40 下载包。本机已安装的 v1.0.39 候选仅用于验收，不是公开发行版；v1.0.40 尚未构建，小程序尚未上架。
 
 公开版发布后，请只从本仓库 Releases 下载并核对该 Release 提供的 SHA-256。未公证的候选可能触发 macOS Gatekeeper 提示；不要对来源不明的安装包放行。
 
