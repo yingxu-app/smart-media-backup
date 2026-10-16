@@ -25,6 +25,7 @@ a = Analysis(
     hiddenimports=[
         "smb", "smb.config", "smb.detector", "smb.backup",
         "smb.organizer", "smb.verifier", "smb.db", "smb.cli", "smb.baidu", "smb.ai_namer",
+        "smb.server", "smb.transfer", "smb.pocket", "smb.pocket_tcp",
         "smb.windows_preview", "smb.waste_filter", "smb.lightroom", "smb.phash",
         "flask", "flask_socketio", "engineio", "engineio.async_drivers.threading",
         "socketio", "psutil", "humanize", "dateutil", "werkzeug", "jinja2",
