@@ -1,9 +1,24 @@
 name: Build Windows preview
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/build-windows.yml
+      - smb/**
+      - desktop/smb-win.spec
+      - requirements.txt
+      - setup.py
+      - tests/**
   push:
-    branches: ["main"]
-    paths: ["smb/**", "desktop/smb-win.spec", "requirements.txt", "setup.py"]
+    branches: [main]
+    paths:
+      - .github/workflows/build-windows.yml
+      - smb/**
+      - desktop/smb-win.spec
+      - requirements.txt
+      - setup.py
+      - tests/**
   workflow_dispatch:
 
 permissions:
