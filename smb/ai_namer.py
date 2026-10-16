@@ -9,12 +9,24 @@ import os
 import json
 import base64
 import threading
+import sys
 from typing import Optional
 from pathlib import Path
 
 from .config import CONFIG_DIR
 
 AI_SETTINGS_PATH = CONFIG_DIR / "ai_settings.json"
+
+
+def _safe_console_print(message: str) -> None:
+    """Keep optional AI diagnostics from failing under legacy Windows code pages."""
+    stream = sys.stdout
+    encoding = getattr(stream, "encoding", None) or "utf-8"
+    try:
+        stream.write(message + "\n")
+    except UnicodeEncodeError:
+        safe_message = message.encode(encoding, errors="backslashreplace").decode(encoding)
+        stream.write(safe_message + "\n")
 
 
 class AINamer:
@@ -33,7 +45,7 @@ class AINamer:
     def _load(self):
         if AI_SETTINGS_PATH.exists():
             try:
-                d = json.loads(AI_SETTINGS_PATH.read_text())
+                d = json.loads(AI_SETTINGS_PATH.read_text(encoding="utf-8"))
                 self.backend = d.get("backend", "disabled")
                 self.ollama_model = d.get("ollama_model", "llava")
                 self.ollama_url = d.get("ollama_url", "http://localhost:11434")
@@ -52,7 +64,7 @@ class AINamer:
             "openai_key": self.openai_key,
             "openai_model": self.openai_model,
             "openai_base": self.openai_base,
-        }, indent=2, ensure_ascii=False))
+        }, indent=2, ensure_ascii=False), encoding="utf-8")
 
     def is_enabled(self) -> bool:
         return self.backend != "disabled"
@@ -93,7 +105,7 @@ class AINamer:
             img.save(buf, format="JPEG", quality=70)
             return base64.b64encode(buf.getvalue()).decode("utf-8")
         except Exception as e:
-            print(f"[AI命名] 图片处理失败 {filepath}: {e}")
+            _safe_console_print(f"[AI命名] 图片处理失败 {filepath}: {e}")
             return None
 
     def _build_prompt(self, image_count: int) -> str:
@@ -143,7 +155,7 @@ class AINamer:
                     if len(reply) <= 20:
                         return reply
             except Exception as e:
-                print(f"[AI命名] Ollama 请求失败: {e}")
+                _safe_console_print(f"[AI命名] Ollama 请求失败: {e}")
                 continue
 
         return None
@@ -156,7 +168,7 @@ class AINamer:
         try:
             from openai import OpenAI
         except ImportError:
-            print("[AI命名] 需要安装 openai 包: pip install openai")
+            _safe_console_print("[AI命名] 需要安装 openai 包: pip install openai")
             return None
 
         client = OpenAI(
@@ -186,7 +198,7 @@ class AINamer:
             if reply and len(reply) <= 20:
                 return reply
         except Exception as e:
-            print(f"[AI命名] OpenAI 请求失败: {e}")
+            _safe_console_print(f"[AI命名] OpenAI 请求失败: {e}")
 
         return None
 
