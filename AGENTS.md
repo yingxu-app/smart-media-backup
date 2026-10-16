@@ -210,3 +210,7 @@ pyinstaller smb-win.spec --noconfirm
 
 > 2026-09-21 废弃：GitHub Pages 官网、Vercel、Gitee 镜像、仓库内 `website/` 目录。
 > 已归档副本见 `~/Documents/项目/_归档/影序-已废弃官网与Gitee同步/`。
+
+## 网站范围更新（2026-10-16）
+
+当前用户目标重新要求交付网页和小程序。继续遵守“GitHub 单一托管平台”：官网与下载页放在本仓库 `site/`，通过 GitHub Pages 发布；不恢复已失效的独立官网仓库或 Vercel。线上只列入 GitHub Releases 的正式版本，不把本机候选或 CI 预览写成公开下载。在线网页产品范围仍待用户确认。

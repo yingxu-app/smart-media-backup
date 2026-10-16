@@ -2,7 +2,7 @@
 
 > 摄影师的本地优先素材备份与归档工具。插卡、确认、备份、校验、可追溯。
 
-[下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
+[官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
 
 > **版本状态（2026-10-16）**：GitHub 最新公开版为 v1.0.34，Release 目前只有 Windows 安装包。macOS v1.0.36 是本地候选，已经安装和验收，但尚未发布或公证；不要把本地候选当作公开下载。详见 [v1.0.36 验收记录](docs/RELEASE-v1.0.36.md) 与 [多端差距审计](docs/CROSS-PLATFORM-AUDIT-v1.0.36.md)。
 
