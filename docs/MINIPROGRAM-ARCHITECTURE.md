@@ -70,4 +70,5 @@
 - 当前分支 `codex/v1.0.39-miniprogram-lan-tcp` 的 `miniprogram/` 已包含 `app.json`、`app.js`、`app.wxss`、`sitemap.json`、`project.config.json`、首页四件套和 TCP 服务；因此项目入口骨架已存在。
 - `project.config.json` 仍使用占位 `touristappid`。在已登录的微信开发者工具 2.02.2608080 中，通过 CLI 打开该项目返回 `code 10：不存在此 AppID`；未进入编译或预览。
 - 当前复核执行 `node --check` 检查 3 个 JavaScript 文件，并解析 4 个 JSON 配置，均通过。这些语法检查不等于微信开发者工具编译成功。
-- 小程序 TCP 客户端 Node 测试为 4 项通过。真实 AppID、开发者工具编译/预览、iPhone/Android 微信真机与审核发布仍未完成。
+- 初次复核时小程序 TCP 客户端 Node 测试为 4 项通过；socket 会话加固后增至 5 项通过。真实 AppID、开发者工具编译/预览、iPhone/Android 微信真机与审核发布仍未完成。
+- 后续会话安全加固将 TCP 令牌绑定到创建它的 socket：其他连接不能复用该令牌，socket 关闭时桌面端自动撤销令牌；小程序请求失效或网络错误后回到配对界面。相关 Python 真实 TCP 测试与 Node 页面状态测试已通过。

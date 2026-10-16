@@ -35,6 +35,9 @@ global.wx = {
   }
 };
 const { PocketTcpClient } = require("../services/pocket-client.js");
+let homePage;
+global.Page = (definition) => { homePage = definition; };
+require("../pages/home/index.js");
 
 test("client connects once and round-trips UTF-8 Pocket notes over one socket", async () => {
   const client = new PocketTcpClient();
@@ -99,4 +102,31 @@ test("client closes when a frame is not valid encoded JSON", async () => {
   await pendingResult;
   assert.equal(client.closed, true);
   assert.equal(activeSocket.closed, true);
+});
+
+test("home page returns to pairing when the desktop connection is lost", async (t) => {
+  let clientClosed = false;
+  const pollTimer = setInterval(() => {}, 60_000);
+  t.after(() => clearInterval(pollTimer));
+  const state = {
+    data: { connected: true, history: [{ id: 1 }], source: "SD_Card" },
+    client: {
+      request: () => Promise.reject(new Error("桌面端连接已断开")),
+      close: () => { clientClosed = true; }
+    },
+    token: "session-token",
+    pollTimer,
+    resetConnection: homePage.resetConnection,
+    setData(update) { this.data = { ...this.data, ...update }; }
+  };
+
+  await homePage.refreshAll.call(state);
+
+  assert.equal(clientClosed, true);
+  assert.equal(state.client, null);
+  assert.equal(state.token, "");
+  assert.equal(state.pollTimer, null);
+  assert.equal(state.data.connected, false);
+  assert.deepEqual(state.data.history, []);
+  assert.match(state.data.error, /请重新连接/);
 });

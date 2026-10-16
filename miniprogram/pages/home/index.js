@@ -70,6 +70,7 @@ Page({
       wx.setStorageSync("yingxuPocketAddress", address);
       this.setData({ connected: true, connecting: false, code: "", error: "" });
       await this.refreshAll();
+      if (!this.client || !this.token || !this.data.connected) return;
       this.pollTimer = setInterval(() => this.refreshAll(), 15000);
     } catch (error) {
       client.close();
@@ -100,8 +101,25 @@ Page({
         error: ""
       });
     } catch (error) {
-      this.setData({ error: error.message || "读取桌面状态失败" });
+      this.resetConnection(`${error.message || "读取桌面状态失败"}；请重新连接`);
     }
+  },
+
+  resetConnection(error = "") {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    this.pollTimer = null;
+    if (this.client) this.client.close();
+    this.client = null;
+    this.token = "";
+    this.setData({
+      connected: false,
+      connecting: false,
+      error,
+      history: [],
+      source: "",
+      progress: {},
+      progressPercent: 0
+    });
   },
 
   onNoteInput(event) {

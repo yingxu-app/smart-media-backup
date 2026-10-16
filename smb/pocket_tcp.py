@@ -60,24 +60,32 @@ class PocketTcpBridge:
 
             class Handler(socketserver.StreamRequestHandler):
                 def handle(self):
-                    self.connection.settimeout(60)
-                    while True:
-                        raw = self.rfile.readline(MAX_REQUEST_BYTES + 1)
-                        if not raw:
-                            return
-                        if len(raw) > MAX_REQUEST_BYTES or not raw.endswith(b"\n"):
-                            self._write_response({"ok": False, "error": "请求过长或格式错误"})
-                            return
-                        try:
-                            encoded = raw.decode("ascii").strip()
-                            request = json.loads(unquote(encoded))
-                            response = bridge.handle_message(
-                                request, str(self.client_address[0])
-                            )
-                        except (UnicodeDecodeError, ValueError, TypeError):
-                            response = {"ok": False, "error": "请求格式错误"}
-                        if not self._write_response(response):
-                            return
+                    connection_tokens: set[str] = set()
+                    try:
+                        self.connection.settimeout(60)
+                        while True:
+                            raw = self.rfile.readline(MAX_REQUEST_BYTES + 1)
+                            if not raw:
+                                return
+                            if len(raw) > MAX_REQUEST_BYTES or not raw.endswith(b"\n"):
+                                self._write_response({"ok": False, "error": "请求过长或格式错误"})
+                                return
+                            try:
+                                encoded = raw.decode("ascii").strip()
+                                request = json.loads(unquote(encoded))
+                                response = bridge.handle_message(
+                                    request,
+                                    str(self.client_address[0]),
+                                    connection_tokens=connection_tokens,
+                                )
+                            except (UnicodeDecodeError, ValueError, TypeError):
+                                response = {"ok": False, "error": "请求格式错误"}
+                            if not self._write_response(response):
+                                return
+                    finally:
+                        for token in connection_tokens:
+                            bridge.pairing.revoke(token)
+                        connection_tokens.clear()
 
                 def _write_response(self, response: dict) -> bool:
                     encoded = quote(
@@ -167,7 +175,12 @@ class PocketTcpBridge:
             self._pair_failures.pop(peer, None)
         return {"ok": True, "token": token}
 
-    def handle_message(self, request: dict, peer: str = "unknown") -> dict:
+    def handle_message(
+        self,
+        request: dict,
+        peer: str = "unknown",
+        connection_tokens: set[str] | None = None,
+    ) -> dict:
         if not isinstance(request, dict):
             return {"ok": False, "error": "请求格式错误"}
         request_id = request.get("id")
@@ -177,9 +190,14 @@ class PocketTcpBridge:
         if command == "pair":
             code = str(request.get("code", "")).strip()
             result = self._pair(peer, code)
+            if connection_tokens is not None and result.get("ok"):
+                connection_tokens.add(result["token"])
         elif command in {"status", "history", "notes.get", "notes.save", "disconnect"}:
             token = str(request.get("token", ""))
-            if not self.pairing.is_authorized(token):
+            if (
+                not self.pairing.is_authorized(token)
+                or (connection_tokens is not None and token not in connection_tokens)
+            ):
                 result = {"ok": False, "error": "未配对或会话已过期"}
             elif command == "status":
                 result = {"ok": True, "data": self.status_provider()}
@@ -199,6 +217,8 @@ class PocketTcpBridge:
                     result = {"ok": True, "notes": self.notes_store.save(data)}
             else:
                 self.pairing.revoke(token)
+                if connection_tokens is not None:
+                    connection_tokens.discard(token)
                 result = {"ok": True, "disconnected": True}
         else:
             result = {"ok": False, "error": "不支持的操作"}

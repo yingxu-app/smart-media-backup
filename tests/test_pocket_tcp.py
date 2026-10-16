@@ -1,6 +1,7 @@
 import json
 import socket
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from urllib.parse import quote, unquote
@@ -125,6 +126,39 @@ class PocketTcpBridgeTests(unittest.TestCase):
             second = json.loads(unquote(stream.readline().decode("ascii")))
             self.assertEqual(second["notes"]["event"], "星空拍摄")
             self.assertEqual(second["id"], 2)
+
+    def test_session_is_bound_to_socket_and_revoked_when_client_disconnects(self):
+        client = socket.create_connection(("127.0.0.1", self.port), timeout=2)
+        stream = client.makefile("rwb", buffering=0)
+        try:
+            pair = {"id": 1, "command": "pair", "code": "123456"}
+            stream.write((quote(json.dumps(pair), safe="") + "\n").encode("ascii"))
+            paired = json.loads(unquote(stream.readline().decode("ascii")))
+            token = paired["token"]
+            self.assertTrue(self.pairing.is_authorized(token))
+
+            other = socket.create_connection(("127.0.0.1", self.port), timeout=2)
+            other_stream = other.makefile("rwb", buffering=0)
+            try:
+                status = {"id": 2, "command": "status", "token": token}
+                other_stream.write(
+                    (quote(json.dumps(status), safe="") + "\n").encode("ascii")
+                )
+                rejected = json.loads(unquote(other_stream.readline().decode("ascii")))
+                self.assertFalse(rejected["ok"])
+                self.assertEqual(rejected["error"], "未配对或会话已过期")
+            finally:
+                other_stream.close()
+                other.close()
+        finally:
+            stream.close()
+            client.shutdown(socket.SHUT_RDWR)
+            client.close()
+
+        deadline = time.monotonic() + 2
+        while self.pairing.is_authorized(token) and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertFalse(self.pairing.is_authorized(token))
 
 
 if __name__ == "__main__":

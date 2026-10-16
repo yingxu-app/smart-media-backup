@@ -45,3 +45,8 @@
 - iPhone 镜像现已显示 Safari，但状态栏为 5G、无 Wi-Fi 指示。未访问 Mac 局域网 URL，也未更改手机网络；iPhone/Android 同 Wi-Fi、配对、主屏幕安装、离线和网络切换仍待实机验收。
 - Windows preview run `38930466820` 对提交 `5089fd0` 成功；回读 artifact `12058054414` 后确认 EXE 为 x64 PE，SHA-256 `73cf68485808898c4608858085ef5ddcabaa89f6701cfd5cbd18e532d438a7b3` 与包内清单一致。Reliability runs `38930457711`、`38930467148` 均成功。该产物仍是 unsigned preview，不是 Windows 实机安装验收。
 - 原生签名/构建环境复核：钥匙串仅发现自签名 `Smart Media Backup Developer`（OU=Development，非 Apple Developer ID）；`xcode-select` 指向 Command Line Tools，`xcodebuild` 要求完整 Xcode；本机无 `adb`，`ANDROID_SDK_ROOT` 未设置。当前主机不能完成 iOS/Android 原生构建或 Apple 公证发行。
+
+## 2026-10-17 Pocket TCP 会话加固
+
+- 小程序 TCP 配对令牌现在绑定到建立配对的 TCP socket；其他 socket 即使拿到令牌也不能复用，连接关闭时桌面端自动撤销会话。小程序收到连接错误后关闭失效 socket、清除旧会话并回到配对界面。
+- 新增真实本机 TCP 回归，验证跨连接令牌拒绝及异常断开后令牌撤销。Python 完整测试 79 项：77 通过、2 项 Windows 条件跳过；小程序 Node 测试 5 项通过。微信开发者工具仍因占位 `touristappid` 返回 code 10，未编译/预览。
