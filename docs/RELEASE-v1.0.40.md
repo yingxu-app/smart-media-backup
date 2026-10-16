@@ -42,3 +42,10 @@
 - 最新 Reliability run `38932408213` 六矩阵成功；Windows preview run `38932408167` 成功。其 artifact `12060016185` 下载后核实为 x64 PE EXE，27,759,055 bytes，SHA-256 `d5b252b8b7a1004d5a0ad917cececf2a6ee777ba202d8a9434f942bdd191f9af`，包内清单校验匹配。artifact 为 unsigned preview，尚无 Windows 实机安装证据。
 - 当前安装版仍是 `/Applications/影序 YINGXU.app` v1.0.40、arm64、ad-hoc、无 Team ID；主程序 SHA-256 `8235e90d0b168bf0113dcb6d2c26e38b9427b80300bf61b7cb234ef8b0ea864c`。本次本机 API 状态为 idle，桌面主页面、转移、历史、设置、Pocket、Pocket manifest/service worker 路由和状态 API 均返回 200；没有插卡，本次不代表真实媒体读写验收。
 - 公开 GitHub Release 仍为 v1.0.34（Windows EXE 和校验文件）。v1.0.40 未公开发行；PR #4 仍为 OPEN/DRAFT。签名、公证、Windows 实机、移动设备、微信 AppID/编译/审核和商店发布仍未完成。
+
+## macOS PR 候选构建（2026-10-17）
+
+- 为 `.github/workflows/release-macos.yml` 增加 PR 触发，覆盖桌面端、核心源码、测试、依赖和工作流自身变更；原有手动候选与 `v*` tag 工作流保持。
+- PR commit `0b3e45f5cd46de175114303575e8fb70c8f07e61` 的 macOS run `38934253353`、Reliability run `38934253354` 与 Windows preview run `38934253479` 全部成功。
+- macOS artifact `12059024846` 下载后核验：ZIP digest `d3ca1aca82cb913aba3df412ee5819fc65fd4f35f9267ffa1ad6eda703e70f6c`；DMG SHA-256 `b159d6f10ae4b6fadd142000c062fa7db6eac954b6efa9cccf81b9c6a6cd976d`，manifest 匹配，`hdiutil verify` valid。App 为版本 1.0.40、arm64，deep strict codesign 验证通过；ad-hoc、无 Team ID、未公证。
+- 该构建只证明 PR 上可生成可检查的 macOS 候选包，不证明 Apple 公证、Windows/macOS 用户安装、真机、或正式 Release。公开 Release 仍 v1.0.34。
