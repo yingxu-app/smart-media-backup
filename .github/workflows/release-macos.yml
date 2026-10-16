@@ -2,6 +2,14 @@ name: Build macOS release candidate
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/release-macos.yml"
+      - "desktop/**"
+      - "smb/**"
+      - "tests/**"
+      - "requirements.txt"
+      - "setup.py"
   push:
     tags: ["v*"]
 
