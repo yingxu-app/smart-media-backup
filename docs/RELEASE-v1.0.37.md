@@ -14,7 +14,9 @@
 - 本机完整测试：66 项运行、64 项通过、2 项 Windows 条件跳过。
 - `git diff --check` 通过。
 - 当前配置字段名与 v1.0.34 逐项对照：19 项完全一致。
-- 源码和版本显示统一到 v1.0.37；对应 CI、macOS 候选构建和安装运行验收待本次版本提交后更新。
+- 源码和版本显示统一到 v1.0.37；commit `25d3deddf23ad737f00fafd1b734878dcc1eefe9` 对应的六平台 Reliability run `38856965187`、Windows preview run `38856965117`、GitHub Pages deploy run `38856965210` 均成功。
+- macOS 候选 workflow run `38856971672` 成功，生成 arm64 DMG `YINGXU-macOS-main.dmg`；SHA-256 `25328ce6d13484cc1bf421f81faef058922b1530fa81c263955c506011710f7b`，`hdiutil verify` 通过。挂载后 App `CFBundleShortVersionString=1.0.37`，`codesign --verify --deep --strict` 通过，签名为 ad-hoc，未公证。
+- 新候选尚未从 `/Applications` 启动验收；安装版当前仍为 v1.0.36。
 
 ## 设备与发布边界
 
@@ -22,4 +24,3 @@
 - Windows 仍无真机安装和读卡器验收证据。
 - Apple Developer ID 签名、公证、公开 GitHub Release 和下载页版本更新尚未完成。
 - 外置盘拔出/强退恢复、iPhone/Android 实机连接、微信小程序、商店上架仍需独立验证。
-
