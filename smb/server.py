@@ -32,6 +32,7 @@ from .detector import (list_removable_volumes, list_all_volumes, list_candidate_
 from .backup import BackupEngine
 from . import db
 from .pocket import PocketPairingManager, PocketNotesStore
+from .pocket_tcp import PocketTcpBridge
 from .transfer import transfer_manager
 
 # 初始化数据库
@@ -46,6 +47,68 @@ _scan_lock = threading.Lock()
 _open_browser_on_start = True
 pocket_pairing = PocketPairingManager(session_hours=config.pocket_session_hours)
 pocket_notes = PocketNotesStore()
+POCKET_TCP_PORT = 18080
+_pocket_tcp_bridge = None
+_pocket_tcp_bridge_lock = threading.Lock()
+
+
+def _pocket_tcp_status() -> dict:
+    raw = engine.progress.to_dict()
+    allowed = (
+        "total_files", "copied_files", "skipped_files", "processed_files",
+        "verified_files", "failed_files", "current_speed", "bytes_copied",
+        "total_bytes", "elapsed_seconds", "status", "phase_progress",
+        "current_device", "current_media_type",
+    )
+    progress = {key: raw.get(key) for key in allowed}
+    return {
+        "paired": True,
+        "status": raw.get("status", "idle"),
+        "progress": progress,
+        "source": os.path.basename(raw.get("mount_point") or ""),
+    }
+
+
+def _pocket_tcp_history(limit: int) -> list[dict]:
+    records = db.get_backups(limit=limit)
+    clean = []
+    for record in records:
+        root = str(record.get("backup_root") or "")
+        clean.append({
+            "id": record.get("id"),
+            "event_name": record.get("event_name") or "未命名任务",
+            "started_at": record.get("started_at"),
+            "status": record.get("status"),
+            "total_files": record.get("total_files", 0),
+            "skipped_files": record.get("skipped_files", 0),
+            "failed_files": record.get("failed_files", 0),
+            "target": os.path.basename(root.rstrip(os.sep)) or "本机",
+        })
+    return clean
+
+
+def _configure_pocket_tcp(enabled: bool) -> None:
+    """Start or stop the opt-in mini-program bridge."""
+    global _pocket_tcp_bridge
+    if enabled and not config.pocket_enabled:
+        raise RuntimeError("请先启用影序 Pocket")
+    with _pocket_tcp_bridge_lock:
+        if enabled:
+            if _pocket_tcp_bridge is None:
+                bridge = PocketTcpBridge(
+                    pairing=pocket_pairing,
+                    status_provider=_pocket_tcp_status,
+                    history_provider=_pocket_tcp_history,
+                    notes_store=pocket_notes,
+                    host="0.0.0.0",
+                    port=POCKET_TCP_PORT,
+                )
+                bridge.start()
+                _pocket_tcp_bridge = bridge
+        elif _pocket_tcp_bridge is not None:
+            bridge = _pocket_tcp_bridge
+            _pocket_tcp_bridge = None
+            bridge.stop()
 
 
 def _is_loopback_request() -> bool:
@@ -121,6 +184,8 @@ def restrict_lan_surface():
         "/pocket/sw.js", "/static/img/icon.svg",
         "/api/pocket/connect",
     }
+    if request.path == "/api/pocket/tcp-settings":
+        return jsonify({"error": "小程序 TCP 设置只能从桌面端修改"}), 403
     if not config.pocket_enabled:
         return jsonify({"error": "影序 Pocket 未启用"}), 403
     if request.path in allowed_public or request.path.startswith("/api/pocket/"):
@@ -304,8 +369,55 @@ def api_pocket_pairing():
     issued.update({
         "url": f"http://{_local_ip()}:{config.web_port}/pocket/",
         "enabled": config.pocket_enabled,
+        "tcp_enabled": bool(
+            config.pocket_enabled and _pocket_tcp_bridge and _pocket_tcp_bridge.running
+        ),
+        "tcp_host": _local_ip(),
+        "tcp_port": POCKET_TCP_PORT,
     })
     return jsonify(issued)
+
+
+@app.route("/api/pocket/tcp-settings", methods=["GET", "POST"])
+def api_pocket_tcp_settings():
+    """Locally control the optional WeChat Mini Program TCP listener."""
+    if request.method == "GET":
+        return jsonify({
+            "enabled": bool(config.pocket_tcp_enabled),
+            "running": bool(_pocket_tcp_bridge and _pocket_tcp_bridge.running),
+            "host": _local_ip(),
+            "port": POCKET_TCP_PORT,
+        })
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get("enabled"), bool):
+        return jsonify({"error": "enabled 必须是布尔值"}), 400
+    enabled = data["enabled"]
+    previous = bool(config.pocket_tcp_enabled)
+    try:
+        _configure_pocket_tcp(enabled)
+    except OSError as exc:
+        return jsonify({"error": f"TCP 端口 {POCKET_TCP_PORT} 无法启动: {exc}"}), 409
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    config.pocket_tcp_enabled = enabled
+    try:
+        config.save()
+    except OSError as exc:
+        config.pocket_tcp_enabled = previous
+        if previous != enabled:
+            try:
+                _configure_pocket_tcp(previous)
+            except OSError:
+                pass
+        return jsonify({"error": f"设置保存失败: {exc}"}), 500
+    return jsonify({
+        "enabled": enabled,
+        "running": bool(_pocket_tcp_bridge and _pocket_tcp_bridge.running),
+        "host": _local_ip(),
+        "port": POCKET_TCP_PORT,
+    })
 
 
 @app.route("/api/pocket/connect", methods=["POST"])
@@ -1235,6 +1347,12 @@ def main(open_browser: bool = True, host_override: str | None = None):
     from .config import CONFIG_DIR
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
+    if config.pocket_tcp_enabled and config.pocket_enabled:
+        try:
+            _configure_pocket_tcp(True)
+        except OSError as exc:
+            print(f"[Pocket TCP] 无法监听端口 {POCKET_TCP_PORT}: {exc}")
+
     global _open_browser_on_start
     _open_browser_on_start = open_browser
 
@@ -1251,7 +1369,7 @@ def main(open_browser: bool = True, host_override: str | None = None):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.38           ║
+║          影序 YINGXU  v1.0.39           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║

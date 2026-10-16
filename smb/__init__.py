@@ -7,5 +7,5 @@ Smart Media Backup
 GitHub: https://github.com/luguanlin/smart-media-backup
 """
 
-__version__ = "1.0.38"
+__version__ = "1.0.39"
 __author__ = "nanyu-lu <302085429+nanyu-lu@users.noreply.github.com>"

@@ -55,6 +55,7 @@ class ConfigMigrationTests(unittest.TestCase):
 
         self.assertEqual(config.pocket_enabled, True)
         self.assertEqual(config.pocket_session_hours, 12)
+        self.assertFalse(config.pocket_tcp_enabled)
         self.assertEqual(config.backup_targets, legacy["backup_targets"])
         self.assertEqual(config.max_speed_mbps, 80)
         self.assertEqual(config_module.CONFIG_FILE.read_bytes(), original)
@@ -66,11 +67,13 @@ class ConfigMigrationTests(unittest.TestCase):
         config = config_module.AppConfig.load()
         config.pocket_enabled = False
         config.pocket_session_hours = 6
+        config.pocket_tcp_enabled = True
         config.save()
         reloaded = config_module.AppConfig.load()
 
         self.assertFalse(reloaded.pocket_enabled)
         self.assertEqual(reloaded.pocket_session_hours, 6)
+        self.assertTrue(reloaded.pocket_tcp_enabled)
         self.assertEqual(reloaded.backup_root, "/Volumes/Archive")
         saved_config = json.loads(config_module.CONFIG_FILE.read_text(encoding="utf-8"))
         self.assertNotIn("schema_version", saved_config)

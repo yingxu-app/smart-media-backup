@@ -24,6 +24,7 @@ a = Analysis(
     hiddenimports=[
         "smb", "smb.config", "smb.detector", "smb.backup",
         "smb.organizer", "smb.verifier", "smb.db", "smb.cli",
+        "smb.server", "smb.transfer", "smb.pocket_tcp",
         "smb.phash", "smb.lightroom", "smb.baidu", "smb.ai_namer",
         "smb.waste_filter", "smb.windows_preview", "smb.pocket",
         "flask", "flask_socketio", "engineio", "engineio.async_drivers",
@@ -101,8 +102,8 @@ app = BUNDLE(
         "CFBundleName": "影序 YINGXU",
         "CFBundleDisplayName": "影序 YINGXU",
         "CFBundleIdentifier": "com.luguanlin.yingxu",
-        "CFBundleVersion": "1.0.38",
-        "CFBundleShortVersionString": "1.0.38",
+        "CFBundleVersion": "1.0.39",
+        "CFBundleShortVersionString": "1.0.39",
         "CFBundleExecutable": "影序 YINGXU",
         "CFBundleInfoDictionaryVersion": "6.0",
         "NSHighResolutionCapable": True,

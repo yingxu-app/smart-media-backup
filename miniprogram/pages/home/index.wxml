@@ -1,0 +1,66 @@
+<view class="page">
+  <view class="brand">
+    <view class="brand-mark">影</view>
+    <view>
+      <view class="brand-title">影序 Pocket</view>
+      <view class="brand-subtitle">同一局域网 · 本地协作</view>
+    </view>
+  </view>
+
+  <view wx:if="{{!connected}}" class="card connect-card">
+    <view class="section-title">连接你的电脑</view>
+    <view class="hint">先在电脑影序「偏好设置 → 影序 Pocket」打开小程序局域网直连，再填写页面显示的地址和配对码。</view>
+    <view class="field-label">电脑局域网 IP</view>
+    <input class="input" type="text" value="{{address}}" placeholder="例如 192.168.1.20" bindinput="onAddressInput" />
+    <view class="field-label">TCP 端口</view>
+    <view class="fixed-port">{{port}}（影序固定端口）</view>
+    <view class="field-label">一次性配对码</view>
+    <input class="input code-input" type="number" maxlength="6" value="{{code}}" placeholder="6 位数字" bindinput="onCodeInput" />
+    <button class="primary-button" loading="{{connecting}}" disabled="{{connecting}}" bindtap="connect">{{connecting ? '正在连接…' : '连接影序'}}</button>
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+    <view class="security-note">仅在可信 Wi‑Fi 使用。直连不经过云端，不传输照片和视频。</view>
+  </view>
+
+  <block wx:if="{{connected}}">
+    <view class="card status-card">
+    <view class="status-head">
+        <view>
+          <view class="section-title">备份状态</view>
+          <view class="status-label">{{statusText}}</view>
+        </view>
+        <button class="small-button" bindtap="disconnect">断开</button>
+      </view>
+      <view class="error" wx:if="{{error}}">{{error}}</view>
+      <view class="progress-track"><view class="progress-fill" style="width: {{progressPercent}}%;"></view></view>
+      <view class="metrics">
+        <view><text class="metric-value">{{progress.processed_files || 0}}</text><text class="metric-label">已处理</text></view>
+        <view><text class="metric-value">{{progress.total_files || 0}}</text><text class="metric-label">总文件</text></view>
+        <view><text class="metric-value">{{progress.current_speed || 0}}</text><text class="metric-label">MB/s</text></view>
+      </view>
+      <view class="source-line" wx:if="{{source}}">来源：{{source}}</view>
+    </view>
+
+    <view class="card">
+      <view class="section-title">最近归档</view>
+      <view wx:if="{{history.length === 0}}" class="empty">暂无归档记录</view>
+      <view wx:for="{{history}}" wx:key="id" class="history-row">
+        <view class="history-main">
+          <text class="history-title">{{item.event_name}}</text>
+          <text class="history-sub">{{item.started_at}} · {{item.target}}</text>
+        </view>
+        <text class="history-count">{{item.total_files}} 个</text>
+      </view>
+    </view>
+
+    <view class="card notes-card">
+      <view class="section-title">拍摄信息</view>
+      <input class="input" value="{{notes.event}}" placeholder="事件名称" data-key="event" bindinput="onNoteInput" />
+      <input class="input" value="{{notes.location}}" placeholder="地点" data-key="location" bindinput="onNoteInput" />
+      <input class="input" value="{{notes.device}}" placeholder="相机 / 设备" data-key="device" bindinput="onNoteInput" />
+      <textarea class="input textarea" value="{{notes.notes}}" placeholder="备注" data-key="notes" maxlength="200" bindinput="onNoteInput" />
+      <button class="primary-button" loading="{{savingNotes}}" disabled="{{savingNotes}}" bindtap="saveNotes">保存到电脑</button>
+      <view class="success" wx:if="{{savedMessage}}">{{savedMessage}}</view>
+    </view>
+    <view class="footer-note">状态刷新间隔 15 秒 · 数据只在同一局域网传输</view>
+  </block>
+</view>

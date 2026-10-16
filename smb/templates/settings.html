@@ -186,8 +186,18 @@
     <div id="pocketPairing" class="pocket-pairing" style="display:none;">
         <div><span class="pocket-caption">手机访问地址</span><strong id="pocketUrl">—</strong></div>
         <div><span class="pocket-caption">10 分钟有效配对码</span><strong id="pocketCode" class="pocket-code">—</strong></div>
+        <div id="pocketTcpPairing" style="display:none;"><span class="pocket-caption">微信小程序 TCP 地址</span><strong id="pocketTcpUrl">—</strong></div>
     </div>
     <small class="setting-help">iPhone：Safari 打开地址并配对后，可点“分享 → 添加到主屏幕”。此网页不能像原生 App 一样读取手机全部照片或在后台自动复制。</small>
+    <div class="form-row pocket-tcp-row">
+        <label for="pocketTcpEnabled">微信小程序局域网直连</label>
+        <label class="toggle">
+            <input type="checkbox" id="pocketTcpEnabled" onchange="savePocketTcpSetting()">
+            <span class="toggle-slider"></span>
+        </label>
+        <small class="setting-help">默认关闭。开启后在端口 18080 启动 Pocket 专用 TCP 服务，仅提供配对、状态、历史摘要和拍摄备注；不会中继照片或文件。该直连不使用 TLS，只应在可信局域网使用，切勿转发到公网。微信小程序配对码与此处生成的配对码相同。</small>
+        <div id="pocketTcpStatus" class="save-msg" style="display:none;"></div>
+    </div>
 </div>
 
 <div class="card" style="margin-top:16px;">
@@ -196,7 +206,7 @@
 </div>
 
 <div class="card" style="margin-top:16px;text-align:center;color:var(--text-dim);font-size:0.85em;">
-    影序 YINGXU v1.0.38<br>
+    影序 YINGXU v1.0.39<br>
     By nanyu-lu
 </div>
 {% endblock %}
@@ -208,6 +218,7 @@ document.addEventListener("DOMContentLoaded", function() {
     loadStorageChart();
     loadBaiduStatus();
     loadAIStatus();
+    loadPocketTcpSettings();
 });
 
 function loadSettings() {
@@ -482,10 +493,65 @@ async function createPocketPairing() {
         if (!response.ok) throw new Error(data.error || "生成失败");
         document.getElementById("pocketUrl").textContent = data.url;
         document.getElementById("pocketCode").textContent = data.code;
+        const tcpPairing = document.getElementById("pocketTcpPairing");
+        tcpPairing.style.display = data.tcp_enabled ? "flex" : "none";
+        if (data.tcp_enabled) {
+            document.getElementById("pocketTcpUrl").textContent = `${data.tcp_host}:${data.tcp_port}`;
+        }
         panel.style.display = "grid";
     } catch (error) {
         panel.style.display = "block";
         panel.textContent = `❌ ${error.message}`;
+    }
+}
+
+async function loadPocketTcpSettings() {
+    try {
+        const response = await fetch("/api/pocket/tcp-settings");
+        const data = await response.json();
+        document.getElementById("pocketTcpEnabled").checked = data.enabled === true;
+        showPocketTcpStatus(data);
+    } catch (_) {
+        showPocketTcpStatus({error: "读取小程序 TCP 状态失败"});
+    }
+}
+
+async function savePocketTcpSetting() {
+    const enabled = document.getElementById("pocketTcpEnabled").checked;
+    const toggle = document.getElementById("pocketTcpEnabled");
+    toggle.disabled = true;
+    try {
+        const response = await fetch("/api/pocket/tcp-settings", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({enabled}),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "设置失败");
+        showPocketTcpStatus(data);
+    } catch (error) {
+        toggle.checked = !enabled;
+        showPocketTcpStatus({error: error.message});
+    } finally {
+        toggle.disabled = false;
+    }
+}
+
+function showPocketTcpStatus(data) {
+    const status = document.getElementById("pocketTcpStatus");
+    status.style.display = "block";
+    if (data.error) {
+        status.textContent = `❌ ${data.error}`;
+        status.style.color = "#e74c3c";
+    } else if (data.running) {
+        status.textContent = `✅ 已开启：${data.host}:${data.port}（仅局域网）`;
+        status.style.color = "#4ade80";
+    } else if (data.enabled) {
+        status.textContent = "⚠️ 设置为开启，但服务未运行；请检查端口占用后重启影序";
+        status.style.color = "#f0ad4e";
+    } else {
+        status.textContent = "已关闭；不会开放小程序 TCP 端口";
+        status.style.color = "var(--text-dim)";
     }
 }
 
@@ -559,6 +625,7 @@ document.addEventListener("DOMContentLoaded", function() { loadAdvancedSettings(
 .save-msg { margin-top: 12px; font-weight: 500; }
 .setting-help { display:block; width:100%; margin-top:2px; color:var(--text-dim); font-size:.84em; line-height:1.55; }
 .pocket-copy { color:var(--text-dim); line-height:1.65; margin-bottom:16px; }
+.pocket-tcp-row { margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
 .pocket-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .pocket-open { display:inline-grid; place-items:center; text-decoration:none; }
 .pocket-pairing { grid-template-columns:minmax(0,1fr) auto; gap:12px; margin-top:16px; padding:16px; border:1px solid var(--border); border-radius:14px; background:var(--bg); }
