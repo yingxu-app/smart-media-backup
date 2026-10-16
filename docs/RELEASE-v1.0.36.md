@@ -1,6 +1,6 @@
 # v1.0.36 本地候选验收记录
 
-状态：本地候选，未提交、未推送、未创建 GitHub Release。产品源码仍保留本机已有的“转移老内容”未提交改动。
+状态：源码已提交并推送到 `main`（`2941a30cc1a1b24e4e42467e090c4a2b369df8e7`）；尚未创建 GitHub Release，macOS DMG 未公证。Windows CI unsigned preview 已构建，尚未在 Windows 设备安装运行。
 
 ## 构建产物
 
@@ -19,11 +19,12 @@
 - v1.0.36 干净构建与 `/Applications/影序 YINGXU.app` 安装版启动后，首页扫描均返回 828 个文件：大疆设备 528 个（484 张照片、44 个视频），未知设备 300 张照片。原生窗口辅助信息显示“已插入 SD 卡”和“使用已保存的扫描结果”；安装版健康 API 返回 HTTP 200、版本 1.0.36。
 - 安装版 `/api/sources` 返回 HTTP 200，来源列表识别出外置 SSD 的 2774 个文件和 SD 卡的 828 个文件；`/transfer` 返回 HTTP 200。
 - 通过安装版 HTTP 接口在隔离临时目录中完成 1 个虚拟 JPG 的扫描、分析和转移。目标字节 SHA-256 一致，校验完成后源测试文件才被移除；未对真实用户素材执行转移。
+- 提交 `2941a30` 的 GitHub Actions Reliability tests 六个矩阵任务全部成功（Windows/macOS/Ubuntu × Python 3.11/3.12）；Windows preview workflow 成功构建并上传 unsigned EXE。下载检查为 PE32+ x86-64，27,744,013 bytes，SHA-256 `1765a491845d0a94ec02ab395e35ef6a124a8c99c9863f33c70bc08e6f6abbcb`。此证据只证明 Windows runner 构建，不证明真实 Windows 机器可运行。
 
 ## 回滚与未完成门槛
 
 - 替换前的 1.0.35 安装包副本：`/tmp/yingxu-installed-1.0.35-backup-2026-10-16/影序 YINGXU.app`，同目录含恢复说明；更早的 1.0.33 副本仍在 `/tmp/yingxu-installed-1.0.33-backup-2026-10-16`。
 - DMG 目前仅 ad-hoc 签名，未完成 Apple 公证或 notarization staple。
 - 尚未构建并验收 Windows 安装包，Windows 真机、iPhone Safari/安装体验与外置盘拔出、目标盘中断等真实故障场景仍待完成。
-- GitHub 最新公开版本仍需现场复核；本轮没有推送产品仓库或创建公开发行版。
+- GitHub 最新公开版本为 v1.0.34；本轮已推送产品源码，但没有创建公开发行版。
 - 官网/在线产品范围和小程序平台尚未确认，相关部署及上架不作完成声明。
