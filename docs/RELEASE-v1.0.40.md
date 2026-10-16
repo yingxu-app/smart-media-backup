@@ -28,3 +28,10 @@
 - iPhone / Android 同 Wi-Fi、主屏幕入口、后台/锁屏、离线/切网与 Pocket 配对验收；原生 iOS/Android 工程及商店包尚不存在。
 - 微信小程序真实 AppID、正式连接路线、开发者工具预览、真机、隐私审核和上架。当前路线待用户决定。
 - 网页产品范围（官网/下载页或浏览器在线备份）待用户决定。
+
+## Windows preview 后续复核（2026-10-16）
+
+- 提交 `977058bc1b05687c5ca9ae3864ab7755379417ce` 修复 Windows 默认代码页下的报告读取和 AI 诊断输出；本机完整 Python 测试 78 项通过、2 项 Windows 条件跳过，小程序 Node 测试 4 项通过。
+- Windows preview run `38926884128` 的可靠性套件、版本解析、PyInstaller、x64 PE 校验、SHA-256 清单读回和 artifact 上传全部成功。
+- 实际下载 artifact `12057256711` 后再次独立检查：内含 `影序 YINGXU.exe`（27,759,001 bytes）和 `SHA256SUMS.txt`；PE machine 为 `0x8664`（x64）；EXE SHA-256 `72e9ec1f55b3378e466bdaa273cbe59ed9f1b7422a23a0fa709dcdd0c42057b8` 与清单逐字匹配。artifact ZIP SHA-256 `30e3d47e67ebe25767a268897e38705bd5c33cf57d7e9ccfeab0703897cbd566`。
+- 这是可下载、可校验的 unsigned preview，仍未在 Windows 真机安装或运行，也未作为正式 Release 发布。
