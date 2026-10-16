@@ -4,7 +4,7 @@
 
 [官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
 
-> **版本状态（2026-10-16）**：GitHub 最新公开版为 v1.0.34，Release 目前只有 Windows 安装包。macOS v1.0.37 为候选版本，构建与安装验收进行中，尚未发布或公证；不要把候选当作公开下载。详见 [v1.0.37 候选验收记录](docs/RELEASE-v1.0.37.md) 与 [v1.0.36 多端差距审计](docs/CROSS-PLATFORM-AUDIT-v1.0.36.md)。
+> **版本状态（2026-10-16）**：GitHub 最新公开版为 v1.0.34，Release 目前只有 Windows 安装包。macOS v1.0.37 候选已构建并安装，但当前主机真实存储卡首页扫描仍停滞，尚未完成运行验收、签名公证或公开发布；不要把候选当作公开下载。详见 [v1.0.37 候选验收记录](docs/RELEASE-v1.0.37.md) 与 [v1.0.36 多端差距审计](docs/CROSS-PLATFORM-AUDIT-v1.0.36.md)。
 
 ## 给摄影师的三个步骤
 
