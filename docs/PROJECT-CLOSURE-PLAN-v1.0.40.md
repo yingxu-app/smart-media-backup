@@ -6,13 +6,13 @@
 
 | 交付面 | 当前实现 / 已有证据 | 当前状态 | 闭环门槛 |
 | --- | --- | --- | --- |
-| macOS 桌面 | v1.0.39 arm64 DMG run `38918494881`；SHA-256 `2512cacd14b2648b1c77a42b5267f7921caac17c4ee8d0e9a400667020674346`。本机从 `/Applications/影序 YINGXU.app` 启动，识别实际 SD_Card 828 项（784 照片、44 视频）；Pocket TCP 默认关闭。 | 本机候选安装与当前实卡扫描通过；ad-hoc 签名、无 Team ID、未公证，不是公开发行。 | 复核版本/升级/卸载回滚；Developer ID 签名与公证；正式 Release、下载页及另一台 Mac 安装回读。 |
-| Windows 桌面 | Windows preview run `38920093241` 成功，x64 PE 检查、UTF-8 SHA256 manifest 回读及 artifact 上传通过。artifact SHA-256 `3b6d42350b7eded002baf375edbad6a138ca059ac3de97f761d41a20a61ef44e`。Reliability run `38921264827` 六矩阵全部成功。 | CI 构建产物为 unsigned preview；没有 Windows 实机安装、运行、Defender、读卡器或断盘恢复证据。 | 在真实 Windows PC 安装并逐项操作；测试 SD 卡、目标盘、恢复与升级；签名后发布正式安装包并从公开链接回读。 |
-| 手机 PWA | Pocket 页面、状态、历史和拍摄备注接口及 manifest / Service Worker 已有源码；新增离线能力状态提示。本机浏览器在局域网 HTTP 地址显示离线缓存不可用，在 loopback 地址注册并显示页面缓存就绪。服务用于局域网协作，不向手机上传原片。 | 只有本机浏览器静态 smoke test；没有 iPhone/Android 同 Wi-Fi 实测、主屏幕安装、后台/切网/离线验收。配对地址是局域网 IP 的 HTTP；该类非 loopback origin 不属于普通 secure context，Service Worker 不可用，不能把离线缓存记为已交付。 | 在 iPhone 与 Android 真机完成配对、状态、历史、备注、锁屏唤醒、网络切换、离线与撤销验收；为需离线能力的 PWA 配置受信任 HTTPS，或由原生客户端承接；明确 PWA 是否构成最终移动交付。 |
+| macOS 桌面 | v1.0.40 arm64 DMG run `38922352506`；SHA-256 `9ea1047e284cdae75f5c8520b347f42065f174ae50268496e77753e12f98d546`。本机从 `/Applications/影序 YINGXU.app` 启动并识别真实 SD_Card 828 项（784 照片、44 视频）；Pocket TCP 默认关闭。 | 本机候选安装、版本 API 与实卡扫描通过；ad-hoc 签名、无 Team ID、未公证，不是公开发行。 | Developer ID 签名与公证；正式 Release、下载页及另一台 Mac 安装回读。 |
+| Windows 桌面 | Windows preview run `38922372204` 成功，x64 PE 检查、UTF-8 SHA256 manifest 回读及 artifact 上传通过。v1.0.40 artifact SHA-256 `72165f83f39263e5617e9ba76314e50e5d89796269bb214f6add64f35bdc92be`。Reliability run `38922348166` 六矩阵全部成功。 | CI 构建产物为 unsigned preview；没有 Windows 实机安装、运行、Defender、读卡器或断盘恢复证据。 | 在真实 Windows PC 安装并逐项操作；测试 SD 卡、目标盘、恢复与升级；签名后发布正式安装包并从公开链接回读。 |
+| 手机 PWA | Pocket 页面、状态、历史和拍摄备注接口及 manifest / Service Worker 已有源码；v1.0.40 在安装版真实浏览器中通过 HTTP LAN 显示离线限制、loopback 显示页面缓存就绪。 | Mac 浏览器 runtime 已核验；没有 iPhone/Android 同 Wi-Fi 实测、主屏幕安装、后台/切网/离线验收。LAN HTTP 下 Service Worker 不可用，不能把离线缓存记为已交付。 | 在 iPhone 与 Android 真机完成配对、状态、历史、备注、锁屏唤醒、网络切换、离线与撤销验收；为需离线能力的 PWA 配置受信任 HTTPS，或由原生客户端承接；明确 PWA 是否构成最终移动交付。 |
 | 原生 iOS / Android | 当前仓库没有原生工程或可安装包。本机 `xcode-select` 指向 Command Line Tools，`xcodebuild` 要求完整 Xcode；未发现 Android SDK/adb。 | 未开发、未构建、未上架。 | 先确定是否要求原生商店版及选定技术路线；建立共享业务客户端和平台工程；完成构建、签名、真机、隐私资料、审核提交及线上安装验证。 |
 | 微信小程序 | `miniprogram/` 页面和 TCP 客户端已存在；桌面 TCP bridge 默认关闭，用户启用后监听 `18080`。Node 测试 4 项通过；占位 `touristappid` 打开失败，提示 AppID 不存在。 | 原型源码通过测试；没有真实 AppID、开发者工具运行态、真机或审核证据。当前代码路线为同一局域网直连，但正式数据路径待确认。 | 确认正式连接架构；使用真实 AppID 编译预览；iPhone/Android 微信真机测配对、前后台、切网、过期/撤销；补隐私指引并提交审核，核对线上版本。 |
 | 官网与浏览器产品 | 主仓库 `site/` 有首页、隐私页和下载页；规范 Pages 路径为 `https://yingxu-app.github.io/smart-media-backup/`。下载页与隐私页当前返回 HTTP 200。下载页只链接正式版 Windows v1.0.34。 | 静态官网/下载站已部署；公开 Release 最新 v1.0.34。Pages 自动部署 workflow 只监听 `main`，环境 `github-pages` 拒绝候选分支部署。浏览器在线备份功能范围未定义。 | 确认网页只需官网/下载还是还需浏览器内导入/备份；正式发行后通过 main 部署，检查 canonical URL、下载、校验文件及缓存刷新。在线备份若纳入范围，另做浏览器文件权限、断点恢复和兼容性设计。 |
-| 正式发布与售后回滚 | GitHub Release API 当前报告 latest `v1.0.34`，资产只有 Windows 正式安装包与 SHA256SUMS；PR #4 当前 open/draft。 | v1.0.40 源码候选（含 Pocket 离线能力状态提示）尚待构建与安装，不可称作全平台正式版。 | 所有要求平台通过各自发行门禁；同步版本说明、隐私与下载页；验证升级/回滚与安装后路径；记录每个平台真实上线版本和链接。 |
+| 正式发布与售后回滚 | GitHub Release API 当前报告 latest `v1.0.34`，资产只有 Windows 正式安装包与 SHA256SUMS；PR #4 当前 open/draft。 | v1.0.40 macOS 本机候选和 Windows unsigned preview 均未公开发布，不可称作全平台正式版。 | 所有要求平台通过各自发行门禁；同步版本说明、隐私与下载页；验证升级/回滚与安装后路径；记录每个平台真实上线版本和链接。 |
 
 ## 共同完成门槛
 
