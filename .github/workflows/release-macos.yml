@@ -32,6 +32,17 @@ jobs:
       - name: Resolve application version
         id: app-version
         run: echo "version=$(python -c 'from smb import __version__; print(__version__)')" >> "$GITHUB_OUTPUT"
+      - name: Verify release tag matches application version
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          APP_VERSION: ${{ steps.app-version.outputs.version }}
+        run: |
+          expected_tag="v${APP_VERSION}"
+          if [[ "${TAG_NAME}" != "${expected_tag}" ]]; then
+            echo "Tag ${TAG_NAME} does not match app version ${APP_VERSION} (expected ${expected_tag})." >&2
+            exit 1
+          fi
       - name: Package DMG
         run: |
           mkdir dmg-root

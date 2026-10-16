@@ -26,6 +26,21 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      - name: Run reliability suite
+        env:
+          SMB_CONFIG_DIR: ${{ runner.temp }}/yingxu-test-config
+        run: python -m unittest discover -s tests -v
+
+      - name: Resolve application version
+        id: app-version
+        shell: pwsh
+        run: |
+          $version = python -c "from smb import __version__; print(__version__)"
+          if ($LASTEXITCODE -ne 0 -or -not $version) {
+            throw 'Could not resolve the application version.'
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Build .exe with PyInstaller
         run: |
           pyinstaller desktop/smb-win.spec --noconfirm
@@ -85,7 +100,7 @@ jobs:
       - name: Upload unsigned preview artifact
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: YINGXU-Windows-unsigned-preview
+          name: YINGXU-Windows-v${{ steps.app-version.outputs.version }}-unsigned-preview
           path: |
             dist/*.exe
             dist/SHA256SUMS.txt
