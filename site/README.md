@@ -8,4 +8,4 @@
 - 发布入口：`https://yingxu-app.github.io/smart-media-backup/`
 - 发布工作流：`.github/workflows/deploy-website.yml`
 
-页面只链接正式公开版本。macOS v1.0.38 候选与 Windows CI 预览均不会被列为公开下载。若 GitHub Releases 更新，需同步核对下载链接、版本、校验文件和文案。
+页面只链接正式公开版本。当前 macOS v1.0.40 本机候选未完成 Developer ID 签名与公证，Windows CI 预览也未公开；二者均不会被列为下载。若 GitHub Releases 更新，需同步核对下载链接、版本、校验文件和文案。
