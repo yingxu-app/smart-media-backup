@@ -100,3 +100,9 @@
 ## Reliability 复核（最终完成状态）
 
 - 本次读取 run `38920454177` 的最终状态：`success`，macOS / Ubuntu 24.04 / Windows × Python 3.11 / 3.12 六项均完成并通过。此前排队状态和 GitHub API EOF 是临时观察结果，不是失败结论。
+
+## Pocket PWA 离线条件状态提示（2026-10-16）
+
+- `smb/templates/pocket.html` 现在显示 Service Worker / 离线页面缓存状态：不安全上下文提示局域网 HTTP 下无法使用离线缓存；安全上下文则注册页面缓存并说明实时状态和拍摄信息仍需桌面端在线；注册失败会显示提示，不再静默忽略。
+- 使用临时静态测试副本和本机浏览器实测：`http://192.168.31.172:18081/pocket/` 显示“局域网 HTTP / 离线缓存不可用”；`http://127.0.0.1:18081/pocket/` 成功注册 Service Worker 并显示页面缓存就绪。临时服务器随后关闭。
+- 这只是浏览器安全上下文与静态页面 smoke test：API 请求在临时副本中返回 404；未验证配对、Pocket API、iPhone/Android 真机或离线 API 数据。现有安装版尚未包含本次源码改动，局域网 PWA 离线体验仍未完成。
