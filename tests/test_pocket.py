@@ -15,16 +15,17 @@ from smb import server
 class LocalAddressSelectionTests(unittest.TestCase):
     def test_prefers_wifi_address_over_vpn_and_virtual_interfaces(self):
         interfaces = {
-            "utun8": [SimpleNamespace(family=socket.AF_INET, address="198.18.0.1")],
+            "utun6": [SimpleNamespace(family=socket.AF_INET, address="198.18.0.1")],
             "lo0": [SimpleNamespace(family=socket.AF_INET, address="127.0.0.1")],
-            "bridge0": [SimpleNamespace(family=socket.AF_INET, address="192.168.3.1")],
-            "en0": [SimpleNamespace(family=socket.AF_INET, address="192.168.31.172")],
+            "bridge100": [SimpleNamespace(family=socket.AF_INET, address="192.168.3.1")],
+            "bridge102": [SimpleNamespace(family=socket.AF_INET, address="192.168.2.1")],
+            "en0": [SimpleNamespace(family=socket.AF_INET, address="10.52.188.32")],
         }
         stats = {name: SimpleNamespace(isup=True) for name in interfaces}
         with mock.patch.object(server.psutil, "net_if_addrs", return_value=interfaces), \
              mock.patch.object(server.psutil, "net_if_stats", return_value=stats), \
              mock.patch.object(server.socket, "socket") as create_socket:
-            self.assertEqual(server._local_ip(), "192.168.31.172")
+            self.assertEqual(server._local_ip(), "10.52.188.32")
         create_socket.assert_not_called()
 
     def test_ignores_down_wifi_and_selects_active_ethernet(self):
