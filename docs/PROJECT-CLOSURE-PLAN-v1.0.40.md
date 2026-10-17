@@ -50,3 +50,10 @@ Pocket 配对地址误选 VPN 已在 PR #4 head `d223dfe` 修正：本机 `_loca
 The macOS artifact from run `39009788643` was checksum-verified, passed `hdiutil verify` and deep/strict ad-hoc codesign checks, then ran from its read-only DMG under isolated config/port. Health/database were OK; pairing advertised the Wi-Fi IP; the Pocket page returned HTTP 200 through that address; an unpaired status API request returned 403. The candidate was stopped and unmounted; the installed v1.0.40 app stayed healthy. This verifies packaged runtime behavior on the same Mac, not a phone over Wi-Fi.
 
 The Windows unsigned preview from run `39009837297` built successfully; its artifact ZIP and EXE manifest hashes match, and the EXE is PE32+ x86-64. Latest head `f7e5c8a` still has Reliability macOS matrix, Pocket Android/iOS native builds and macOS candidate workflow pending. Windows real-device install, phone pairing, WeChat DevTools/real AppID, formal signing and public release remain open.
+
+## 2026-10-17 EAS store-build preparation (head `de6f82a`)
+
+- Added `mobile/eas.json` with development-client, Android preview APK, Android production AAB, production iOS build defaults, and Android Play internal-track submit settings. Expo app version source is local; no remote version counter is initialized.
+- Added `docs/MOBILE-STORE-RELEASE.md` with owner-side EAS linking/build/submit steps and explicit credential boundaries. Existing app config resolves successfully as slug `yingxu-pocket`, version `1.0.0`, and matching iOS/Android identifier `com.yingxuapp.pocket`.
+- Preserved pre-change `mobile/app.json` and `mobile/package.json` in `docs/snapshots/2026-10-17-pre-eas-release-config/`.
+- This configuration is not an EAS project link, signed build, store submission, or release. EAS project ID, Apple team/App Store Connect app, Apple signing credentials, and Google Play service account still need owner setup. Do not add secrets to the repository.
