@@ -12,6 +12,7 @@ from functools import wraps
 from pathlib import Path
 
 import flask
+import psutil
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
 
@@ -148,7 +149,57 @@ def _pocket_authorized() -> bool:
 
 
 def _local_ip() -> str:
-    """获取手机可访问的局域网地址；不向公网发送数据。"""
+    """Prefer an active Wi-Fi/Ethernet address over VPN and virtual adapters."""
+    tunnel_prefixes = (
+        "utun", "tun", "tap", "ppp", "wg", "tailscale", "zerotier", "zt",
+        "vpn", "docker", "veth", "vmnet", "vboxnet",
+    )
+    benchmark_network = ipaddress.ip_network("198.18.0.0/15")
+    candidates: list[tuple[int, str, str]] = []
+    try:
+        addresses_by_interface = psutil.net_if_addrs()
+        stats_by_interface = psutil.net_if_stats()
+    except (OSError, RuntimeError):
+        addresses_by_interface = {}
+        stats_by_interface = {}
+
+    for interface, addresses in addresses_by_interface.items():
+        normalized = interface.casefold().replace(" ", "")
+        if normalized.startswith(tunnel_prefixes):
+            continue
+        stats = stats_by_interface.get(interface)
+        if stats is not None and not stats.isup:
+            continue
+        if normalized.startswith(("wifi", "wlan", "wireless")):
+            priority = 0
+        elif normalized.startswith(("en", "eth", "ethernet")):
+            priority = 1
+        elif normalized.startswith(("bridge", "ap")):
+            priority = 2
+        else:
+            priority = 3
+        for address in addresses:
+            if address.family != socket.AF_INET:
+                continue
+            try:
+                parsed = ipaddress.ip_address(address.address)
+            except ValueError:
+                continue
+            if (
+                not parsed.is_private
+                or parsed.is_loopback
+                or parsed.is_link_local
+                or parsed.is_unspecified
+                or parsed.is_multicast
+                or parsed in benchmark_network
+            ):
+                continue
+            candidates.append((priority, normalized, str(parsed)))
+
+    if candidates:
+        return min(candidates)[2]
+
+    # Keep a route-based fallback for hosts whose adapter details are unavailable.
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         probe.connect(("192.0.2.1", 9))

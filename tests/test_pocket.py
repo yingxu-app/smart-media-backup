@@ -1,14 +1,44 @@
 """影序 Pocket 配对、权限边界和移动端 API 回归测试。"""
+import socket
 import tempfile
 import time
 import unittest
-import socket
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from smb import db
 from smb.pocket import PocketNotesStore, PocketPairingManager
 from smb import server
+
+
+class LocalAddressSelectionTests(unittest.TestCase):
+    def test_prefers_wifi_address_over_vpn_and_virtual_interfaces(self):
+        interfaces = {
+            "utun8": [SimpleNamespace(family=socket.AF_INET, address="198.18.0.1")],
+            "lo0": [SimpleNamespace(family=socket.AF_INET, address="127.0.0.1")],
+            "bridge0": [SimpleNamespace(family=socket.AF_INET, address="192.168.3.1")],
+            "en0": [SimpleNamespace(family=socket.AF_INET, address="192.168.31.172")],
+        }
+        stats = {name: SimpleNamespace(isup=True) for name in interfaces}
+        with mock.patch.object(server.psutil, "net_if_addrs", return_value=interfaces), \
+             mock.patch.object(server.psutil, "net_if_stats", return_value=stats), \
+             mock.patch.object(server.socket, "socket") as create_socket:
+            self.assertEqual(server._local_ip(), "192.168.31.172")
+        create_socket.assert_not_called()
+
+    def test_ignores_down_wifi_and_selects_active_ethernet(self):
+        interfaces = {
+            "Wi-Fi": [SimpleNamespace(family=socket.AF_INET, address="192.168.10.8")],
+            "Ethernet": [SimpleNamespace(family=socket.AF_INET, address="10.0.0.24")],
+        }
+        stats = {
+            "Wi-Fi": SimpleNamespace(isup=False),
+            "Ethernet": SimpleNamespace(isup=True),
+        }
+        with mock.patch.object(server.psutil, "net_if_addrs", return_value=interfaces), \
+             mock.patch.object(server.psutil, "net_if_stats", return_value=stats):
+            self.assertEqual(server._local_ip(), "10.0.0.24")
 
 
 class PocketPairingTests(unittest.TestCase):
@@ -92,6 +122,21 @@ class PocketApiTests(unittest.TestCase):
         )
         self.assertEqual(status.status_code, 200)
         self.assertTrue(status.get_json()["paired"])
+
+    def test_pairing_advertises_wifi_address_when_vpn_is_default_route(self):
+        interfaces = {
+            "utun8": [SimpleNamespace(family=socket.AF_INET, address="198.18.0.1")],
+            "en0": [SimpleNamespace(family=socket.AF_INET, address="192.168.31.172")],
+        }
+        stats = {name: SimpleNamespace(isup=True) for name in interfaces}
+        with mock.patch.object(server.psutil, "net_if_addrs", return_value=interfaces), \
+             mock.patch.object(server.psutil, "net_if_stats", return_value=stats):
+            issued = self.client.post("/api/pocket/pairing").get_json()
+        self.assertEqual(issued["tcp_host"], "192.168.31.172")
+        self.assertEqual(
+            issued["url"],
+            f"http://192.168.31.172:{server.config.web_port}/pocket/",
+        )
 
     def test_invalid_code_and_unpaired_api_are_rejected(self):
         self.assertEqual(
