@@ -44,6 +44,22 @@
 - Canonical Pages home, `/download/` and `/privacy.html` returned HTTP 200. One curl TLS error on privacy was followed by Python urllib HTTP 200. Latest Release remains `v1.0.34`, with only Windows EXE and `SHA256SUMS.txt`; the download page displays v1.0.34.
 - **Open closure gates:** Windows/iPhone/Android real-device acceptance; real Mini Program AppID/DevTools/preview/device review/submission; EAS owner login and project; formal platform signing, Apple notarization, store submission, public release and upgrade/rollback; user decision on browser online-backup scope. CI, source checks, and candidate package hashes do not replace these gates.
 
+## Follow-up verification — docs head `7039ca8`, product source `9bbae70`
+
+- Re-read the current checkout: branch `codex/v1.0.39-miniprogram-lan-tcp`, HEAD `7039ca8f0b8c9ada22c0064db3353cce1d0f9f9c`. The delta from product-source head `9bbae70` is audit/closure documentation plus pre-edit snapshots only.
+- Local regression on this checkout: Python unittest ran 82 cases, 80 passed and 2 Windows-only cases skipped; Mini Program Node tests passed 7/7; Pocket mobile Node tests passed 5/5; Expo lint and TypeScript no-emit typecheck both exited successfully. The desktop suite logged an expected offline Ollama connection-refused diagnostic while returning exit code 0.
+- The macOS v1.0.40 CI candidate from artifact `12094134210` was launched from its read-only DMG with an isolated config and port 18184. Health/database were OK, version 1.0.40 and idle; loopback desktop/Pocket routes returned 200. LAN `/api/status` returned 403 and unpaired LAN `/api/pocket/status` returned 401. TCP bridge was disabled and port 18080 had no listener. No media was copied or deleted; the process was stopped, port 18184 was released, and the DMG was detached. This is same-Mac runtime evidence only.
+- Live GitHub check found a new Pocket run `39033010125` for docs head `7039ca8`: Pocket JS/CNG/check job passed, while Android debug APK and iOS Simulator build jobs remained in progress at the last poll. Do not rerun it; record terminal results only after polling this same run.
+- Public status recheck: canonical Pages home and `/download/` returned HTTP 200. `curl` failed TLS on `/privacy.html`; system `/usr/bin/python3` urllib then returned HTTP 200. GitHub Latest Release API reports `v1.0.34`, published 2026-09-12, with only `YINGXU-Windows-v1.0.34.exe` and `SHA256SUMS.txt`.
+- Product source remains unchanged. Real-device, WeChat AppID/DevTools/review, EAS owner project/login, signed/notarized packages, store submission, public release/upgrade/rollback, and the browser online-backup scope are still open.
+
+## Correction: Pocket run `39033010125` terminal result
+
+- Re-polled the same run; it completed successfully. Pocket JS/CNG/check job `117397111823`, iOS Simulator build job `117397111736`, and Android debug build job `117397111886` all concluded success.
+- The run uploaded Android artifact `12101672408` only (94,576,872-byte ZIP, SHA-256 `0f7ed3e140bc921d6e31bb73d5895ede95692d0e27c399f6e89c63cce220e3a8`). The locally downloaded ZIP hash matches the GitHub artifact metadata.
+- ZIP contains `app-debug.apk` (269,562,399 bytes; SHA-256 `15074a39103722de72c66e7102df01bb4ab65023f9946032ce7c66024379d703`) with `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64` native libraries. This remains an unsigned debug APK, not device or store acceptance.
+- No iOS Simulator app or IPA artifact was uploaded. Simulator build success does not prove iPhone installation or App Store signing.
+
 ## PWA 安全上下文依据
 
 - [MDN Secure contexts](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Secure_Contexts) 说明普通安全上下文需 HTTPS；`localhost`/loopback 是开发例外，局域网 IP 不因此自动获得例外。

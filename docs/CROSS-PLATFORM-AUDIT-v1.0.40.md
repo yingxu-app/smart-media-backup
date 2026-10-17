@@ -215,3 +215,19 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - GitHub Release API lists the expected Windows v1.0.34 EXE and `SHA256SUMS.txt`, but direct asset download from this audit host failed during TLS handshake with EOF; this does not establish whether the asset is unavailable to users. Verify the download from another available network before claiming end-to-end delivery success.
 - `https://smart-media-backup.vercel.app/` root returned HTTP 200 but showed older marketing content; `/download/` and `/privacy.html` returned 404. It is not a complete current mirror. The canonical Pages site is configured from the main repository's workflow; deployment run `38924919861` succeeded.
 - Remaining release gates include Windows and phone real-device acceptance, real WeChat AppID/DevTools review, EAS account/project setup, formal signing/notarization/store submission, and the final website online-backup scope.
+
+## Follow-up verification — docs head `7039ca8`, product source `9bbae70`
+
+- Current checkout remains on `codex/v1.0.39-miniprogram-lan-tcp`, HEAD `7039ca8f0b8c9ada22c0064db3353cce1d0f9f9c`; product source matches `9bbae707f51575a862693de4349b33de4135843d`, and the intervening changes are documentation/snapshots only.
+- Local regression: Python unittest 82 total / 80 passed / 2 Windows-only skipped; Mini Program Node 7/7; Pocket mobile Node 5/5; Expo lint and TypeScript no-emit typecheck succeeded. The optional local Ollama endpoint refused its connection; tests still exited 0.
+- Packaged macOS candidate runtime: read-only v1.0.40 DMG, isolated config and port 18184. Health/database OK; desktop idle; Pocket and desktop loopback routes returned 200; LAN management endpoint returned 403; unpaired LAN Pocket status returned 401. TCP bridge disabled/no port 18080 listener. Candidate process stopped, test port released and DMG detached, with no media operations.
+- Public recheck: Pages home and `/download/` HTTP 200. The audit host's curl hit TLS error for `/privacy.html`, then `/usr/bin/python3` urllib returned HTTP 200. Latest Release API still reports v1.0.34 with Windows EXE and checksum only.
+- Docs-head Pocket run `39033010125`: Pocket JS/CNG/check passed; Android debug and iOS Simulator jobs were still in progress at the last poll. Continue polling this exact run; do not restart it.
+- These checks do not close Windows/iPhone/Android device acceptance, WeChat real-AppID/DevTools/review, EAS project and owner login, formal signing/notarization, stores, official release/rollback, or web online-backup scope.
+
+## Correction: Pocket run `39033010125` terminal result on docs head `7039ca8`
+
+- Final live job query shows Pocket JS/CNG/check `117397111823`, iOS Simulator `117397111736`, and Android debug `117397111886` all completed successfully.
+- Artifact API lists only Android artifact `12101672408` (94,576,872 bytes). Downloaded ZIP SHA-256 `0f7ed3e140bc921d6e31bb73d5895ede95692d0e27c399f6e89c63cce220e3a8` matches GitHub metadata. It contains `app-debug.apk` (269,562,399 bytes, SHA-256 `15074a39103722de72c66e7102df01bb4ab65023f9946032ce7c66024379d703`) with ABIs arm64-v8a, armeabi-v7a, x86, and x86_64.
+- This artifact is a debug APK; it does not establish Android-device acceptance, release signing, or store publication. The successful iOS Simulator build uploaded no iOS app or IPA and is not iPhone acceptance.
+- No product source changed. Real device, Mini Program account/review, EAS project/login, signing, store, formal Release, and browser-online-backup-scope gates remain open.
