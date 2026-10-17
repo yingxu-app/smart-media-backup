@@ -147,3 +147,11 @@
 - 本机 `/Applications/影序 YINGXU.app` 仍运行 v1.0.40；`/api/health` 为 `status=ok`、`database=ok`，`/api/status` 为 idle。GitHub Pages 首页、`/download/`、`/privacy.html` 本轮均 HTTP 200。Latest Release 仍为 v1.0.34；本地当前 PR head 的 macOS/Windows artifact 构建成功仍属于候选包证据。
 - GitHub artifact download 通过 MCP 下载接口成功；本机 `/usr/local/bin/gh run download` 对同一 ZIP 运行约 1 分钟仍未产出文件，已中断该下载，不影响 workflow 构建或 MCP 下载得到的 artifact。
 - 剩余：Windows 真机安装/读卡器/拔盘恢复；iPhone 与 Android 真机安装/权限/LAN 配对/后台切网；真实微信 AppID、DevTools 编译预览、真机和审核；Apple Developer ID、公证、签名移动包与商店审核；公开发布仍需统一版本、签名、回滚和下载验收。
+
+## 2026-10-17 Pocket 配对地址误选 VPN 的修复（PR head `d223dfe`）
+
+- 本机现场复核发现：旧 `_local_ip()` 通过 UDP 探测 `192.0.2.1` 时走系统默认路由 `utun8`，得到 `198.18.0.1`；本机 Wi-Fi 实际地址是 `192.168.31.172`。因此配对页会广告手机不可用的 VPN 地址。
+- `smb/server.py` 现在枚举活动网卡，排除 tunnel/virtual 接口、环回/链路本地/保留网段地址，优先选择 Wi-Fi/Ethernet 私有 IPv4；网卡信息不可用时保留原路由探测作为 fallback。`/api/pocket/pairing` 回归测试覆盖 VPN 默认路由下广告正确 Wi-Fi IP 的行为。
+- 源码环境 `_local_ip()` 实测返回 `192.168.31.172`。本轮桌面 unittest 82 项运行、80 项通过、2 项 Windows 条件跳过；Pocket lint、TypeScript 与 Node 协议测试 5/5 通过；小程序 Node 测试 7/7 通过；`compileall` 与 `git diff --check` 通过。
+- 修复提交 `d223dfe3045d7c4f502b81acb90fa23f5aef3e68` 已推送至 PR #4。新 head 的 Pocket run `39009722200`、Windows preview `39009722244`、macOS candidate `39009722225` 查询时均为 queued。旧 head `5d17e14` 的 Pocket JS/CNG job 已通过，Android debug 与 iOS Simulator native jobs 仍在运行；这些旧 head 结果不验证本次修复。
+- 尚未使用更新后的桌面候选在真实手机上配对；当前记录只证明源码选址与 API 行为，不证明路由器、防火墙、手机同 Wi-Fi、PWA 安装/离线或小程序 TCP 真机链路。待新 head 桌面候选可用后再做实机验收。
