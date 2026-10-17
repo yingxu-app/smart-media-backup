@@ -19,6 +19,7 @@
     <button class="primary-button" loading="{{connecting}}" disabled="{{connecting}}" bindtap="connect">{{connecting ? '正在连接…' : '连接影序'}}</button>
     <view class="error" wx:if="{{error}}">{{error}}</view>
     <view class="security-note">仅在可信 Wi‑Fi 使用。直连不经过云端，不传输照片和视频。</view>
+    <view class="privacy-note">隐私说明：电脑 IP 会保存在本机；配对后仅在同一局域网传输状态、归档摘要和你填写的拍摄信息。信息保存在配对电脑本地，不经影序云端。</view>
   </view>
 
   <block wx:if="{{connected}}">

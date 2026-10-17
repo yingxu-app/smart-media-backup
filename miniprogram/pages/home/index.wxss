@@ -5,13 +5,14 @@
 .brand-subtitle { color:#89968e; font-size:22rpx; margin-top:5rpx; }
 .card { background:#111a16; border:1px solid #26352c; border-radius:24rpx; padding:28rpx; margin-bottom:22rpx; box-shadow:0 14rpx 38rpx rgba(0,0,0,.14); }
 .section-title { font-size:29rpx; font-weight:700; margin-bottom:18rpx; }
-.hint,.security-note,.footer-note { color:#95a39a; font-size:22rpx; line-height:1.65; }
+.hint,.security-note,.privacy-note,.footer-note { color:#95a39a; font-size:22rpx; line-height:1.65; }
 .field-label { color:#aebbb3; font-size:22rpx; margin:22rpx 0 10rpx; }
 .fixed-port { color:#d2ddd5; background:#0b120e; border:1px solid #2b3b31; border-radius:14rpx; padding:22rpx 20rpx; font-size:25rpx; }
 .input { box-sizing:border-box; width:100%; min-height:84rpx; padding:20rpx; border:1px solid #2b3b31; border-radius:14rpx; background:#0b120e; color:#e7eee9; font-size:25rpx; }
 .code-input { letter-spacing:9rpx; font-size:32rpx; }
 .primary-button { margin-top:24rpx; background:#3fba7c; color:#06110a; font-size:26rpx; }
 .security-note { margin-top:18rpx; }
+.privacy-note { margin-top:12rpx; }
 .error { margin-top:16rpx; color:#ff9c91; font-size:23rpx; }
 .success { color:#6fe2a2; margin-top:14rpx; font-size:23rpx; }
 .status-head { display:flex; justify-content:space-between; align-items:flex-start; }

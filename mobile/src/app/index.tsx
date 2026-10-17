@@ -229,6 +229,7 @@ export default function PocketHome() {
               >
                 {connecting ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>连接桌面端</Text>}
               </Pressable>
+              <Text style={styles.smallHint}>隐私说明：电脑局域网地址保存在本机；配对后仅在本地网络收发状态、归档摘要和你填写的拍摄信息。备注保存在配对电脑本地，不经过影序云端，也不传输手机照片或视频。</Text>
               <Text style={styles.smallHint}>配对码和会话令牌仅保存在内存中。应用进入后台时会关闭连接并由桌面端撤销配对。</Text>
             </View>
           ) : (
