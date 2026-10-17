@@ -92,4 +92,5 @@
 - 新增 `.github/workflows/mobile.yml`：针对 `mobile/**` 的 PR 和 main push 运行；使用 Node 24、pnpm 11.25.0 和 frozen lockfile，执行 Expo 依赖兼容检查、lint、TypeScript、协议单测、CNG prebuild 以及 iOS/Android bundle export。
 - 本机按该 workflow 命令顺序复核成功：锁文件安装、Expo install check、lint、typecheck、5 项 Node 测试、iOS/Android prebuild 及两端约 2.6 MB JS bundle export 均通过。首轮 PR run `39000546512` 成功，但发现传入 `pnpm/setup@v1` 的 `working-directory` 是不支持的输入；在 `195a608` 移除后，修正 PR run `39000627104` 全步骤通过，且无该告警。
 - commit `195a608` 的 PR Reliability run `39000627095` 六矩阵全绿；macOS 候选 run `39000627152` 与 Windows preview run `39000627155` 成功；push Reliability run `39000624271` 六矩阵全绿。该 commit 当前 15 项 PR/push check 均为 success。
-- 这条 workflow 不构建签名 APK/IPA，也不证明 native module 在设备上的兼容性；完整 Xcode、Android SDK、设备安装及 Pocket 真机 TCP 仍未验收。
+- 新增 Android debug APK 与 iOS Simulator 原生构建 jobs。首次 run `39000853629` 的 JS、CNG 和 bundle job 通过；iOS 原生构建因依赖要求 Swift 6.2、`macos-15` runner 提供 Swift 6.1 而失败，已改为 `macos-26`，修正后等待 Action 复核。Android debug 构建仍在该 run 中执行，尚无终态。
+- 原生 CI 目标是不签名的 Android debug APK 和 iOS Simulator app；即使 CI 成功，也不证明商店签名包、设备安装、真实局域网 TCP 或其他平台真机验收。
