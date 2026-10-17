@@ -90,5 +90,6 @@
 ## 2026-10-17 Pocket 移动端 CI
 
 - 新增 `.github/workflows/mobile.yml`：针对 `mobile/**` 的 PR 和 main push 运行；使用 Node 24、pnpm 11.25.0 和 frozen lockfile，执行 Expo 依赖兼容检查、lint、TypeScript、协议单测、CNG prebuild 以及 iOS/Android bundle export。
-- 本机按该 workflow 命令顺序复核成功：锁文件安装、Expo install check、lint、typecheck、5 项 Node 测试、iOS/Android prebuild 及两端约 2.6 MB JS bundle export 均通过。尚未触发 GitHub Actions，因此远端 CI 结果待提交后核对。
+- 本机按该 workflow 命令顺序复核成功：锁文件安装、Expo install check、lint、typecheck、5 项 Node 测试、iOS/Android prebuild 及两端约 2.6 MB JS bundle export 均通过。首轮 PR run `39000546512` 成功，但发现传入 `pnpm/setup@v1` 的 `working-directory` 是不支持的输入；在 `195a608` 移除后，修正 PR run `39000627104` 全步骤通过，且无该告警。
+- commit `195a608` 的 PR Reliability run `39000627095` 六矩阵全绿；macOS 候选 run `39000627152` 与 Windows preview run `39000627155` 成功；push Reliability run `39000624271` 六矩阵全绿。该 commit 当前 15 项 PR/push check 均为 success。
 - 这条 workflow 不构建签名 APK/IPA，也不证明 native module 在设备上的兼容性；完整 Xcode、Android SDK、设备安装及 Pocket 真机 TCP 仍未验收。
