@@ -115,6 +115,10 @@ class PocketTcpClient {
       this._protocolError("桌面端响应格式错误");
       return;
     }
+    if (!response || typeof response !== "object" || Array.isArray(response)) {
+      this._protocolError("桌面端响应格式错误");
+      return;
+    }
     const id = String(response.id);
     const pending = this.pending.get(id);
     if (!pending) return;

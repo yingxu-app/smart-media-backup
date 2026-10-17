@@ -104,6 +104,21 @@ test("client closes when a frame is not valid encoded JSON", async () => {
   assert.equal(activeSocket.closed, true);
 });
 
+test("client closes on non-object response frames", async () => {
+  for (const frame of ["null", "[]", "42"]) {
+    const client = new PocketTcpClient();
+    await client.connect("192.168.1.10", 18080);
+    const resultPromise = client.request("status", { token: "session-token" });
+    const pendingResult = assert.rejects(resultPromise, /桌面端响应格式错误/);
+    const encoded = `${encodeURIComponent(frame)}\n`;
+    const bytes = Uint8Array.from(Array.from(encoded, (char) => char.charCodeAt(0)));
+    activeSocket.handlers.message({ message: bytes.buffer });
+    await pendingResult;
+    assert.equal(client.closed, true);
+    assert.equal(activeSocket.closed, true);
+  }
+});
+
 test("home page returns to pairing when the desktop connection is lost", async (t) => {
   let clientClosed = false;
   const pollTimer = setInterval(() => {}, 60_000);
