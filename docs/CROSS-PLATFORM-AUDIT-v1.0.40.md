@@ -163,3 +163,25 @@
 - Windows preview run [`39009837297`](https://github.com/yingxu-app/smart-media-backup/actions/runs/39009837297), head `f7e5c8a`, completed build job success. Artifact `12092750483` ZIP SHA-256 `250ff1588e452acdbf2ab50dc249ddff8c57aa693f7f81df28f76398ae0b6e07`; embedded EXE SHA-256 `95049d77e63e87286830d515a19ef12eef5ce57fcb3705e4182a1dbc954e8aaf`, matching `SHA256SUMS.txt`; file inspection confirms PE32+ x86-64. This is an unsigned preview, not Windows runtime acceptance.
 - For latest head `f7e5c8a`, Reliability run `39009837275` had Linux and Windows matrix jobs successful while macOS matrix jobs remained queued; Pocket run `39009837265` had its JS/CNG job successful while Android debug and iOS Simulator native jobs remained in progress; macOS candidate run `39009837278` remained queued. PR #4 remained OPEN/DRAFT with checks pending.
 - The Mac candidate runtime is stronger evidence than test-client coverage, but it is still a same-host request. Real iPhone/Android on the same Wi-Fi, firewall behavior, PWA install/offline, Mini Program TCP, Windows install, formal signatures and store release remain unverified.
+
+## 2026-10-17 PR #4 candidate validation at head df24115
+
+The following checks refer to the exact current PR head `df2411578a0598d8c82415eef41235860261a01f` (branch `codex/v1.0.39-miniprogram-lan-tcp`, PR #4 OPEN/DRAFT, mergeable). They supersede older CI snapshots above where a newer run exists.
+
+- **macOS candidate:** run `39011334553` completed successfully; artifact `12093236578`, 20,950,217 bytes, GitHub digest `sha256:54ed88b29dda95b2b8198d4178508ca9e0fc3dc70cb4ffe864b266eff15fa757`. Local ZIP SHA-256 matched. Its DMG SHA-256 is `1da55c2eeae9adf4a3ee029bbb30e647f1d525fc93038bc985d2446fc45b8d64`, matching the embedded `SHA256SUMS.txt`; `hdiutil verify` returned VALID. Read-only mounted app reports v1.0.40, Mach-O arm64, and passes `codesign --verify --deep --strict`; signature is ad-hoc with no Team ID. This is a verified candidate, not a notarized or public release.
+- **Windows preview:** run `39011334570` completed successfully; artifact `12093300236`, 27,493,031 bytes, GitHub digest `sha256:213ff3361d7f59008684d31ce1b4a0648969ecc2189fca5ab85f4a13cf23a332`. Local ZIP SHA-256 matched. Embedded EXE SHA-256 `f182f3bf0ab4b822bacb0a60a9788ff0f72596911143e81382ac79e485812131` matches the package manifest; PE machine is x86-64. It remains an unsigned preview and has not been installed on a Windows PC.
+- **Reliability:** run `39011334711` completed successfully across all six OS/Python matrix jobs.
+- **Transfer-old-content regression check:** confirmed `smb/transfer.py`, `smb/templates/transfer.html`, and `tests/test_transfer_safety.py` are tracked in the canonical checkout (feature commit `2941a30`); the focused current-worktree suite ran 10 tests and all passed. This confirms the old-session feature exists in the current repository, while physical Windows/removable-drive recovery remains untested.
+- **Pocket:** run `39011334571` Pocket JS/CNG/lint/typecheck/protocol tests and iOS/Android bundle exports completed successfully. At the last live poll, Android debug job `117334323780` was still building the APK and iOS Simulator job `117334323944` was still compiling the app. Do not count either native job as complete until a later terminal poll.
+- **Remaining gates:** Windows and phone real-device use, Mini Program real AppID/DevTools/real-device review, Expo owner login and EAS project setup, Apple/Google signing and store submission, and formal public release remain unverified or unconfigured. Latest Release remains v1.0.34 at the last verified checkpoint.
+
+### Same-host runtime check of the df24115 macOS candidate
+
+- Launched the v1.0.40 app from the read-only artifact DMG through LaunchServices with isolated `SMB_CONFIG_DIR` and port 18083; the installed `/Applications/影序 YINGXU.app` was left untouched. `/api/health` returned `status=ok`, `database=ok`, version `1.0.40`.
+- Pairing advertised Wi-Fi address `192.168.31.172` and `http://192.168.31.172:18083/pocket/`. Through that LAN address, `/pocket/` returned HTTP 200, unauthenticated `/api/status` returned 403, and `/api/pocket/status` returned 401. A loopback `/api/status` request returned 200 by design because the desktop UI is trusted on loopback; the LAN-path checks are the relevant Pocket exposure check.
+- The candidate process was stopped and its DMG detached. This is same-host routing evidence, not a phone-on-Wi-Fi pairing test.
+
+### Current public-site check caveat
+
+- GitHub Latest Release still identifies `v1.0.34`, with assets `YINGXU-Windows-v1.0.34.exe` and `SHA256SUMS.txt`.
+- Homepage and privacy page returned HTTP 200 on this check. The download route request ended in TLS/connection EOF from the audit host, so its current response is inconclusive; this transport result does not prove that the deployed route is down or healthy.
