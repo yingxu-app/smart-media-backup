@@ -49,3 +49,4 @@
 - PR commit `0b3e45f5cd46de175114303575e8fb70c8f07e61` 的 macOS run `38934253353`、Reliability run `38934253354` 与 Windows preview run `38934253479` 全部成功。
 - macOS artifact `12059024846` 下载后核验：ZIP digest `d3ca1aca82cb913aba3df412ee5819fc65fd4f35f9267ffa1ad6eda703e70f6c`；DMG SHA-256 `b159d6f10ae4b6fadd142000c062fa7db6eac954b6efa9cccf81b9c6a6cd976d`，manifest 匹配，`hdiutil verify` valid。App 为版本 1.0.40、arm64，deep strict codesign 验证通过；ad-hoc、无 Team ID、未公证。
 - 该构建只证明 PR 上可生成可检查的 macOS 候选包，不证明 Apple 公证、Windows/macOS 用户安装、真机、或正式 Release。公开 Release 仍 v1.0.34。
+- 下载的 CI DMG 解包至 `/tmp/yingxu-ci-candidate-0b3/` 后以独立配置在临时端口 `18182` 启动；`/api/status` 返回 1.0.40/idle，桌面主页面、转移、历史、设置、Pocket、manifest 和 Service Worker 路由均 HTTP 200。测试使用空挂载点、未插入素材卡，未读写用户素材；测试进程已停止，端口已释放。

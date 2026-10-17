@@ -66,3 +66,4 @@
 - 提交 `0b3e45f5cd46de175114303575e8fb70c8f07e61` 的 PR Reliability run `38934253354`、Windows preview run `38934253479`、macOS candidate run `38934253353` 均成功。证明该 PR 现在自动经过六矩阵测试、Windows x64 预览构建和 macOS DMG 构建。
 - macOS artifact `12059024846`（20,814,632 bytes）下载后独立核验：artifact ZIP digest `d3ca1aca82cb913aba3df412ee5819fc65fd4f35f9267ffa1ad6eda703e70f6c`；DMG SHA-256 `b159d6f10ae4b6fadd142000c062fa7db6eac954b6efa9cccf81b9c6a6cd976d`，随包 SHA256SUMS 匹配，`hdiutil verify` valid。挂载包的 App 版本为 1.0.40、Mach-O arm64，`codesign --verify --deep --strict` 通过；签名仍 ad-hoc、无 Team ID、未公证。
 - 这是 PR 候选构建门禁，不是公开发行或终端用户安装验收。PR #4 仍为 OPEN/DRAFT；Windows 真机、Apple 公证、移动端和小程序真机、商店审核仍未完成。
+- 将该 CI DMG 解出到 `/tmp/yingxu-ci-candidate-0b3/` 后，以隔离配置与临时端口 `18182` 实际启动：API 返回 `version=1.0.40`、`status=idle`；`/`、`/transfer`、`/history`、`/settings`、`/pocket/`、`/pocket/manifest.webmanifest`、`/pocket/sw.js` 均 HTTP 200。测试配置使用空挂载点且未插入素材卡，没有执行素材读写；结束后已停止 PID `78683` 并确认临时端口不再响应。这验证了下载 DMG 的包内运行时路由，不等于物理素材验收或公证。
