@@ -2,19 +2,19 @@
 
 > 摄影师的本地优先素材备份与归档工具。插卡、确认、备份、校验、可追溯。
 
-[官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
+[官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [全端闭环计划](docs/PROJECT-CLOSURE-PLAN-v1.0.40.md) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
 
-> **版本状态（2026-10-16）**：GitHub 最新公开版为 v1.0.34，Release 目前只有 Windows 安装包。macOS v1.0.37 候选已构建并安装，但当前主机真实存储卡首页扫描仍停滞，尚未完成运行验收、签名公证或公开发布；不要把候选当作公开下载。详见 [v1.0.37 候选验收记录](docs/RELEASE-v1.0.37.md) 与 [v1.0.36 多端差距审计](docs/CROSS-PLATFORM-AUDIT-v1.0.36.md)。
+> **版本状态（2026-10-16）**：GitHub 最新正式版仍为 v1.0.34，只有 Windows 安装包。v1.0.40 Apple Silicon 候选已在本机 `/Applications` 安装并扫描真实 SD_Card（828 项）；签名为 ad-hoc、无 Team ID、未公证，未公开下载。Windows v1.0.40 仅有 CI unsigned preview，未做 Windows 真机验收。当前 PR #4 仍为 open draft；小程序正式连接路线、真实 AppID、开发者工具预览和 iPhone/Android 真机验收仍未完成。详见 [v1.0.40 候选验收记录](docs/RELEASE-v1.0.40.md) 和 [v1.0.40 全端闭环计划](docs/PROJECT-CLOSURE-PLAN-v1.0.40.md)。
 
 ## 给摄影师的三个步骤
 
-1. 从 Releases 下载当前系统已有的正式安装包；macOS v1.0.37 仍是候选，没有公开 DMG。
+1. 从 Releases 下载当前系统已有的正式安装包；macOS 的 v1.0.40 已安装候选和 Windows CI preview 都未公开发行，小程序原型也未上架。
 2. 插入相机存储卡或读卡器，影序会扫描来源、文件数量、照片和视频。
 3. 选择备份位置，确认事件名称和目录预览，点击“开始备份”。完成后可在“归档记录”打开报告、查询素材位置。
 
-默认只读取、复制和校验，**绝不自动删除原卡素材**。首次备份保留每一个文件；再次备份同一来源到同一目标时会逐个跳过已完成文件。
+新内容备份默认只读、复制和校验，**不会自动删除原卡素材**。首次备份保留每一个文件；再次备份同一来源到同一目标时会逐个跳过已完成文件。“转移老内容”是单独的用户主动操作：目标副本通过 SHA-256 校验后才移除来源，取消或失败会保留来源。
 
-## 当前本地候选：v1.0.37（未发布）
+## 当前开发版本：v1.0.40（macOS 本机候选已安装；未公开发行）
 
 | 能力 | 当前行为 |
 | --- | --- |
@@ -27,6 +27,7 @@
 | 历史与报告 | 保留成功、跳过、失败、校验数量、来源卡、每个目标结果，并导出 JSON、CSV、Markdown 报告。 |
 | 本地优先 | 素材和历史默认留在本机；百度网盘为可选项，未配置时不会影响本地备份。 |
 | 影序 Pocket | 同一 Wi-Fi 下用手机查看桌面备份进度、历史并填写拍摄信息；无需安装原生 App。 |
+| 微信小程序原型 | 当前分支提供同局域网 TCP 原型，只读取状态/历史摘要并提交拍摄备注；桌面端 TCP 监听默认关闭。正式连接路线待定；真实 AppID、开发者工具预览和真机验收仍缺。 |
 
 ## 影序 Pocket 手机协作台
 
@@ -35,11 +36,13 @@
 3. 输入配对码后，可查看实时进度、历史记录，并把事件、地点、设备和备注发送到当前 Mac。
 4. iPhone 可在 Safari 的“分享 → 添加到主屏幕”中把它保存为接近 App 的入口。
 
+当前 Pocket 使用局域网 HTTP 连接；页面会报告 Service Worker 离线缓存状态。局域网 HTTP 不提供可信安全上下文，因此手机端的离线页面缓存不可用；实时状态、历史和备注需要 Mac 在线且手机保持同一局域网。离线使用需另行配置受信任 HTTPS 或选择原生客户端。
+
 Pocket 默认只在本地局域网工作，配对码十分钟后失效且只能使用一次。它不会读取、上传、删除或修改手机照片，也不能替代桌面端在后台读取整张存储卡。详见 [Pocket 使用说明](docs/POCKET.md)。
 
 ## macOS 安装与首次打开
 
-当前 GitHub Release 尚无 macOS v1.0.37 下载包。v1.0.37 DMG 仍是候选，待完成发布门槛后才会出现在公开下载页。
+当前 GitHub Release 尚无 macOS v1.0.40 下载包。本机已安装的 v1.0.40 候选仅用于验收，不是公开发行版；Windows 只有 unsigned CI preview，小程序尚未上架。
 
 公开版发布后，请只从本仓库 Releases 下载并核对该 Release 提供的 SHA-256。未公证的候选可能触发 macOS Gatekeeper 提示；不要对来源不明的安装包放行。
 

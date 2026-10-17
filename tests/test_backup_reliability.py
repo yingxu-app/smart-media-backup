@@ -13,8 +13,50 @@ from pathlib import Path
 
 from smb import backup, db
 from smb import config as config_module
-from smb.ai_namer import ai_namer
+from smb.ai_namer import ai_namer, _safe_console_print
+from smb.verifier import ChecksumVerifier
 from smb.waste_filter import waste_reviewer
+
+
+class ManifestEncodingTests(unittest.TestCase):
+    def test_manifest_with_non_ascii_paths_is_written_as_utf8(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "归档目标"
+            media_dir = target / "Sony 相机" / "城市夜景" / "照片"
+            media_dir.mkdir(parents=True)
+            photo = media_dir / "IMG_0001.JPG"
+            photo.write_bytes(b"photo-bytes")
+
+            write_text = Path.write_text
+
+            def write_with_legacy_default(path, data, *args, **kwargs):
+                kwargs.setdefault("encoding", "cp1252")
+                return write_text(path, data, *args, **kwargs)
+
+            with mock.patch.object(Path, "write_text", write_with_legacy_default):
+                manifest_path = Path(ChecksumVerifier().generate_manifest([str(photo)], str(target)))
+            encoded = manifest_path.read_bytes()
+            data = json.loads(encoded.decode("utf-8"))
+
+            self.assertIn(os.path.join("Sony 相机", "城市夜景", "照片", "IMG_0001.JPG"), data)
+            self.assertEqual(data[os.path.join("Sony 相机", "城市夜景", "照片", "IMG_0001.JPG")],
+                             ChecksumVerifier().hash_file(str(photo)))
+
+    def test_ai_diagnostic_falls_back_for_legacy_console_encoding(self):
+        class LegacyConsole:
+            encoding = "cp1252"
+
+            def __init__(self):
+                self.output = []
+
+            def write(self, value):
+                value.encode(self.encoding)
+                self.output.append(value)
+
+        console = LegacyConsole()
+        with mock.patch("smb.ai_namer.sys.stdout", console):
+            _safe_console_print("[AI命名] Ollama 请求失败: offline")
+        self.assertIn("\\u547d\\u540d", "".join(console.output))
 
 
 class BackupReliabilityTests(unittest.TestCase):
@@ -81,7 +123,7 @@ class BackupReliabilityTests(unittest.TestCase):
             self.assertEqual(record["total_files"], 4)
             files = [p for p in self.target.rglob("*.JPG") if p.is_file()]
             self.assertEqual(len(files), 4)
-            first_report = json.loads(Path(record["report_path"]).read_text())
+            first_report = json.loads(Path(record["report_path"]).read_text(encoding="utf-8"))
             self.assertEqual(first_report["copied_files"], 4)
             self.assertEqual(first_report["skipped_files"], 0)
             self.assertEqual(first_report["verified_files"], 4)
@@ -96,7 +138,7 @@ class BackupReliabilityTests(unittest.TestCase):
             second = db.get_all_history()[0]
             self.assertEqual(second["status"], "completed")
             self.assertEqual(second["skipped_files"], 4)
-            report = json.loads(Path(second["report_path"]).read_text())
+            report = json.loads(Path(second["report_path"]).read_text(encoding="utf-8"))
             self.assertEqual(report["copied_files"], 0)
             self.assertEqual(report["skipped_files"], 4)
             self.assertEqual(report["verified_files"], 4)
@@ -114,7 +156,7 @@ class BackupReliabilityTests(unittest.TestCase):
         record = db.get_backup(backup_id)
         self.assertEqual(record["status"], "partial")
         self.assertTrue(source_file.exists())
-        report = json.loads(Path(record["report_path"]).read_text())
+        report = json.loads(Path(record["report_path"]).read_text(encoding="utf-8"))
         self.assertEqual(report["status"], "partial")
         self.assertEqual(report["verified_files"], 1)
 
@@ -236,7 +278,7 @@ class BackupReliabilityTests(unittest.TestCase):
             self.assertEqual(record["status"], "partial")
             self.assertGreater(record["failed_files"], 0)
             self.assertFalse(engine.progress.can_cleanup)
-            report = json.loads(Path(record["report_path"]).read_text())
+            report = json.loads(Path(record["report_path"]).read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "partial")
         finally:
             backup.batch_extract_metadata = self._old_metadata

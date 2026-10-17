@@ -17,6 +17,7 @@ def _migrate_config_v1_to_v2(data: dict) -> dict:
     migrated = dict(data)
     migrated.setdefault("pocket_enabled", True)
     migrated.setdefault("pocket_session_hours", 12)
+    migrated.setdefault("pocket_tcp_enabled", False)
     return migrated
 
 
@@ -79,6 +80,8 @@ class AppConfig:
     # === 影序 Pocket（同一局域网内的手机协作页） ===
     pocket_enabled: bool = True
     pocket_session_hours: int = 12
+    # WeChat Mini Program TCP access is opt-in and separate from the browser PWA.
+    pocket_tcp_enabled: bool = False
 
     # === 扫描目录（平台自动探测） ===
     mount_points: list = field(default_factory=lambda: [

@@ -211,7 +211,20 @@ def find_likely_media_source(volumes: Optional[list[dict]] = None) -> Optional[d
     这里仅检查根目录结构和卷名，不读取、更改任何素材。没有足够证据时返回
     ``None``，宁可提示用户插卡，也不能把备份盘误当成来源。
     """
-    candidates = volumes if volumes is not None else list_removable_volumes()
+    candidates = list(volumes if volumes is not None else list_removable_volumes())
+
+    def name_score(volume: dict) -> int:
+        name = str(volume.get("name", "")).lower()
+        score = 30 if any(
+            token in name for token in ("sd", "tf", "card", "存储卡", "内存卡", "卡")
+        ) else 0
+        if any(token in name for token in ("ssd", "固态", "backup", "archive", "nas")):
+            score -= 20
+        return score
+
+    # macOS may enumerate a large backup SSD before an explicitly named SD card.
+    # Probe card-like names first so an unrelated volume cannot stall auto-detection.
+    candidates.sort(key=name_score, reverse=True)
     best: Optional[dict] = None
     best_score = 0
 
@@ -224,10 +237,7 @@ def find_likely_media_source(volumes: Optional[list[dict]] = None) -> Optional[d
         except OSError:
             continue
 
-        name = str(volume.get("name", "")).lower()
-        score = 0
-        if any(token in name for token in ("sd", "tf", "card", "存储卡", "内存卡", "卡")):
-            score += 30
+        score = name_score(volume)
         if "DCIM" in root_names:
             score += 80
         if "PRIVATE" in root_names:
@@ -238,13 +248,13 @@ def find_likely_media_source(volumes: Optional[list[dict]] = None) -> Optional[d
             score += 20
         if "IPHONE" in root_names:
             score += 10
-        # 常见备份盘命名不会单独否决，但会降低误选优先级。
-        if any(token in name for token in ("ssd", "固态", "backup", "archive", "nas")):
-            score -= 20
-
         if score > best_score:
             best = volume
             best_score = score
+        # A card-like volume with a DCIM root is a strong source match. Avoid
+        # opening other mounted roots (which may be large, slow, or unavailable).
+        if score >= 110:
+            return volume
 
     return best if best_score >= 40 else None
 
