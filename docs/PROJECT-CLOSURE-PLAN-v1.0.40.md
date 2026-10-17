@@ -1,18 +1,18 @@
 # 影序全端闭环计划 v1.0.40
 
-核对日期：2026-10-17。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
+核对日期：2026-10-17（当前核对至 PR head `9bbae707f51575a862693de4349b33de4135843d`）。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
 
 ## 当前交付面与权威证据
 
 | 交付面 | 当前实现 / 已有证据 | 当前状态 | 闭环门槛 |
 | --- | --- | --- | --- |
-| macOS 桌面 | 产品代码 head `ae44735` 的候选 run `39012271620` success；artifact `12093406171`（20,954,789 bytes，GitHub digest `sha256:24558673bd8d1d998e986f29fff9313421e68b7cb23a653f46b2ce50aae297e6`），本机 ZIP hash 匹配。内含 DMG SHA-256 `910b957c6d0382f8f73e516c5af9fee655692ccf19cef47a118551746fafa004` 与包内清单一致；`hdiutil verify` VALID，v1.0.40 arm64、deep/strict codesign 通过。产品源码与 `df24115` 相同（`ae44735` 仅审计文档/快照）；从同源候选隔离启动后 health/database ok，Pocket LAN 页 200、未配对 LAN `/api/status` 403 与 `/api/pocket/status` 401。签名仍 ad-hoc、无 Team ID。 | 最新候选结构与同机服务路由已验证；未在另一台 Mac 安装，也未 Developer ID 签名/公证。 | Developer ID 签名与公证；正式 Release、下载页及另一台 Mac 安装回读。 |
-| Windows 桌面 | 当前 PR head `ae44735` 的 preview run `39012271576` success；artifact `12093536080`（27,494,215 bytes，GitHub digest `sha256:b11b4ffc93ecc5037d4d96069040528ab99b7cfdd176c6406c263a4b46ce0096`），本机 ZIP hash 匹配。EXE SHA-256 `74c5bd3412f4d3a9e0715b33ea00eb9cef78eeb2f3a6dcb6294e6799beeb3881` 与包内 `SHA256SUMS.txt` 一致，PE x86-64。 | CI unsigned preview 构建和内容清单匹配；仍无 Windows 真机安装、运行、Defender、读卡器或断盘恢复证据。 | 在真实 Windows PC 安装并逐项操作；测试 SD 卡、目标盘、恢复与升级；签名后发布正式安装包并从公开链接回读。 |
+| macOS 桌面 | 当前 PR head `9bbae70` 的候选 run `39015108870` success；artifact `12094134210` ZIP SHA-256 `86473cfafdf3b7b347aa992d52da89f47cc78f8654546c4d945c6b9d95f8a846` 与 GitHub metadata 一致。内含 v1.0.40 DMG SHA-256 `a88570c2c321948df22f73bac3830f26048dedab4a1c98a0e129f4402da7ff19` 与包内清单一致；`hdiutil verify` VALID，app deep/strict codesign 通过、Mach-O arm64。签名仍 ad-hoc、无 Team ID，未公证。 | 当前 head 的候选包体与签名封装完整性已核验；不是 Developer ID 签名、公证、另一台 Mac 安装或公开发行。 | Developer ID 签名与公证；正式 Release、下载页及另一台 Mac 安装回读。 |
+| Windows 桌面 | 当前 PR head `9bbae70` 的 preview run `39015108802` success；artifact `12093584501` ZIP SHA-256 `b5aeb2413f3524391c29a282c7687a85eec6c276549bce2d9e037b19cdd8a51a` 与 GitHub metadata 一致。内含 x86-64 PE EXE SHA-256 `e90892aebfa686e1531ae1fadf77dab189c1a4710f89a61f19d30c640c609132`，与包内 `SHA256SUMS.txt` 一致。 | CI preview 构建与包体清单通过；仍无 Windows 真机安装、运行、Defender、读卡器或断盘恢复证据。 | 在真实 Windows PC 安装并逐项操作；测试 SD 卡、目标盘、恢复与升级；签名后发布正式安装包并从公开链接回读。 |
 | 手机 PWA | Pocket 页面、状态、历史和拍摄备注接口及 manifest / Service Worker 已有源码；v1.0.40 在安装版真实浏览器中通过 HTTP LAN 显示离线限制、loopback 显示页面缓存就绪。 | Mac 浏览器 runtime 已核验；没有 iPhone/Android 同 Wi-Fi 实测、主屏幕安装、后台/切网/离线验收。LAN HTTP 下 Service Worker 不可用，不能把离线缓存记为已交付。 | 在 iPhone 与 Android 真机完成配对、状态、历史、备注、锁屏唤醒、网络切换、离线与撤销验收；为需离线能力的 PWA 配置受信任 HTTPS，或由原生客户端承接；明确 PWA 是否构成最终移动交付。 |
-| 原生 iOS / Android | `mobile/` 有 Expo Router Pocket 客户端与 TCP 服务；当前 PR head `3c68fe4` 的 Pocket run `39013794196` 三个 job 全部 success：JS/CNG/check、Android debug `117341606796`、iOS Simulator `117341606981`。Artifact 列表仅 Android debug APK `12093724774`，没有 iOS Simulator 包或 IPA；APK SHA-256 `5f83d2e3b3a1177a087eee0e22aa4122397beea2ae9aa66fff2d517f30969758`。 | JS/CNG 与两种原生构建门禁已通过；仍未签名、未在实体设备安装，也无 LAN 授权或桌面 TCP 真机配对证据。 | 在真机完成安装、授权、配对、切网和重连；配置正式签名构建与商店资料，产出并检查签名 IPA/AAB、提审及上架。Expo SDK 58 默认 targetSdk 36，达到当前 Google Play 新应用 target API 门槛；未来升到 targetSdk 37 时须处理 Android 17 的 `ACCESS_LOCAL_NETWORK` 运行时权限。 |
+| 原生 iOS / Android | 当前 PR head `9bbae70` 的 Pocket run `39015108799` 三个 job 全部 success：JS/CNG/check、Android debug、iOS Simulator build。Artifact 仅 Android debug APK `12094239285`，SHA-256 `b9017bc68e8145e52855e03504c9fab4df9d0cdae2d8456d3cd7ec2256edd640`，包含 arm64-v8a、armeabi-v7a、x86、x86_64；没有 iOS Simulator 包或 IPA。 | 当前 head 原生编译通过，Android debug APK 已核验；仍未签名、未在实体 iPhone/Android 安装，也无 LAN 授权或桌面 TCP 真机配对证据。 | 在真机完成安装、授权、配对、切网和重连；配置正式签名构建与商店资料，产出并检查签名 IPA/AAB、提审及上架。Expo SDK 58 默认 targetSdk 36，达到当前 Google Play 新应用 target API 门槛；未来升到 targetSdk 37 时须处理 Android 17 的 `ACCESS_LOCAL_NETWORK` 运行时权限。 |
 | 微信小程序 | `miniprogram/` 页面和 TCP 客户端已存在；桌面 TCP bridge 默认关闭，启用后监听 `18080`。本地 Node 测试现为 7 项通过，包含非法响应帧拒绝和切后台清理；小程序脚本语法与配置 JSON 解析通过。 | 微信开发者工具 CLI 实际打开项目时因占位 AppID `touristappid` 返回 code 10“不存在此 AppID”，尚未进入编译；没有真实 AppID、真机或审核证据。当前源码路线为同一局域网直连，正式数据路径仍待确认。 | 配置真实 AppID 后完成开发者工具编译预览；确认正式连接架构；iPhone/Android 微信真机验收配对、前后台、切网、过期/撤销；补隐私指引并提交审核，核对线上版本。 |
-| 官网与浏览器产品 | 主仓库 `site/` 的规范 Pages 路径为 `https://yingxu-app.github.io/smart-media-backup/`；首页、`/download/`、`/privacy.html` 均 HTTP 200，下载页列出正式 Windows v1.0.34。Pages workflow run `38924919861` success。Release API 列出 EXE 和 SHA256SUMS，但本审计主机直连资产时 TLS EOF，未能验证文件传输。旧组织根 URL 404；Vercel 根页 200 但内容过时，其下载/隐私子路由 404。 | 静态官网与下载页已部署；正式资产存在，但当前主机下载链路未验收；组织根域名旧入口不可用，Vercel 未形成完整镜像；浏览器在线备份范围未定义。 | 从可用网络验证正式 EXE 和校验文件下载及哈希；若需根域名或 Vercel 镜像，恢复其 Pages/静态路由；确认网页是否还需浏览器内导入/备份。在线备份若纳入范围，还需账户/数据/存储/隐私架构。 |
-| 正式发布与售后回滚 | GitHub Latest Release 为 `v1.0.34`，资产仅 Windows EXE 与 `SHA256SUMS.txt`。PR #4 当前 head `ae44735` OPEN/DRAFT、mergeable；当前 Reliability PR run `39012271555` 与 push run `39012268735`、macOS run `39012271620`、Windows run `39012271576` success；Pocket run `39012271597` 的 JS/CNG、Android debug 与 iOS Simulator 三个 job 均 success。 | v1.0.40 候选包和 debug/simulator build 不是多平台正式发行。 | 完成 Windows/mobile 真机验收和签名；准备隐私及商店资料；发布正式 Release、更新下载页，验证新用户下载、安装、升级与回滚。 |
+| 官网与浏览器产品 | 主仓库 `site/` 的规范 Pages 路径为 `https://yingxu-app.github.io/smart-media-backup/`；首页、`/download/`、`/privacy.html` 本轮复核均 HTTP 200（privacy 的 curl 探测曾遇 TLS 错误，随后 Python urllib 请求返回 200）。下载页列出正式 Windows v1.0.34。 | 静态官网与下载页已部署；浏览器在线备份范围未定义。 | 确认网页是否还需浏览器内导入/备份；在线备份若纳入范围，还需账户/数据/存储/隐私架构。 |
+| 正式发布与售后回滚 | GitHub Latest Release 为 `v1.0.34`，资产仅 Windows EXE 与 `SHA256SUMS.txt`。PR #4 当前 head `9bbae70` OPEN/DRAFT、mergeable；Reliability PR/push、macOS candidate、Windows preview、Pocket run 均 success。 | v1.0.40 候选包和 debug/simulator build 不是多平台正式发行。 | 完成 Windows/mobile 真机验收和签名；准备隐私及商店资料；发布正式 Release、更新下载页，验证新用户下载、安装、升级与回滚。 |
 
 ## 共同完成门槛
 
@@ -33,6 +33,16 @@
 - 持续维护桌面主功能、测试与 Windows/macOS 候选证据；优先补 Windows 真机与现有 Pocket 真机网络验收。
 - 复核正式网站与下载页，不把候选直接部署为正式下载。
 - 不公开发布、不启用云付费服务、不索要任何账号密码或验证码；等架构决定后再开发依赖该决定的端侧集成。
+
+## 2026-10-17 current verification checkpoint — PR head `9bbae70`
+
+- Refreshed repository state: branch `codex/v1.0.39-miniprogram-lan-tcp`, HEAD `9bbae707f51575a862693de4349b33de4135843d`, worktree clean. PR #4 is OPEN/DRAFT and mergeable.
+- On this head, Reliability PR run `39015108813`, Reliability push run `39015105206`, macOS candidate `39015108870`, Windows preview `39015108802`, and Pocket run `39015108799` all completed successfully.
+- macOS artifact `12094134210` ZIP SHA-256 `86473cfafdf3b7b347aa992d52da89f47cc78f8654546c4d945c6b9d95f8a846` matches GitHub metadata. Its v1.0.40 DMG SHA-256 `a88570c2c321948df22f73bac3830f26048dedab4a1c98a0e129f4402da7ff19` matches its manifest; `hdiutil verify` returned VALID. The app is arm64 and passes deep/strict codesign verification, but its ad-hoc signature has no Team ID and it is not notarized.
+- Windows artifact `12093584501` ZIP SHA-256 `b5aeb2413f3524391c29a282c7687a85eec6c276549bce2d9e037b19cdd8a51a` matches GitHub metadata. The bundled x86-64 EXE SHA-256 `e90892aebfa686e1531ae1fadf77dab189c1a4710f89a61f19d30c640c609132` matches its manifest. The preview has not been installed on a Windows PC.
+- Pocket run `39015108799` passed JS/CNG/check, Android debug and iOS Simulator builds. Artifact `12094239285` is an Android debug APK only; local SHA-256 `b9017bc68e8145e52855e03504c9fab4df9d0cdae2d8456d3cd7ec2256edd640`, ABIs arm64-v8a, armeabi-v7a, x86 and x86_64. No iOS Simulator app or IPA artifact was uploaded.
+- Canonical Pages home, `/download/` and `/privacy.html` returned HTTP 200. One curl TLS error on privacy was followed by Python urllib HTTP 200. Latest Release remains `v1.0.34`, with only Windows EXE and `SHA256SUMS.txt`; the download page displays v1.0.34.
+- **Open closure gates:** Windows/iPhone/Android real-device acceptance; real Mini Program AppID/DevTools/preview/device review/submission; EAS owner login and project; formal platform signing, Apple notarization, store submission, public release and upgrade/rollback; user decision on browser online-backup scope. CI, source checks, and candidate package hashes do not replace these gates.
 
 ## PWA 安全上下文依据
 

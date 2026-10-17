@@ -1,18 +1,18 @@
 # 影序全端闭环状态审计 v1.0.40
 
-审计日期：2026-10-17。范围依据用户目标覆盖 PC 桌面、手机端、网页、小程序、多端测试、部署与上架。本文把源码、CI、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。
+审计日期：2026-10-17（当前核对至 PR head `9bbae707f51575a862693de4349b33de4135843d`）。范围依据用户目标覆盖 PC 桌面、手机端、网页、小程序、多端测试、部署与上架。本文把源码、CI、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。
 
 ## 当前证据矩阵
 
 | 端 / 交付项 | 已核实证据 | 结论 | 剩余门槛 |
 | --- | --- | --- | --- |
-| macOS 桌面 | 产品代码 head `ae44735` 的候选 run `39012271620` success；artifact `12093406171`（20,954,789 bytes，GitHub digest `sha256:24558673bd8d1d998e986f29fff9313421e68b7cb23a653f46b2ce50aae297e6`），本机 ZIP hash 匹配。内含 DMG SHA-256 `910b957c6d0382f8f73e516c5af9fee655692ccf19cef47a118551746fafa004` 与包内清单一致；`hdiutil verify` VALID，v1.0.40 arm64、deep/strict codesign 通过。产品源码与 `df24115` 相同（`ae44735` 仅审计文档/快照）；从同源候选隔离启动后 health/database ok，Pocket LAN 页 200、未配对 LAN `/api/status` 403 与 `/api/pocket/status` 401。签名仍 ad-hoc、无 Team ID。 | 最新候选结构与同机服务路由已验证；未在另一台 Mac 安装，也未 Developer ID 签名/公证。 | Developer ID 签名与公证；正式 Release、下载页及另一台 Mac 安装回读。 |
-| Windows 桌面 | 当前 PR head `ae44735` 的 preview run `39012271576` success；artifact `12093536080`（27,494,215 bytes，GitHub digest `sha256:b11b4ffc93ecc5037d4d96069040528ab99b7cfdd176c6406c263a4b46ce0096`），本机 ZIP hash 匹配。EXE SHA-256 `74c5bd3412f4d3a9e0715b33ea00eb9cef78eeb2f3a6dcb6294e6799beeb3881` 与包内 `SHA256SUMS.txt` 一致，PE x86-64。 | CI unsigned preview 构建和内容清单匹配；仍无 Windows 真机安装、运行、Defender、读卡器或断盘恢复证据。 | 在真实 Windows PC 安装并逐项操作；测试 SD 卡、目标盘、恢复与升级；签名后发布正式安装包并从公开链接回读。 |
-| 原生 iOS / Android | `mobile/` 有 Expo Router Pocket 客户端与 TCP 服务，SDK 58.0.14、React Native 0.88.0、React 19.3.0、`react-native-tcp-socket` 6.4.3。当前 PR head `3c68fe4` 的 Pocket run `39013794196` 三个 job 全部 success：JS/CNG/check、Android debug `117341606796`、iOS Simulator `117341606981`。Artifact 列表仅 Android debug APK `12093724774`；没有 iOS Simulator 包或 IPA。Android APK 本地 SHA-256 `5f83d2e3b3a1177a087eee0e22aa4122397beea2ae9aa66fff2d517f30969758`。 | 当前 head 的 JS/CNG、Android debug 与 iOS Simulator 编译通过；仍未签名、未在实体 iPhone/Android 安装，无 LAN 授权或桌面 TCP 真机配对证据。本机无 Android SDK/adb 与完整 Xcode。 | 在真机完成安装、授权、配对、切网和重连；配置正式签名构建与商店资料，产出并检查签名 IPA/AAB、提审及上架。Expo SDK 58 默认 targetSdk 36，达到当前 Google Play 新应用 target API 门槛；未来升到 targetSdk 37 时须处理 Android 17 的 `ACCESS_LOCAL_NETWORK` 运行时权限。 |
+| macOS 桌面 | 当前 PR head `9bbae70` 的 candidate run `39015108870` success；artifact `12094134210` ZIP SHA-256 `86473cfafdf3b7b347aa992d52da89f47cc78f8654546c4d945c6b9d95f8a846` 与 GitHub metadata 一致。内含 v1.0.40 DMG SHA-256 `a88570c2c321948df22f73bac3830f26048dedab4a1c98a0e129f4402da7ff19` 与包内清单一致；`hdiutil verify` VALID，app deep/strict codesign 通过、Mach-O arm64。签名仍 ad-hoc、无 Team ID，未公证。 | 当前 head 的候选包体与签名封装完整性已核验；这不是 Developer ID 签名、公证、另一台 Mac 安装或公开发行。 | Developer ID 签名与公证；正式 Release、下载页及另一台 Mac 安装回读。 |
+| Windows 桌面 | 当前 PR head `9bbae70` 的 preview run `39015108802` success；artifact `12093584501` ZIP SHA-256 `b5aeb2413f3524391c29a282c7687a85eec6c276549bce2d9e037b19cdd8a51a` 与 GitHub metadata 一致。内含 x86-64 PE EXE SHA-256 `e90892aebfa686e1531ae1fadf77dab189c1a4710f89a61f19d30c640c609132`，与包内 `SHA256SUMS.txt` 一致。 | CI preview 构建与包体清单通过；仍无 Windows 真机安装、运行、Defender、读卡器或断盘恢复证据。 | 在真实 Windows PC 安装并逐项操作；测试 SD 卡、目标盘、恢复与升级；签名后发布正式安装包并从公开链接回读。 |
+| 原生 iOS / Android | `mobile/` 有 Expo Router Pocket 客户端与 TCP 服务。当前 head `9bbae70` 的 Pocket run `39015108799` 三个 job 全部 success：JS/CNG/check、Android debug、iOS Simulator build。Artifact 列表仅 Android debug APK `12094239285`；本机 SHA-256 `b9017bc68e8145e52855e03504c9fab4df9d0cdae2d8456d3cd7ec2256edd640`，包含 arm64-v8a、armeabi-v7a、x86、x86_64；没有 iOS Simulator 包或 IPA。 | 当前 head 原生编译通过，Android debug APK 已核验；仍未签名、未在实体 iPhone/Android 安装，无 LAN 授权或桌面 TCP 真机配对证据。本机无 Android SDK/adb 与完整 Xcode。 | 在真机完成安装、授权、配对、切网和重连；配置正式签名构建与商店资料，产出并检查签名 IPA/AAB、提审及上架。Expo SDK 58 默认 targetSdk 36，达到当前 Google Play 新应用 target API 门槛；未来升到 targetSdk 37 时须处理 Android 17 的 `ACCESS_LOCAL_NETWORK` 运行时权限。 |
 | 手机端 / Pocket PWA | 源码包含独立 Pocket 页面、manifest、Service Worker 和状态/历史/备注 API。v1.0.40 页面在 LAN HTTP 明示离线缓存不可用，在安全上下文尝试注册缓存。当前 `/api/status` 返回 1.0.40。 | 桌面提供的移动网页能力已存在；手机浏览器安装、断网与跨网验收不成立。 | iPhone 与 Android 同 Wi-Fi 配对、主屏幕入口、锁屏/后台、休眠恢复、离线和网络切换实测；明确是否还需原生 iOS/Android 商店应用。 |
 | 微信小程序 | `miniprogram/` 页面与 LAN TCP 客户端已补充非对象响应拒绝、切后台关闭会话；本机 Node 测试 7 项通过。桌面 TCP bridge 默认关闭。微信开发者工具 CLI 打开项目时，`touristappid` 返回 code 10“不存在此 AppID”。 | 原型代码通过本机测试，但 DevTools 编译未开始，尚无真实 AppID、真机或审核证据。正式连接方式未定。 | 配置真实 AppID 并通过开发者工具编译；确认局域网 TCP / 微信云托管中继 / 备案域名 HTTPS/WSS；真机配对、隐私审核和线上发布。 |
-| 官网 / 网页 | 规范 Pages URL `https://yingxu-app.github.io/smart-media-backup/` 的首页、`/download/`、`/privacy.html` 均 HTTP 200；下载页显示正式 Windows v1.0.34，Release API 列出 EXE 和 SHA256SUMS。Pages workflow run `38924919861` success。当前主机直接下载资产时 TLS 握手 EOF，文件传输本身未确认。旧组织根 URL 返回 GitHub Pages 404；Vercel 根页 200 但为旧内容，下载与隐私子路由均 404。 | 静态介绍与下载页已在规范 Pages 路径部署；正式 Release 资产存在，但当前审计主机无法验证完整下载；旧根域名和 Vercel 不是完整可用的当前镜像。浏览器在线备份范围未确认。 | 从可用网络验证正式 EXE 与 SHA256SUMS 下载及哈希；若需恢复组织根域名或 Vercel 镜像，需单独恢复其 Pages/静态路由；在线备份若纳入范围，还需账户/数据/存储/隐私架构。 |
-| 公开发行 | GitHub Latest Release API 当前返回 `v1.0.34`，资产仅 `YINGXU-Windows-v1.0.34.exe` 与 `SHA256SUMS.txt`。 | v1.0.40 未发布。 | 完成平台真机验收、签名、公证/商店资料、版本升级回滚与公开下载入口验证后发布。 |
+| 官网 / 网页 | 规范 Pages URL `https://yingxu-app.github.io/smart-media-backup/` 的首页、`/download/` 与 `/privacy.html` 本轮均 HTTP 200；privacy 首次 curl 遇 TLS 握手错误，紧接的 Python urllib 请求返回 200。下载页显示正式 Windows v1.0.34；Release API 列出 EXE 和 SHA256SUMS。旧组织根 URL 返回 GitHub Pages 404；Vercel 根页为旧内容，下载与隐私子路由 404。 | 静态介绍与下载页已在规范 Pages 路径部署；单次 TLS 错误属本次探测抖动，不证明线上故障；浏览器在线备份范围未确认。 | 若网页在线备份纳入范围，还需账户/数据/存储/隐私架构。 |
+| 公开发行 | GitHub Latest Release API 当前返回 `v1.0.34`，资产仅 `YINGXU-Windows-v1.0.34.exe` 与 `SHA256SUMS.txt`。PR #4 head `9bbae70` 为 OPEN/DRAFT、mergeable；当前 Reliability PR/push、macOS candidate、Windows preview、Pocket runs 均 success。 | v1.0.40 未发布，v1.0.40 候选不构成公开正式发行。 | 完成平台真机验收、签名、公证/商店资料、版本升级回滚与公开下载入口验证后发布。 |
 
 ## 本轮代码与 CI 进展
 
@@ -36,6 +36,16 @@
 - macOS 候选为 ad-hoc 签名且无 Team ID；不能据此宣称已公证或可安全分发。
 - Pages 展示候选状态；官方 Release 仍以 GitHub Latest Release 为准。
 - 全端目标保持进行中，任何未解决项都不能由本审计文档或通过 CI 替代。
+
+## 2026-10-17 current verification checkpoint — PR head `9bbae70`
+
+- Refreshed repository state: branch `codex/v1.0.39-miniprogram-lan-tcp`, HEAD `9bbae707f51575a862693de4349b33de4135843d`, worktree clean. PR #4 remains OPEN/DRAFT and mergeable.
+- On this head, Reliability PR run `39015108813`, Reliability push run `39015105206`, macOS candidate `39015108870`, Windows preview `39015108802`, and Pocket run `39015108799` all completed successfully.
+- **macOS candidate:** artifact `12094134210` ZIP SHA-256 `86473cfafdf3b7b347aa992d52da89f47cc78f8654546c4d945c6b9d95f8a846` matches GitHub metadata. DMG SHA-256 `a88570c2c321948df22f73bac3830f26048dedab4a1c98a0e129f4402da7ff19` matches its manifest; `hdiutil verify` returned VALID. Mounted v1.0.40 app is arm64 and passes deep/strict codesign verification; signature is ad-hoc without Team ID, and the app is not notarized.
+- **Windows preview:** artifact `12093584501` ZIP SHA-256 `b5aeb2413f3524391c29a282c7687a85eec6c276549bce2d9e037b19cdd8a51a` matches GitHub metadata. EXE is PE32+ x86-64; SHA-256 `e90892aebfa686e1531ae1fadf77dab189c1a4710f89a61f19d30c640c609132` matches the embedded `SHA256SUMS.txt`. It is still a preview and has not been installed on a Windows PC.
+- **Pocket:** JS/CNG/check, Android debug build and iOS Simulator build passed. The run uploaded Android debug APK artifact `12094239285` only; local APK SHA-256 is `b9017bc68e8145e52855e03504c9fab4df9d0cdae2d8456d3cd7ec2256edd640`, with ABI directories arm64-v8a, armeabi-v7a, x86 and x86_64. No iOS Simulator package or IPA was uploaded.
+- **Website/release:** canonical Pages home, `/download/`, and `/privacy.html` returned HTTP 200. A single curl TLS error on the privacy URL was followed by a successful Python urllib 200 response. Latest Release remains `v1.0.34` with Windows EXE and `SHA256SUMS.txt` only; the download page presents v1.0.34.
+- **Remaining:** Windows/iPhone/Android physical-device acceptance; real WeChat AppID, DevTools build, device review and publication; EAS login/project; Developer ID/Apple and Android signing, notarization/store submissions; formal release promotion; and user decision on browser online-backup scope. Do not treat CI or candidate package verification as these acceptance gates.
 
 ## 2026-10-17 续核记录
 
