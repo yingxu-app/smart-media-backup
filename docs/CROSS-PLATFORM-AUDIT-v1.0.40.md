@@ -94,3 +94,11 @@
 - commit `195a608` 的 PR Reliability run `39000627095` 六矩阵全绿；macOS 候选 run `39000627152` 与 Windows preview run `39000627155` 成功；push Reliability run `39000624271` 六矩阵全绿。该 commit 当前 15 项 PR/push check 均为 success。
 - 新增 Android debug APK 与 iOS Simulator 原生构建 jobs。首次 run `39000853629` 的 JS、CNG 和 bundle job 通过；iOS 原生构建因依赖要求 Swift 6.2、`macos-15` runner 提供 Swift 6.1 而失败，已改为 `macos-26`，修正后等待 Action 复核。Android debug 构建仍在该 run 中执行，尚无终态。
 - 原生 CI 目标是不签名的 Android debug APK 和 iOS Simulator app；即使 CI 成功，也不证明商店签名包、设备安装、真实局域网 TCP 或其他平台真机验收。
+
+## 2026-10-17 Pocket 原生 CI 终态（PR head `bb4cdb5`）
+
+- Pocket workflow run [`39001877447`](https://github.com/yingxu-app/smart-media-backup/actions/runs/39001877447) completed/success。`pocket` job `117306339821`：Expo install check、lint、TypeScript、5 项 Node 协议测试、CNG prebuild、iOS/Android bundle exports 全部通过，用时 1m16s。
+- iOS Simulator job `117306339650` completed/success，Build iOS Simulator app 通过，用时 18m6s。该 run 首次以 `macos-26-arm64` / Xcode 26.6.2 完成 React Native New Architecture 原生编译；这不是签名 IPA 或 iPhone 实机运行。
+- Android debug job `117306339938` completed/success，`assembleDebug` 与 artifact upload 均通过，用时 22m26s。artifact `12089997551` / `yingxu-pocket-android-debug-e6b7bda9a7d7dab0a3c64ecfb70180529403fab1.zip` 大小 94,576,763 bytes，ZIP 内含一个 269,562,283-byte `app-debug.apk`；APK SHA-256 为 `e92dbb426b647b9c1d77ddc41e1e64aa9d6edf0f5aa3485716bc2cc9572329b5`，包含 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 原生库。已下载到本机 `/tmp/yingxu-pocket-app-debug.apk`。这是 universal debug APK，不是 Google Play AAB/签名发行包，也未安装到 Android 真机。
+- PR #4 当前仍 OPEN/DRAFT，head 为 `bb4cdb5c0f2c8121e7bdd32525917de5bd21974c`，merge state CLEAN。当前 PR Reliability、Windows preview、macOS candidate 与 Pocket jobs 均 success。PR 通过不等于审查、合并、设备验收或上架。
+- 下一步：把该 artifact 用于可接触 Android 真机的安装/配对验收；准备正式 Android AAB、Apple 签名 IPA 和商店材料。iPhone/Android LAN 权限提示、桌面配对、后台/切网恢复仍未在设备上验证。
