@@ -116,3 +116,12 @@
 - Windows preview run `39004002505` 对 PR head `f80408f` completed/success，artifact `12090117584` (`YINGXU-Windows-v1.0.40-unsigned-preview`) 未过期，大小 27,490,393 bytes。
 - 下载后 ZIP 含 `SHA256SUMS.txt`（84 bytes）和 `影序 YINGXU.exe`（27,788,887 bytes）。从 ZIP 内直接计算的 EXE SHA-256 为 `cf67ea1a097c7b5d2fcb57828144cb1763f4d4b032aa7fcda86b76b946e8dfd8`，与包内清单逐项匹配；PE machine 为 `0x8664`，确认 x64。
 - 该 artifact 是 unsigned preview；当前没有 Windows 实机安装、启动、Defender、读卡器/存储盘操作或拔盘恢复证据。
+
+## 2026-10-17 当前候选复核与 Android D8 内存修复
+
+- 当前仓库原 head `c3f91007357c063e080401742eaa66ced4ca1e62` 的 PR #4 仍为 OPEN/DRAFT。Reliability run `39004375878` 六平台矩阵通过；Windows preview run `39004375737` 成功，artifact `12090406203`（`YINGXU-Windows-v1.0.40-unsigned-preview`）下载回读成功。EXE 大小 27,790,294 bytes，类型 PE32+ x86-64；SHA-256 `d5e64c68527283e6964e1ba9f45c05f96e6a0ec205393670e19a98bea188aa61` 与包内 `SHA256SUMS.txt` 一致。
+- macOS candidate run `39004375741` artifact `12090108688` 下载到本机。DMG 为 22,263,629 bytes，SHA-256 `53dd652fec3511899d0ecbdb7ddf17477729115cb199aca03aab3533e6cda25b` 与 ZIP 清单一致；`hdiutil verify` 返回 VALID，挂载内容中 v1.0.40 arm64 app 的 `codesign --verify --deep --strict` 通过。签名为 ad-hoc、无 Team ID、未公证。
+- 本机已运行 `/Applications/影序 YINGXU.app`。`/api/health` 返回 version `1.0.40`、database `ok`；`/api/status` 为 idle。只读 `/api/sources` 重新识别 `/Volumes/SD_Card` 共 828 个文件（784 photos、44 videos）。本轮未复制或删除卡内文件。
+- Pocket run `39004375789` 的 JS/CNG/lint/typecheck/protocol-tests 与 iOS/Android bundle exports 均成功。Android `android-debug` job `117313709428` 在 `:app:mergeExtDexDebug` 因 `java.lang.OutOfMemoryError: Java heap space` 失败；本地生成的 `android/gradle.properties` 默认 heap 为 2 GB。iOS Simulator job `117313709690` 查询时仍在原生构建。
+- 已新增 Expo config plugin `mobile/plugins/withAndroidGradleMemory.js`，把 CNG 生成的 Gradle daemon heap 设为 4 GB；本机 `expo prebuild --no-install --platform android` 后确认生成 `org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m`。修复提交 `c6a45d4` 的新 PR CI 尚待复验。相关验证：Pocket lint/typecheck、5 项 mobile Node tests、7 项 Mini Program Node tests、桌面 unittest 79 项（77 pass、2 Windows-only skip）与 `git diff --check` 均通过。
+- 本机没有 Android `adb`，`xcode-select` 指向 Command Line Tools 且没有 `devicectl`；不能在此主机完成 Android/iPhone 真机安装。正式 GitHub Release 仍是 `v1.0.34`（Windows EXE + `SHA256SUMS.txt`）。Android/iOS 商店签名、真机配对、小程序真实 AppID、Windows 真机与正式上架仍未完成。
