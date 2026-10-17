@@ -12,19 +12,22 @@
 
 ## 账号绑定后执行
 
-在项目所有者控制的终端登录 Expo 并绑定 EAS 项目，使用官方 CLI 将项目 ID 写入 `mobile/app.json` 的 `expo.extra.eas.projectId`。然后按需执行：
+在项目所有者控制的终端登录 Expo 并绑定 EAS 项目，使用官方 CLI 将项目 ID 写入 `mobile/app.json` 的 `expo.extra.eas.projectId`。本仓库使用 pnpm；本机 npm 启动器有依赖加载错误，因此操作命令统一使用 `pnpm dlx`：
 
 ```sh
 cd mobile
-npx eas-cli build --profile development --platform all
-npx eas-cli build --profile preview --platform android
-npx eas-cli build --profile production --platform all
+pnpm dlx eas-cli@latest account:login
+pnpm dlx eas-cli@latest account:view
+pnpm dlx eas-cli@latest project:init
+pnpm dlx eas-cli@latest build --profile development --platform all
+pnpm dlx eas-cli@latest build --profile preview --platform android
+pnpm dlx eas-cli@latest build --profile production --platform all
 ```
 
 完成 Apple / Google 商店凭据与应用记录设置后，才可提交商店审核。Android 内测提交可使用：
 
 ```sh
-npx eas-cli submit --profile production --platform android
+pnpm dlx eas-cli@latest submit --profile production --platform android
 ```
 
 首次提交前须在 Play Console 确认包名 `com.yingxuapp.pocket` 已由目标发行账号持有，并确保 EAS 上传的 AAB 与商店应用记录匹配。iOS 需先取得实际 App Store Connect App ID 和团队配置；不在仓库中保存私钥、服务账号 JSON 或令牌。
@@ -32,5 +35,6 @@ npx eas-cli submit --profile production --platform android
 ## 验收边界
 
 - EAS 配置文件不等于已绑定 Expo 项目、构建成功、签名成功或商店上架。
+- 本机曾用已缓存的 `pnpm dlx eas-cli@latest whoami` 做只读查询，返回 `Not logged in`。该查询不创建 EAS 项目；项目所有者登录后再执行 `project:init`。
 - 生产构建前仍须完成 iPhone/Android 真机安装、局域网配对、权限、后台/切网恢复验收。
 - 商店提交必须核对应用版本、隐私说明、截图、支持网址、分级与审核资料；公开发布后再从商店链接安装回读。
