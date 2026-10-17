@@ -42,6 +42,12 @@ Page({
   onAddressInput(event) { this.setData({ address: event.detail.value.trim() }); },
   onCodeInput(event) { this.setData({ code: event.detail.value.replace(/\D/g, "").slice(0, 6) }); },
 
+  onAppHide() {
+    if (this.client || this.token) {
+      this.resetConnection("应用进入后台，已关闭配对连接；返回后请重新配对。");
+    }
+  },
+
   isPrivateIPv4(address) {
     const parts = address.split(".");
     if (parts.length !== 4 || parts.some((part) => !/^\d{1,3}$/.test(part))) return false;

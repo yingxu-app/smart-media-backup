@@ -28,6 +28,8 @@ class FakeSocket {
 }
 
 let activeSocket;
+let appDefinition;
+global.App = (definition) => { appDefinition = definition; };
 global.wx = {
   createTCPSocket() {
     activeSocket = new FakeSocket();
@@ -35,6 +37,7 @@ global.wx = {
   }
 };
 const { PocketTcpClient } = require("../services/pocket-client.js");
+require("../app.js");
 let homePage;
 global.Page = (definition) => { homePage = definition; };
 require("../pages/home/index.js");
@@ -144,4 +147,30 @@ test("home page returns to pairing when the desktop connection is lost", async (
   assert.equal(state.data.connected, false);
   assert.deepEqual(state.data.history, []);
   assert.match(state.data.error, /请重新连接/);
+});
+
+test("app background closes the Pocket session and clears its token", () => {
+  let clientClosed = false;
+  const pageState = {
+    client: { close: () => { clientClosed = true; } },
+    token: "session-token",
+    pollTimer: setInterval(() => {}, 60_000),
+    data: { connected: true, history: [{ id: 1 }] },
+    resetConnection: homePage.resetConnection,
+    onAppHide: homePage.onAppHide,
+    setData(update) { this.data = { ...this.data, ...update }; }
+  };
+  try {
+    global.getCurrentPages = () => [pageState];
+    appDefinition.onHide();
+  } finally {
+    delete global.getCurrentPages;
+  }
+
+  assert.equal(clientClosed, true);
+  assert.equal(pageState.client, null);
+  assert.equal(pageState.token, "");
+  assert.equal(pageState.pollTimer, null);
+  assert.equal(pageState.data.connected, false);
+  assert.match(pageState.data.error, /返回后请重新配对/);
 });
