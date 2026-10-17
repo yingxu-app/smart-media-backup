@@ -67,3 +67,28 @@
 - macOS artifact `12059024846`（20,814,632 bytes）下载后独立核验：artifact ZIP digest `d3ca1aca82cb913aba3df412ee5819fc65fd4f35f9267ffa1ad6eda703e70f6c`；DMG SHA-256 `b159d6f10ae4b6fadd142000c062fa7db6eac954b6efa9cccf81b9c6a6cd976d`，随包 SHA256SUMS 匹配，`hdiutil verify` valid。挂载包的 App 版本为 1.0.40、Mach-O arm64，`codesign --verify --deep --strict` 通过；签名仍 ad-hoc、无 Team ID、未公证。
 - 这是 PR 候选构建门禁，不是公开发行或终端用户安装验收。PR #4 仍为 OPEN/DRAFT；Windows 真机、Apple 公证、移动端和小程序真机、商店审核仍未完成。
 - 将该 CI DMG 解出到 `/tmp/yingxu-ci-candidate-0b3/` 后，以隔离配置与临时端口 `18182` 实际启动：API 返回 `version=1.0.40`、`status=idle`；`/`、`/transfer`、`/history`、`/settings`、`/pocket/`、`/pocket/manifest.webmanifest`、`/pocket/sw.js` 均 HTTP 200。测试配置使用空挂载点且未插入素材卡，没有执行素材读写；结束后已停止 PID `78683` 并确认临时端口不再响应。这验证了下载 DMG 的包内运行时路由，不等于物理素材验收或公证。
+
+## 2026-10-17 续核（提交 04ce9d1）
+
+- 当前分支为 `codex/v1.0.39-miniprogram-lan-tcp`，HEAD `04ce9d1bece4f5300fe1f378d03cf1b0b4be0f22`；除未跟踪的 `mobile/` 基础脚手架外，未见其他工作区改动。
+- 本机复跑 `.venv/bin/python -m unittest discover -s tests -q`：79 项运行，77 通过、2 项 Windows 条件跳过。复跑 `node --test miniprogram/tests/pocket-client.test.cjs`：5 项通过。
+- PR #4 仍 OPEN/DRAFT、mergeable，head 为 `04ce9d1`。对应 Reliability run `38998932307`、Windows preview run `38998932368`、macOS candidate run `38998932403` 均为 success。它们证明 CI 门禁通过，不证明 Windows 实机安装或终端用户验收。
+- 新增的 `mobile/` 仅为 Expo SDK 58.0.14 / React Native 0.88.0 / React 19.3.0 基础脚手架，尚无 Router 页面、Pocket TCP 连接服务或 iOS/Android 安装包。尝试按 Expo 匹配版本安装 Router、AsyncStorage 与开发客户端时，npm registry 多次 `ECONNRESET`/超时；离线安装因缺少缓存元数据失败，停止继续重试。该脚手架不计为原生端功能完成。
+- 当前主机 `xcode-select -p` 为 `/Library/Developer/CommandLineTools`，没有完整 Xcode；未发现 `adb` 或 Android SDK 环境变量。原生构建、签名和商店提交仍需对应工具链与账号。
+- 本轮没有进行 Windows、iPhone、Android、微信开发者工具或真实 SD 卡验收；公开 Release 状态也没有在本轮从 GitHub API 重新确认。原有平台和发行门槛继续有效。
+
+## 2026-10-17 原生 Pocket 首个可运行代码闭环
+
+- `mobile/` 已安装 Expo Router、AsyncStorage、Expo Dev Client、`expo-system-ui` 与 `react-native-tcp-socket` 6.4.3；Expo SDK 58 匹配依赖检查通过。应用标识为 `yingxu-pocket`，iOS/Android bundle/package ID 暂用 `com.yingxuapp.pocket`；上线前仍需确认该标识可注册并属于发行账号。
+- 新增原生 Pocket 页面和 TCP 客户端：校验私有 IPv4 与 6 位配对码；使用与桌面/小程序一致的 percent-encoded JSON newline 协议、端口 18080；支持桌面状态、进度、最近历史、拍摄备注读写；每 15 秒刷新。配对码和会话 token 只在内存中，AsyncStorage 仅保存电脑地址；应用切入后台时关闭 socket，使桌面端撤销该连接令牌。
+- 新增 5 项 Node 协议测试，覆盖 UTF-8 字段往返、服务器错误、断线失败所有等待请求、超长帧/非法帧关闭、请求帧大小限制；5/5 通过。TypeScript `tsc --noEmit`、Expo lint 通过。
+- Expo CNG `prebuild --no-install --platform all` 成功；Android 与 iOS Metro bundle 分别导出至 `/tmp/yingxu-pocket-android-export` 与 `/tmp/yingxu-pocket-ios-export`，各自打包约 2.6 MB。这里只证明 JS 编译和 native 项目生成，不证明 IPA/APK 构建、设备安装或 TCP 实机连通。
+- `expo-doctor` 报告 14/20 项通过、6 项未通过：Expo config schema 检查因访问 Expo API 时 TLS 断开；若干依赖树检查的 `npm explain` 子命令失败；本机缺 CocoaPods；React Native Directory 将 `react-native-tcp-socket` 标为未验证 New Architecture。后者是明确的 iOS/Android 原生兼容风险，须通过 native build 与真机排除；本机又缺完整 Xcode、Android SDK/adb，当前无法完成该项。
+- Expo SDK 58 默认 Android targetSdk 为 36，符合截至 2026-08-31 Google Play 新应用 target API 36 的当前提交门槛。Android 17 / targetSdk 37 开始要求直接 LAN TCP 声明并在运行时申请 `ACCESS_LOCAL_NETWORK`；SDK 58 的 target 36 暂不应提前请求该权限。参见[Google Play target API 政策](https://support.google.com/googleplay/android-developer/answer/11926878)与[Android 局域网权限说明](https://developer.android.com/privacy-and-security/local-network-permission)。
+- 移动端仍未在 iPhone/Android 安装、未连真实桌面桥接、未完成锁屏/切网/重连验收；也未签名或上架。Expo Doctor 检查和 Android 运行时权限风险仍需在后续 SDK/发行门禁复核。
+
+## 2026-10-17 Pocket 移动端 CI
+
+- 新增 `.github/workflows/mobile.yml`：针对 `mobile/**` 的 PR 和 main push 运行；使用 Node 24、pnpm 11.25.0 和 frozen lockfile，执行 Expo 依赖兼容检查、lint、TypeScript、协议单测、CNG prebuild 以及 iOS/Android bundle export。
+- 本机按该 workflow 命令顺序复核成功：锁文件安装、Expo install check、lint、typecheck、5 项 Node 测试、iOS/Android prebuild 及两端约 2.6 MB JS bundle export 均通过。尚未触发 GitHub Actions，因此远端 CI 结果待提交后核对。
+- 这条 workflow 不构建签名 APK/IPA，也不证明 native module 在设备上的兼容性；完整 Xcode、Android SDK、设备安装及 Pocket 真机 TCP 仍未验收。
