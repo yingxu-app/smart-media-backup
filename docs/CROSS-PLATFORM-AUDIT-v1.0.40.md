@@ -9,7 +9,7 @@
 | macOS 桌面 | `/Applications/影序 YINGXU.app` 当前运行；`/api/status` 返回版本 `1.0.40`。`codesign` 显示 arm64、ad-hoc、无 Team ID。`RELEASE-v1.0.40.md` 记录此前真实 SD 卡 828 个素材扫描和候选路由验收。 | 本机候选已安装运行，未达到可公开分发签名状态。 | Apple Developer ID 签名、公证、升级/回滚验证、签名 DMG 正式发布与下载验收。 |
 | Windows 桌面 | Windows run `38927983658` 对提交 `393e035` 的可靠性测试、版本解析、PyInstaller、x64 PE/清单校验、artifact 上传均成功；产物 `12057552309`。此前 run `38926884128` 的 artifact `12057256711` 已下载回读，PE x64，EXE SHA-256 `72e9ec1f55b3378e466bdaa273cbe59ed9f1b7422a23a0fa709dcdd0c42057b8` 与包内清单匹配。 | CI 构建和一份 unsigned preview 下载核验通过；Windows 实机未验收。 | 在真实 Windows PC 安装、Defender、读卡器、素材备份/转移、拔盘和中断恢复；签名和正式发布。 |
 | 手机端 / Pocket PWA | 源码包含独立 Pocket 页面、manifest、Service Worker 和状态/历史/备注 API。v1.0.40 页面在 LAN HTTP 明示离线缓存不可用，在安全上下文尝试注册缓存。当前 `/api/status` 返回 1.0.40。 | 桌面提供的移动网页能力已存在；手机浏览器安装、断网与跨网验收不成立。 | iPhone 与 Android 同 Wi-Fi 配对、主屏幕入口、锁屏/后台、休眠恢复、离线和网络切换实测；明确是否还需原生 iOS/Android 商店应用。 |
-| 微信小程序 | `miniprogram/` 有页面、TCP 客户端与 Node 测试；桌面 TCP bridge 默认关闭。项目配置仍为占位 `touristappid`。PR #4 是 draft，正式连接方式未定。 | 原型代码存在，尚未成为可预览、可提审或可上架的小程序。 | 确认局域网 TCP / 微信云托管中继 / 备案域名 HTTPS/WSS；准备真实 AppID、开发者工具编译、真机配对、隐私审核和线上发布。 |
+| 微信小程序 | `miniprogram/` 页面与 LAN TCP 客户端已补充非对象响应拒绝、切后台关闭会话；本机 Node 测试 7 项通过。桌面 TCP bridge 默认关闭。微信开发者工具 CLI 打开项目时，`touristappid` 返回 code 10“不存在此 AppID”。 | 原型代码通过本机测试，但 DevTools 编译未开始，尚无真实 AppID、真机或审核证据。正式连接方式未定。 | 配置真实 AppID 并通过开发者工具编译；确认局域网 TCP / 微信云托管中继 / 备案域名 HTTPS/WSS；真机配对、隐私审核和线上发布。 |
 | 官网 / 网页 | 当前 GitHub Pages 首页与 `/download/` 带校验参数回读 HTTP 200；页面写明公开 Windows v1.0.34、macOS v1.0.40 候选未公开。 | 静态介绍与下载站已部署；浏览器在线备份产品范围未确认。 | 继续验证隐私页线上地址和无缓存访问；决定交付静态官网、在线网页应用或两者。在线备份若纳入范围，还需账户/数据/存储/隐私架构。 |
 | 公开发行 | GitHub Latest Release API 当前返回 `v1.0.34`，资产仅 `YINGXU-Windows-v1.0.34.exe` 与 `SHA256SUMS.txt`。 | v1.0.40 未发布。 | 完成平台真机验收、签名、公证/商店资料、版本升级回滚与公开下载入口验证后发布。 |
 
@@ -100,5 +100,13 @@
 - Pocket workflow run [`39001877447`](https://github.com/yingxu-app/smart-media-backup/actions/runs/39001877447) completed/success。`pocket` job `117306339821`：Expo install check、lint、TypeScript、5 项 Node 协议测试、CNG prebuild、iOS/Android bundle exports 全部通过，用时 1m16s。
 - iOS Simulator job `117306339650` completed/success，Build iOS Simulator app 通过，用时 18m6s。该 run 首次以 `macos-26-arm64` / Xcode 26.6.2 完成 React Native New Architecture 原生编译；这不是签名 IPA 或 iPhone 实机运行。
 - Android debug job `117306339938` completed/success，`assembleDebug` 与 artifact upload 均通过，用时 22m26s。artifact `12089997551` / `yingxu-pocket-android-debug-e6b7bda9a7d7dab0a3c64ecfb70180529403fab1.zip` 大小 94,576,763 bytes，ZIP 内含一个 269,562,283-byte `app-debug.apk`；APK SHA-256 为 `e92dbb426b647b9c1d77ddc41e1e64aa9d6edf0f5aa3485716bc2cc9572329b5`，包含 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 原生库。已下载到本机 `/tmp/yingxu-pocket-app-debug.apk`。这是 universal debug APK，不是 Google Play AAB/签名发行包，也未安装到 Android 真机。
-- PR #4 当前仍 OPEN/DRAFT，head 为 `bb4cdb5c0f2c8121e7bdd32525917de5bd21974c`，merge state CLEAN。当前 PR Reliability、Windows preview、macOS candidate 与 Pocket jobs 均 success。PR 通过不等于审查、合并、设备验收或上架。
+- 该次 run `39001877447` 完成时 PR #4 head 为 `bb4cdb5c0f2c8121e7bdd32525917de5bd21974c`、merge state CLEAN；此为历史快照，不代表当前 PR head。PR checks 通过不等于设备验收或上架。
 - 下一步：把该 artifact 用于可接触 Android 真机的安装/配对验收；准备正式 Android AAB、Apple 签名 IPA 和商店材料。iPhone/Android LAN 权限提示、桌面配对、后台/切网恢复仍未在设备上验证。
+
+## 2026-10-17 小程序 Pocket 协议与后台会话加固
+
+- 小程序 TCP 客户端现在要求桌面响应为非空 JSON object；`null`、数组、标量与无效 JSON 均按协议错误关闭连接并拒绝挂起请求。新增测试覆盖 `null`、`[]`、`42` 三种非对象帧。
+- 小程序 `App.onHide` 现在调用当前页面的后台清理钩子，关闭活动 TCP socket、清除会话令牌与轮询，并提示返回后重新配对。Tencent Cloud 当前的 [小程序 App 生命周期 API](https://intl.cloud.tencent.com/zh/document/product/1219/61712) 列明 `onHide` 用于监听小程序切换到后台。
+- 本地 `node --test miniprogram/tests/*.test.cjs` 7 项通过；移动端与小程序 Node 测试合计 12 项通过；桌面 `.venv/bin/python -m unittest discover -s tests -q` 运行 79 项、77 项通过、2 项 Windows 条件跳过。Expo lint、TypeScript、改动 JS 语法、相关 JSON 配置解析和 `git diff --check` 通过。
+- 微信开发者工具已安装。本机 CLI 尝试打开 `miniprogram/`，因项目配置占位 AppID `touristappid` 返回 code 10“不存在此 AppID”，编译未开始；这不是编译失败，也没有产生真实 AppID 预览或真机证据。需要真实 AppID 才能继续开发者工具验收。
+- 两个小程序修复提交 `4481450`、`3dd71c8` 已进入 PR #4。针对最新 head `3dd71c8` 的 test matrix 大部分已通过；run `39003760346` 的 Pocket job success，Android debug 与 iOS Simulator job 查询时仍在运行。PR 仍 OPEN/DRAFT，Windows/macOS/移动真机、签名和上架门槛未闭环。
