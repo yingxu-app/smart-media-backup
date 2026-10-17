@@ -27,7 +27,6 @@ jobs:
         with:
           version: 11.25.0
           runtime: node@24
-          working-directory: mobile
           cache: true
           cache-dependency-path: mobile/pnpm-lock.yaml
           install: false
