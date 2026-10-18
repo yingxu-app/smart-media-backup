@@ -101,6 +101,11 @@ class BackupProgress:
     def on_update(self, cb: Callable):
         self._callbacks.append(cb)
 
+    def reset(self):
+        callbacks = self._callbacks
+        self.__init__()
+        self._callbacks = callbacks
+
 
 class BackupEngine:
     """备份引擎 — 扫描→整理→拷贝→校验 全流程"""
@@ -576,6 +581,7 @@ class BackupEngine:
                     dest_path = os.path.join(dest_dir, f"{stem} ({index}){suffix}")
                     index += 1
 
+            copy_started = time.monotonic()
             ok, error = self._copy_and_verify_with_retry(
                 f["path"], dest_path, source_hash, enable_verify
             )
@@ -603,7 +609,11 @@ class BackupEngine:
                     )
                 self.progress.current_file = f"❌ {f['filename']}"
 
-            self.progress.bytes_copied += f.get("size", 0)
+            copy_seconds = max(time.monotonic() - copy_started, 0.001)
+            self.progress.current_speed = (
+                f.get("size", 0) / copy_seconds / (1024 * 1024) if ok else 0.0
+            )
+            self.progress.bytes_copied += f.get("size", 0) if ok else 0
             self.progress.copied_files += 1 if ok else 0
             self.progress.notify()
 
@@ -669,6 +679,8 @@ class BackupEngine:
         """
         self._cancel_flag.clear()
         self._pause_flag.clear()
+        self.progress.reset()
+        self._speed_bucket.clear()
         self.progress.status = "scanning"
         self.progress.start_time = time.time()
         self.progress.notify()
@@ -985,6 +997,8 @@ class BackupEngine:
 
             db.finish_backup(backup_id, final_status, "" if failed_count == 0 else "部分目标或文件未完成，原卡安全，可重新执行", report_path)
             self.progress.status = "done" if failed_count == 0 else "partial"
+            self.progress.current_speed = 0.0
+            self.progress.current_file = "备份已完成" if failed_count == 0 else "部分文件未完成，请查看报告"
             self.progress.can_cleanup = failed_count == 0
             self.progress.mount_point = mount_point
             self.progress.notify()
