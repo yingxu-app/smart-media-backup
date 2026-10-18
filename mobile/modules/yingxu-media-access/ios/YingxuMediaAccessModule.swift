@@ -6,7 +6,25 @@ import UIKit
 import UniformTypeIdentifiers
 import ImageIO
 
-public final class YingxuMediaAccessModule: Module, UIDocumentPickerDelegate {
+private final class YingxuDocumentPickerDelegate: NSObject, UIDocumentPickerDelegate {
+  let didPick: ([URL]) -> Void
+  let didCancel: () -> Void
+
+  init(didPick: @escaping ([URL]) -> Void, didCancel: @escaping () -> Void) {
+    self.didPick = didPick
+    self.didCancel = didCancel
+  }
+
+  func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+    didPick(urls)
+  }
+
+  func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+    didCancel()
+  }
+}
+
+public final class YingxuMediaAccessModule: Module {
   private struct IncomingWrite {
     let handle: FileHandle
     let temporary: URL
@@ -20,6 +38,10 @@ public final class YingxuMediaAccessModule: Module, UIDocumentPickerDelegate {
   private var activeURLs: [String: URL] = [:]
   private var incomingWrites: [String: IncomingWrite] = [:]
   private let service = "com.yingxuapp.pocket.secure"
+  private lazy var pickerDelegate = YingxuDocumentPickerDelegate(
+    didPick: { [weak self] urls in self?.finishPickerSelection(urls) },
+    didCancel: { [weak self] in self?.finishPickerCancellation() }
+  )
   private let photoExtensions: Set<String> = [
     "jpg", "jpeg", "png", "heic", "heif", "webp", "tif", "tiff", "bmp", "gif",
     "dng", "arw", "cr2", "cr3", "nef", "nrw", "orf", "rw2", "raf", "pef", "srw",
@@ -43,7 +65,7 @@ public final class YingxuMediaAccessModule: Module, UIDocumentPickerDelegate {
         }
         self.pickerPromise = promise
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
-        picker.delegate = self
+        picker.delegate = self.pickerDelegate
         picker.allowsMultipleSelection = false
         presenter.present(picker, animated: true)
       }
@@ -263,7 +285,7 @@ public final class YingxuMediaAccessModule: Module, UIDocumentPickerDelegate {
     }
   }
 
-  public func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+  private func finishPickerSelection(_ urls: [URL]) {
     guard let url = urls.first, let promise = pickerPromise else { return }
     pickerPromise = nil
     _ = url.startAccessingSecurityScopedResource()
@@ -274,7 +296,7 @@ public final class YingxuMediaAccessModule: Module, UIDocumentPickerDelegate {
     promise.resolve(["uri": url.absoluteString, "name": url.lastPathComponent])
   }
 
-  public func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+  private func finishPickerCancellation() {
     pickerPromise?.resolve(nil)
     pickerPromise = nil
   }
