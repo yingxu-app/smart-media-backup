@@ -1,0 +1,40 @@
+name: Reliability tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-24.04, windows-latest]
+        python-version: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install runtime dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile source
+        run: python -m compileall -q smb desktop tests
+      - name: Check Mini Program source
+        run: |
+          node --check miniprogram/app.js
+          node --check miniprogram/services/pocket-client.js
+          node --check miniprogram/pages/home/index.js
+          node --test miniprogram/tests/pocket-client.test.cjs
+      - name: Run reliability suite
+        env:
+          SMB_CONFIG_DIR: ${{ runner.temp }}/yingxu-test-config
+          # Windows runner 的 stdout 默认 cp1252，打印中文日期（如"2026年04月"）
+          # 会抛 UnicodeEncodeError 导致测试崩溃；强制 UTF-8 输出。
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+        run: python -m unittest discover -s tests -v

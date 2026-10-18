@@ -2,6 +2,7 @@
 import json
 import os
 import tempfile
+import uuid
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 
@@ -9,7 +10,7 @@ CONFIG_DIR = Path(os.environ.get("SMB_CONFIG_DIR", "~/.config/smb")).expanduser(
 CONFIG_FILE = CONFIG_DIR / "config.json"
 CONFIG_SCHEMA_FILE = CONFIG_DIR / "config.schema.json"
 DB_PATH = CONFIG_DIR / "backup_history.db"
-CONFIG_SCHEMA_VERSION = 2
+CONFIG_SCHEMA_VERSION = 3
 
 
 def _migrate_config_v1_to_v2(data: dict) -> dict:
@@ -21,8 +22,19 @@ def _migrate_config_v1_to_v2(data: dict) -> dict:
     return migrated
 
 
+def _migrate_config_v2_to_v3(data: dict) -> dict:
+    """Add public Firebase project settings; refresh tokens remain in OS keychain."""
+    migrated = dict(data)
+    migrated.setdefault("firebase_api_key", "")
+    migrated.setdefault("firebase_database_url", "")
+    migrated.setdefault("firebase_email", "")
+    migrated.setdefault("firebase_uid", "")
+    return migrated
+
+
 _CONFIG_MIGRATIONS = {
     1: _migrate_config_v1_to_v2,
+    2: _migrate_config_v2_to_v3,
 }
 
 
@@ -80,8 +92,16 @@ class AppConfig:
     # === 影序 Pocket（同一局域网内的手机协作页） ===
     pocket_enabled: bool = True
     pocket_session_hours: int = 12
-    # WeChat Mini Program TCP access is opt-in and separate from the browser PWA.
+    # Native Pocket app LAN access is opt-in and separate from the browser UI.
     pocket_tcp_enabled: bool = False
+
+    # Firebase API key and database URL identify the public project only. Session
+    # refresh tokens are stored separately in the operating-system credential vault.
+    firebase_api_key: str = ""
+    firebase_database_url: str = ""
+    firebase_email: str = ""
+    firebase_uid: str = ""
+    firebase_device_id: str = field(default_factory=lambda: f"desktop-{uuid.uuid4().hex[:16]}")
 
     # === 扫描目录（平台自动探测） ===
     mount_points: list = field(default_factory=lambda: [

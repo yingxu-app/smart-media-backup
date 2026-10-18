@@ -89,7 +89,7 @@ test("closes on oversized response frames", async () => {
   const socket = getSocket();
   const pending = client.request("status", { token: "local-session" });
   const rejection = assert.rejects(pending, /桌面端返回内容超出限制/);
-  socket.emit("data", Buffer.from(`${"x".repeat(256 * 1024 + 1)}\n`, "ascii"));
+  socket.emit("data", Buffer.from(`${"x".repeat(2 * 1024 * 1024 + 1)}\n`, "ascii"));
   await rejection;
   assert.equal(socket.destroyed, true);
 });

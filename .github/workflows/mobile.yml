@@ -4,11 +4,17 @@ on:
   pull_request:
     paths:
       - "mobile/**"
+      - "smb/pocket_tcp.py"
+      - "smb/server.py"
+      - "tests/test_pocket_tcp.py"
       - ".github/workflows/mobile.yml"
   push:
     branches: [main]
     paths:
       - "mobile/**"
+      - "smb/pocket_tcp.py"
+      - "smb/server.py"
+      - "tests/test_pocket_tcp.py"
       - ".github/workflows/mobile.yml"
   workflow_dispatch:
 

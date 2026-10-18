@@ -37,6 +37,35 @@
     <div id="saveMsg" class="save-msg" style="display:none;"></div>
 </div>
 
+<!-- Cross-device metadata sync -->
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>🔄 手机与电脑进度同步</h3></div>
+    <p class="pocket-copy">使用 Firebase 邮箱账号同步备份进度和历史元数据。照片、视频、电脑路径和密码不会上传；刷新令牌保存在本机系统凭据库。需要先配置自己的 Firebase 项目。</p>
+    <div class="form-row">
+        <label for="firebaseApiKey">Firebase Web API Key</label>
+        <input type="text" id="firebaseApiKey" autocomplete="off" placeholder="AIza…" style="flex:1;">
+    </div>
+    <div class="form-row">
+        <label for="firebaseDatabaseUrl">Realtime Database URL</label>
+        <input type="url" id="firebaseDatabaseUrl" autocomplete="off" placeholder="https://项目-default-rtdb.firebaseio.com" style="flex:1;">
+    </div>
+    <div class="form-row">
+        <label for="firebaseEmail">邮箱</label>
+        <input type="email" id="firebaseEmail" autocomplete="username" placeholder="name@example.com" style="flex:1;">
+    </div>
+    <div class="form-row">
+        <label for="firebasePassword">密码</label>
+        <input type="password" id="firebasePassword" autocomplete="current-password" placeholder="只用于本次 Firebase 登录" style="flex:1;">
+    </div>
+    <div class="form-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-primary" onclick="firebaseLogin()">登录并同步</button>
+        <button class="btn-secondary" onclick="firebaseLogout()">退出同步账号</button>
+        <button class="btn-secondary" onclick="loadFirebaseHistory()">刷新云端历史</button>
+    </div>
+    <div id="firebaseSyncMsg" class="save-msg" style="display:none;"></div>
+    <div id="firebaseHistory" style="margin-top:12px;"></div>
+</div>
+
 <!-- 百度网盘设置 -->
 <div class="card settings-form" style="margin-top:16px;">
     <div class="card-header"><h3>☁️ 百度网盘</h3></div>
@@ -186,16 +215,16 @@
     <div id="pocketPairing" class="pocket-pairing" style="display:none;">
         <div><span class="pocket-caption">手机访问地址</span><strong id="pocketUrl">—</strong></div>
         <div><span class="pocket-caption">10 分钟有效配对码</span><strong id="pocketCode" class="pocket-code">—</strong></div>
-        <div id="pocketTcpPairing" style="display:none;"><span class="pocket-caption">微信小程序 TCP 地址</span><strong id="pocketTcpUrl">—</strong></div>
+        <div id="pocketTcpPairing" style="display:none;"><span class="pocket-caption">Pocket App TCP 地址</span><strong id="pocketTcpUrl">—</strong></div>
     </div>
     <small class="setting-help">iPhone：Safari 打开地址并配对后，可点“分享 → 添加到主屏幕”。此网页不能像原生 App 一样读取手机全部照片或在后台自动复制。</small>
     <div class="form-row pocket-tcp-row">
-        <label for="pocketTcpEnabled">微信小程序局域网直连</label>
+        <label for="pocketTcpEnabled">Pocket 手机 App 局域网协作</label>
         <label class="toggle">
             <input type="checkbox" id="pocketTcpEnabled" onchange="savePocketTcpSetting()">
             <span class="toggle-slider"></span>
         </label>
-        <small class="setting-help">默认关闭。开启后在端口 18080 启动 Pocket 专用 TCP 服务，仅提供配对、状态、历史摘要和拍摄备注；不会中继照片或文件。该直连不使用 TLS，只应在可信局域网使用，切勿转发到公网。微信小程序配对码与此处生成的配对码相同。</small>
+        <small class="setting-help">默认关闭。开启后在端口 18080 启动 Pocket 专用 TCP 服务，接受配对手机的状态、历史、拍摄备注及电脑备份控制；手机原片只可写入电脑已配置目标下的“影序手机备份”目录，并逐文件校验，不开放任意桌面路径。连接不使用 TLS，只应在可信局域网使用，切勿转发到公网。手机 App 使用此处生成的配对码。</small>
         <div id="pocketTcpStatus" class="save-msg" style="display:none;"></div>
     </div>
 </div>
@@ -219,6 +248,8 @@ document.addEventListener("DOMContentLoaded", function() {
     loadBaiduStatus();
     loadAIStatus();
     loadPocketTcpSettings();
+    loadFirebaseSettings();
+    window.setInterval(loadPocketTcpSettings, 3000);
 });
 
 function loadSettings() {
@@ -271,6 +302,68 @@ function resetSettings() {
     document.getElementById("saveMsg").textContent = "🔄 已恢复默认设置";
     document.getElementById("saveMsg").style.color = "#fbbf24";
     setTimeout(() => document.getElementById("saveMsg").style.display = "none", 3000);
+}
+
+function firebaseMessage(text, failed = false) {
+    const msg = document.getElementById("firebaseSyncMsg");
+    msg.style.display = "block";
+    msg.textContent = text;
+    msg.style.color = failed ? "#e74c3c" : "#4ade80";
+}
+
+function loadFirebaseSettings() {
+    fetch("/api/firebase/settings").then(r => r.json()).then(data => {
+        document.getElementById("firebaseApiKey").value = data.api_key || "";
+        document.getElementById("firebaseDatabaseUrl").value = data.database_url || "";
+        document.getElementById("firebaseEmail").value = data.email || "";
+        if (data.signed_in) firebaseMessage(`已登录：${data.email || "影序账号"}`);
+    }).catch(() => firebaseMessage("无法读取同步设置。", true));
+}
+
+async function firebaseLogin() {
+    const apiKey = document.getElementById("firebaseApiKey").value.trim();
+    const databaseUrl = document.getElementById("firebaseDatabaseUrl").value.trim();
+    const email = document.getElementById("firebaseEmail").value.trim();
+    const passwordInput = document.getElementById("firebasePassword");
+    const password = passwordInput.value;
+    try {
+        const saved = await fetch("/api/firebase/settings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({api_key:apiKey, database_url:databaseUrl, email})}).then(r => r.json());
+        if (saved.error) throw new Error(saved.error);
+        const result = await fetch("/api/firebase/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, password})}).then(r => r.json());
+        passwordInput.value = "";
+        if (result.error) throw new Error(result.error);
+        firebaseMessage(`已登录：${result.email}；正在同步本机历史。`);
+        await loadFirebaseHistory();
+    } catch (error) { passwordInput.value = ""; firebaseMessage(error.message || "Firebase 登录失败。", true); }
+}
+
+async function firebaseLogout() {
+    try {
+        const result = await fetch("/api/firebase/logout", {method:"POST"}).then(r => r.json());
+        if (result.error) throw new Error(result.error);
+        document.getElementById("firebaseHistory").replaceChildren();
+        firebaseMessage("已退出同步账号；本机备份和历史不受影响。");
+    } catch (error) { firebaseMessage(error.message || "退出登录失败。", true); }
+}
+
+async function loadFirebaseHistory() {
+    try {
+        const result = await fetch("/api/firebase/history").then(r => r.json());
+        if (result.error) throw new Error(result.error);
+        const host = document.getElementById("firebaseHistory");
+        host.replaceChildren();
+        (result.items || []).slice(0, 20).forEach(item => {
+            const row = document.createElement("div");
+            row.className = "history-row";
+            const title = document.createElement("strong");
+            title.textContent = item.eventName || item.deviceName || "影序同步记录";
+            const detail = document.createElement("small");
+            detail.textContent = `${item.deviceName || "设备"} · ${item.status || "状态未知"} · ${item.processedFiles || 0}/${item.totalFiles || 0}`;
+            row.append(title, detail);
+            host.append(row);
+        });
+        firebaseMessage(`已读取 ${result.items?.length || 0} 条云端历史。`);
+    } catch (error) { firebaseMessage(error.message || "读取云端历史失败。", true); }
 }
 
 function loadStorageChart() {
@@ -512,7 +605,7 @@ async function loadPocketTcpSettings() {
         document.getElementById("pocketTcpEnabled").checked = data.enabled === true;
         showPocketTcpStatus(data);
     } catch (_) {
-        showPocketTcpStatus({error: "读取小程序 TCP 状态失败"});
+        showPocketTcpStatus({error: "读取 Pocket App 连接状态失败"});
     }
 }
 
@@ -544,13 +637,18 @@ function showPocketTcpStatus(data) {
         status.textContent = `❌ ${data.error}`;
         status.style.color = "#e74c3c";
     } else if (data.running) {
-        status.textContent = `✅ 已开启：${data.host}:${data.port}（仅局域网）`;
+        const transfer = data.phone_transfer || {};
+        const active = ["copying", "paused", "queued"].includes(transfer.status);
+        const count = `${transfer.processed_files || 0} / ${transfer.total_files || 0} 项`;
+        const current = transfer.current_file ? ` · ${transfer.current_file}` : "";
+        const label = transfer.status === "paused" ? "已暂停" : transfer.status === "queued" ? "等待重连" : "正在传输";
+        status.textContent = `✅ 已开启：${data.host}:${data.port}（仅局域网）${active ? `\n手机导入：${label} ${count}${current}` : ""}`;
         status.style.color = "#4ade80";
     } else if (data.enabled) {
         status.textContent = "⚠️ 设置为开启，但服务未运行；请检查端口占用后重启影序";
         status.style.color = "#f0ad4e";
     } else {
-        status.textContent = "已关闭；不会开放小程序 TCP 端口";
+        status.textContent = "已关闭；不会开放 Pocket 手机 App TCP 端口";
         status.style.color = "var(--text-dim)";
     }
 }

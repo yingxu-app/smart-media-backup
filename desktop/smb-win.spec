@@ -33,6 +33,7 @@ a = Analysis(
         "json", "sqlite3", "threading", "webbrowser", "hashlib",
         "concurrent", "concurrent.futures",
         "webview", "clr_loader", "pythonnet",
+        "smb.firebase_sync", "keyring", "keyring.backends.Windows",
     ],
     hookspath=[],
     hooksconfig={},

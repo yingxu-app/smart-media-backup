@@ -71,6 +71,8 @@ class PocketApiTests(unittest.TestCase):
         server.pocket_pairing = PocketPairingManager()
         server.pocket_notes = PocketNotesStore(self.root / "notes.json")
         server.config.pocket_enabled = True
+        # Avoid inheriting a user's persisted opt-in LAN listener setting.
+        server.config.pocket_tcp_enabled = False
         server.app.config.update(TESTING=True)
         self.client = server.app.test_client()
 

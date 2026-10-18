@@ -1,5 +1,5 @@
 const MAX_REQUEST_BYTES = 8 * 1024;
-const MAX_RESPONSE_CHARS = 256 * 1024;
+const MAX_RESPONSE_CHARS = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 15_000;
 const CONNECT_TIMEOUT_MS = 10_000;
 
@@ -87,6 +87,10 @@ class PocketTcpClient {
         reject(error);
       }
     });
+  }
+
+  isClosed() {
+    return this.closed || !this.socket;
   }
 
   _receive(chunk) {
