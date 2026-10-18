@@ -40,7 +40,7 @@
 <!-- Cross-device metadata sync -->
 <div class="card settings-form" style="margin-top:16px;">
     <div class="card-header"><h3>🔄 手机与电脑进度同步</h3></div>
-    <p class="pocket-copy">使用 Firebase 邮箱账号同步备份进度和历史元数据。照片、视频、电脑路径和密码不会上传；刷新令牌保存在本机系统凭据库。需要先配置自己的 Firebase 项目。</p>
+    <p class="pocket-copy">使用 Firebase 邮箱账号同步备份进度和历史元数据。活动任务会实时订阅，历史记录可手动刷新。照片、视频、电脑路径和密码不会上传；刷新令牌保存在本机系统凭据库。需要先配置自己的 Firebase 项目。</p>
     <div class="form-row">
         <label for="firebaseApiKey">Firebase Web API Key</label>
         <input type="text" id="firebaseApiKey" autocomplete="off" placeholder="AIza…" style="flex:1;">
@@ -63,6 +63,7 @@
         <button class="btn-secondary" onclick="loadFirebaseHistory()">刷新云端历史</button>
     </div>
     <div id="firebaseSyncMsg" class="save-msg" style="display:none;"></div>
+    <div id="firebaseLive" class="history-list" style="margin-top:12px;" aria-live="polite"></div>
     <div id="firebaseHistory" style="margin-top:12px;"></div>
 </div>
 
@@ -249,7 +250,9 @@ document.addEventListener("DOMContentLoaded", function() {
     loadAIStatus();
     loadPocketTcpSettings();
     loadFirebaseSettings();
+    loadFirebaseLive();
     window.setInterval(loadPocketTcpSettings, 3000);
+    window.setInterval(loadFirebaseLive, 3000);
 });
 
 function loadSettings() {
@@ -334,6 +337,7 @@ async function firebaseLogin() {
         if (result.error) throw new Error(result.error);
         firebaseMessage(`已登录：${result.email}；正在同步本机历史。`);
         await loadFirebaseHistory();
+        await loadFirebaseLive();
     } catch (error) { passwordInput.value = ""; firebaseMessage(error.message || "Firebase 登录失败。", true); }
 }
 
@@ -342,8 +346,46 @@ async function firebaseLogout() {
         const result = await fetch("/api/firebase/logout", {method:"POST"}).then(r => r.json());
         if (result.error) throw new Error(result.error);
         document.getElementById("firebaseHistory").replaceChildren();
+        document.getElementById("firebaseLive").replaceChildren();
         firebaseMessage("已退出同步账号；本机备份和历史不受影响。");
     } catch (error) { firebaseMessage(error.message || "退出登录失败。", true); }
+}
+
+let firebaseLiveLoading = false;
+async function loadFirebaseLive() {
+    if (firebaseLiveLoading) return;
+    firebaseLiveLoading = true;
+    try {
+        const response = await fetch("/api/firebase/live");
+        const result = await response.json();
+        const host = document.getElementById("firebaseLive");
+        if (response.status === 401) {
+            host.textContent = "登录影序云同步账号后，可在此查看其他设备的实时备份进度。";
+            return;
+        }
+        if (!response.ok || result.error) throw new Error(result.error || "读取实时进度失败");
+        host.replaceChildren();
+        const active = (result.items || []).filter(item => ["scanning", "copying", "verifying", "paused", "queued"].includes(String(item.status)));
+        if (active.length === 0) {
+            host.textContent = result.error || (result.updatedAt ? "当前没有其他设备正在备份。" : "正在连接云端实时进度…");
+            return;
+        }
+        active.forEach(item => {
+            const row = document.createElement("div");
+            row.className = "history-row";
+            const title = document.createElement("strong");
+            title.textContent = `${item.deviceName || "影序设备"} · ${item.eventName || "备份任务"}`;
+            const detail = document.createElement("small");
+            const current = item.currentFile ? ` · 当前：${item.currentFile}` : "";
+            detail.textContent = `${item.status} · ${item.processedFiles || 0}/${item.totalFiles || 0} 项 · 已校验 ${item.verifiedFiles || 0} · 失败 ${item.failedFiles || 0}${current}`;
+            row.append(title, detail);
+            host.append(row);
+        });
+    } catch (error) {
+        document.getElementById("firebaseLive").textContent = error.message || "云端实时进度暂不可用。";
+    } finally {
+        firebaseLiveLoading = false;
+    }
 }
 
 async function loadFirebaseHistory() {
@@ -352,15 +394,49 @@ async function loadFirebaseHistory() {
         if (result.error) throw new Error(result.error);
         const host = document.getElementById("firebaseHistory");
         host.replaceChildren();
-        (result.items || []).slice(0, 20).forEach(item => {
-            const row = document.createElement("div");
-            row.className = "history-row";
+        (result.items || []).slice(0, 100).forEach(item => {
+            const entry = document.createElement("details");
+            entry.className = "firebase-history-entry";
+            const summary = document.createElement("summary");
             const title = document.createElement("strong");
             title.textContent = item.eventName || item.deviceName || "影序同步记录";
-            const detail = document.createElement("small");
-            detail.textContent = `${item.deviceName || "设备"} · ${item.status || "状态未知"} · ${item.processedFiles || 0}/${item.totalFiles || 0}`;
-            row.append(title, detail);
-            host.append(row);
+            const summaryDetail = document.createElement("small");
+            summaryDetail.textContent = `${item.deviceName || "设备"} · ${item.targetName || "目标未知"} · ${item.status || "状态未知"} · ${item.processedFiles || 0}/${item.totalFiles || 0}`;
+            summary.append(title, summaryDetail);
+            entry.append(summary);
+            const detail = document.createElement("div");
+            detail.className = "firebase-history-detail";
+            [
+                `开始：${item.startedAt || "未知"}；结束：${item.finishedAt || "进行中"}`,
+                `文件：${item.totalFiles || 0}；总大小：${item.totalBytes || 0} bytes；已复制：${item.copiedFiles || 0}；已跳过：${item.skippedFiles || 0}；已校验：${item.verifiedFiles || 0}；失败：${item.failedFiles || 0}`,
+                item.location ? `地点：${item.location}` : "",
+                item.cameraDevice ? `拍摄设备：${item.cameraDevice}` : "",
+                item.notes ? `备注：${item.notes}` : "",
+                item.currentFile ? `当前文件：${item.currentFile}` : "",
+            ].filter(Boolean).forEach(text => {
+                const line = document.createElement("div");
+                line.textContent = text;
+                detail.append(line);
+            });
+            if (Array.isArray(item.files) && item.files.length) {
+                const files = document.createElement("details");
+                const filesSummary = document.createElement("summary");
+                filesSummary.textContent = `文件明细（${item.files.length} 项）`;
+                const list = document.createElement("ul");
+                files.addEventListener("toggle", () => {
+                    if (!files.open || files.dataset.loaded) return;
+                    item.files.forEach(file => {
+                        const li = document.createElement("li");
+                        li.textContent = `${file.name || "未命名文件"} · ${file.status || "未知"} · ${file.size || 0} bytes`;
+                        list.append(li);
+                    });
+                    files.dataset.loaded = "true";
+                });
+                files.append(filesSummary, list);
+                detail.append(files);
+            }
+            entry.append(detail);
+            host.append(entry);
         });
         firebaseMessage(`已读取 ${result.items?.length || 0} 条云端历史。`);
     } catch (error) { firebaseMessage(error.message || "读取云端历史失败。", true); }
@@ -731,6 +807,12 @@ document.addEventListener("DOMContentLoaded", function() { loadAdvancedSettings(
 .pocket-caption { color:var(--text-dim); font-size:.78em; }
 .pocket-pairing strong { overflow-wrap:anywhere; }
 .pocket-code { color:var(--accent); font-size:1.7em; letter-spacing:.18em; }
+.firebase-history-entry { padding:10px 0; border-bottom:1px solid var(--border); }
+.firebase-history-entry > summary { display:flex; flex-direction:column; gap:5px; cursor:pointer; }
+.firebase-history-entry > summary small { color:var(--text-dim); }
+.firebase-history-detail { padding:10px 0 0 16px; color:var(--text-dim); font-size:.88em; line-height:1.7; overflow-wrap:anywhere; }
+.firebase-history-detail ul { max-height:320px; overflow:auto; padding-left:20px; }
+.firebase-history-detail details { margin-top:8px; }
 @media (max-width:680px) { .pocket-pairing { grid-template-columns:1fr; } }
 
 /* Toggle开关 */

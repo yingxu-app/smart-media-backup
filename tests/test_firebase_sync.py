@@ -1,6 +1,8 @@
 import unittest
+import json
 import tempfile
 import time
+import threading
 from pathlib import Path
 
 from smb.firebase_sync import FirebaseSyncClient, public_metadata
@@ -27,6 +29,21 @@ class FakeResponse:
 
     def json(self):
         return self.payload
+
+
+class FakeStreamingResponse:
+    status_code = 200
+
+    def __init__(self, lines):
+        self.lines = lines
+        self.closed = threading.Event()
+
+    def iter_lines(self, decode_unicode=False):
+        yield from self.lines
+        self.closed.wait(1)
+
+    def close(self):
+        self.closed.set()
 
 
 class FakeSession:
@@ -111,6 +128,30 @@ class FirebaseSyncTests(unittest.TestCase):
             session.responses.append(FakeResponse(200, {"name": "ok"}))
             self.assertTrue(client.flush_outbox())
             self.assertFalse(outbox.exists())
+
+    def test_realtime_watch_receives_other_device_progress_and_stops_cleanly(self):
+        payload = {"path": "/", "data": {"pocket-1": {
+            "deviceName": "影序 Pocket", "eventName": "山景", "status": "copying",
+            "currentFile": "IMG_1.JPG", "processedFiles": 3, "totalFiles": 10,
+        }}}
+        response = FakeStreamingResponse(["event: put", "data: " + json.dumps(payload, ensure_ascii=False), ""])
+        session = FakeSession([response])
+        with tempfile.TemporaryDirectory() as directory:
+            client = FirebaseSyncClient("api-key", "https://yingxu.firebaseio.com", MemoryTokenStore(), "desktop-1",
+                                        session=session, outbox_path=Path(directory) / "outbox.json")
+            client.uid = "uid-1"
+            client._id_token = "id-token"
+            client._expires_at = time.time() + 3600
+            client.start_live_watch()
+            self.assertTrue(client.wait_for_live_update(timeout=1))
+            snapshot = client.live_snapshot()
+            self.assertEqual(snapshot["items"][0]["currentFile"], "IMG_1.JPG")
+            self.assertEqual(snapshot["items"][0]["processedFiles"], 3)
+            self.assertEqual(session.calls[0][0], "GET")
+            self.assertTrue(session.calls[0][2]["stream"])
+            self.assertIn("/users/uid-1/live.json", session.calls[0][1])
+            client.stop_live_watch()
+            self.assertTrue(response.closed.is_set())
 
 
 if __name__ == "__main__":

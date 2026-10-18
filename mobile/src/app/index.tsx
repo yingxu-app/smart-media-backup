@@ -110,6 +110,7 @@ export default function PocketHome() {
   const [firebaseUser, setFirebaseUser] = useState("");
   const [cloudMessage, setCloudMessage] = useState("");
   const [cloudHistory, setCloudHistory] = useState<Record<string, any>[]>([]);
+  const [expandedCloudRecordId, setExpandedCloudRecordId] = useState("");
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const mobileEngineRef = useRef<any>(null);
   const desktopDownloadRef = useRef<any>(null);
@@ -788,7 +789,24 @@ export default function PocketHome() {
             </View>
             {firebaseUser ? <Pressable onPress={async () => { cloudWatchStopsRef.current.splice(0).forEach((stop) => stop()); await cloudClientRef.current?.signOut(); setFirebaseUser(""); setCloudHistory([]); }}><Text style={styles.smallHint}>退出账号</Text></Pressable> : null}
             {!!cloudMessage && <Text style={styles.smallHint}>{cloudMessage}</Text>}
-            {cloudHistory.slice(0, 8).map((item: any, index) => <View key={`${item.id || item.deviceId || "cloud"}-${index}`} style={[styles.historyRow, styles.rowDivider]}><View style={styles.historyMain}><Text style={styles.historyTitle}>{item.eventName || item.deviceName || "同步记录"}</Text><Text style={styles.historyMeta}>{item.targetName || "目标未知"} · {item.status || "未知状态"}</Text></View><Text style={styles.historyCount}>{formatCount(item.processedFiles)} / {formatCount(item.totalFiles)}</Text></View>)}
+            {cloudHistory.slice(0, 100).map((item: any, index) => {
+              const recordId = String(item.id || `${item.deviceId || "cloud"}-${index}`);
+              const expanded = expandedCloudRecordId === recordId;
+              return <View key={recordId} style={styles.cloudHistoryEntry}>
+                <Pressable onPress={() => setExpandedCloudRecordId(expanded ? "" : recordId)} style={[styles.historyRow, styles.rowDivider]} accessibilityRole="button">
+                  <View style={styles.historyMain}><Text style={styles.historyTitle}>{item.eventName || item.deviceName || "同步记录"}</Text><Text style={styles.historyMeta}>{item.deviceName || "设备"} · {item.targetName || "目标未知"} · {item.status || "未知状态"}</Text></View>
+                  <Text style={styles.historyCount}>{formatCount(item.processedFiles)} / {formatCount(item.totalFiles)} · {expanded ? "收起" : "详情"}</Text>
+                </Pressable>
+                {expanded ? <View style={styles.cloudHistoryDetail}>
+                  <Text style={styles.smallHint}>开始：{item.startedAt || "未知"}　结束：{item.finishedAt || "进行中"}</Text>
+                  <Text style={styles.smallHint}>大小：{formatBytes(item.totalBytes)}　已复制：{formatCount(item.copiedFiles)}　已跳过：{formatCount(item.skippedFiles)}　已校验：{formatCount(item.verifiedFiles)}　失败：{formatCount(item.failedFiles)}</Text>
+                  {!!item.location && <Text style={styles.smallHint}>地点：{item.location}</Text>}
+                  {!!item.cameraDevice && <Text style={styles.smallHint}>设备：{item.cameraDevice}</Text>}
+                  {!!item.notes && <Text style={styles.smallHint}>备注：{item.notes}</Text>}
+                  {Array.isArray(item.files) && item.files.map((file: any, fileIndex: number) => <Text key={`${file.name || "file"}-${fileIndex}`} style={styles.cloudFileDetail}>{file.name || "未命名文件"} · {file.status || "未知"} · {formatBytes(file.size)}</Text>)}
+                </View> : null}
+              </View>;
+            })}
           </View>
 
           {!connected ? (
@@ -1041,6 +1059,9 @@ const styles = StyleSheet.create({
   historyCount: { color: "#77766F", fontSize: 12 },
   reportButton: { marginLeft: 10, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, backgroundColor: "#E8EEE9" },
   reportButtonText: { color: "#273D31", fontSize: 12, fontWeight: "700" },
+  cloudHistoryEntry: { borderTopColor: "#EAE8E2", borderTopWidth: StyleSheet.hairlineWidth },
+  cloudHistoryDetail: { paddingBottom: 12, gap: 4 },
+  cloudFileDetail: { color: "#77766F", fontSize: 11, paddingVertical: 2 },
   preferenceRow: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   preferenceLabel: { color: "#343932", fontSize: 14, flex: 1, paddingRight: 12 },
   noteField: { marginBottom: 3 },

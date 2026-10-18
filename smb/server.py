@@ -1484,6 +1484,8 @@ def api_firebase_settings():
     email = str(data.get("email", config.firebase_email)).strip()
     if database_url and not database_url.startswith("https://"):
         return jsonify({"error": "Realtime Database 地址必须使用 HTTPS。"}), 400
+    if _firebase_sync_client:
+        _firebase_sync_client.stop_live_watch()
     config.firebase_api_key = api_key
     config.firebase_database_url = database_url
     config.firebase_email = email
@@ -1511,6 +1513,7 @@ def api_firebase_login():
     config.firebase_email = account["email"]
     config.firebase_uid = account["uid"]
     config.save()
+    client.start_live_watch()
     threading.Thread(target=_sync_latest_desktop_history, daemon=True, name="yingxu-firebase-history").start()
     return jsonify({"status": "signed_in", "email": account["email"]})
 
@@ -1520,6 +1523,7 @@ def api_firebase_logout():
     global _firebase_sync_client
     try:
         if _firebase_sync_client:
+            _firebase_sync_client.stop_live_watch()
             _firebase_sync_client.sign_out()
         elif config.firebase_uid:
             KeyringTokenStore().remove(config.firebase_uid)
@@ -1537,11 +1541,24 @@ def api_firebase_history():
         client = _get_firebase_sync_client()
         if not client.uid and not client.restore_session(config.firebase_uid, config.firebase_email):
             return jsonify({"error": "请先登录影序云同步账号。"}), 401
+        client.start_live_watch()
         values = client.get("history") or {}
         items = sorted(values.values(), key=lambda item: str(item.get("startedAt") or ""), reverse=True)
         return jsonify({"items": items[:100]})
     except Exception:
         return jsonify({"error": "读取 Firebase 历史失败，请检查账号、项目配置、数据库规则或网络。"}), 502
+
+
+@app.route("/api/firebase/live")
+def api_firebase_live():
+    try:
+        client = _get_firebase_sync_client()
+        if not client.uid and not client.restore_session(config.firebase_uid, config.firebase_email):
+            return jsonify({"error": "请先登录影序云同步账号。"}), 401
+        client.start_live_watch()
+        return jsonify(client.live_snapshot())
+    except Exception:
+        return jsonify({"error": "读取 Firebase 实时进度失败，请检查账号、项目配置、数据库规则或网络。"}), 502
 
 
 @app.route("/api/setup/status")

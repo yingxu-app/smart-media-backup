@@ -101,6 +101,14 @@ class FirebaseSyncClient:
         self._last_progress_at = 0.0
         self.outbox_path = Path(outbox_path) if outbox_path else CONFIG_DIR / "firebase_sync_outbox.json"
         self._outbox_lock = threading.RLock()
+        self._live_lock = threading.RLock()
+        self._live_stop: threading.Event | None = None
+        self._live_thread: threading.Thread | None = None
+        self._live_response = None
+        self._live_value: dict[str, Any] = {}
+        self._live_error = ""
+        self._live_updated_at = 0.0
+        self._live_updated = threading.Event()
 
     @property
     def configured(self) -> bool:
@@ -159,6 +167,7 @@ class FirebaseSyncClient:
         return bool(self._id_token)
 
     def sign_out(self) -> None:
+        self.stop_live_watch()
         with self._lock:
             uid = self.uid
             self.uid = self.email = self._id_token = ""
@@ -191,6 +200,137 @@ class FirebaseSyncClient:
         encoded_path = self._encode_database_path(path)
         url = f"{self.database_url}/users/{quote(self.uid, safe='')}/{encoded_path}.json?auth={quote(token, safe='')}"
         return self._json_request("GET", url)
+
+    def start_live_watch(self) -> None:
+        """Subscribe to other devices' active progress using RTDB's SSE endpoint."""
+        if not self.uid:
+            raise PermissionError("请先登录影序云同步账号")
+        with self._live_lock:
+            if self._live_thread and self._live_thread.is_alive():
+                return
+            self._live_stop = threading.Event()
+            self._live_error = ""
+            self._live_thread = threading.Thread(
+                target=self._live_watch_loop, args=(self._live_stop,),
+                daemon=True, name="yingxu-firebase-live-watch",
+            )
+            self._live_thread.start()
+
+    def stop_live_watch(self) -> None:
+        with self._live_lock:
+            stop = self._live_stop
+            response = self._live_response
+            thread = self._live_thread
+            self._live_stop = None
+            self._live_response = None
+            self._live_thread = None
+        if stop:
+            stop.set()
+        if response:
+            try:
+                response.close()
+            except Exception:
+                pass
+        if thread and thread is not threading.current_thread():
+            thread.join(timeout=2)
+
+    def live_snapshot(self) -> dict[str, Any]:
+        with self._live_lock:
+            return {
+                "items": [dict(item) for item in self._live_value.values() if isinstance(item, dict)],
+                "error": self._live_error,
+                "updatedAt": self._live_updated_at,
+            }
+
+    def wait_for_live_update(self, timeout: float = 1.0) -> bool:
+        updated = self._live_updated.wait(timeout)
+        self._live_updated.clear()
+        return updated
+
+    def _apply_live_event(self, event: str, payload: dict[str, Any]) -> None:
+        path = str(payload.get("path") or "/")
+        segments = [part for part in path.split("/") if part]
+        data = payload.get("data")
+        with self._live_lock:
+            if not segments and event == "put":
+                self._live_value = data if isinstance(data, dict) else {}
+            elif not segments and event == "patch" and isinstance(data, dict):
+                self._live_value.update(data)
+            elif segments:
+                target: dict[str, Any] = self._live_value
+                for segment in segments[:-1]:
+                    child = target.get(segment)
+                    if not isinstance(child, dict):
+                        child = {}
+                        target[segment] = child
+                    target = child
+                if event == "patch" and isinstance(data, dict):
+                    current = target.get(segments[-1])
+                    if not isinstance(current, dict):
+                        current = {}
+                        target[segments[-1]] = current
+                    current.update(data)
+                elif data is None:
+                    target.pop(segments[-1], None)
+                else:
+                    target[segments[-1]] = data
+            self._live_error = ""
+            self._live_updated_at = time.time()
+        self._live_updated.set()
+
+    def _live_watch_loop(self, stop: threading.Event) -> None:
+        while not stop.is_set():
+            response = None
+            try:
+                token = self._token()
+                url = f"{self.database_url}/users/{quote(self.uid, safe='')}/live.json?auth={quote(token, safe='')}"
+                response = self.session.request(
+                    "GET", url, headers={"Accept": "text/event-stream"},
+                    stream=True, timeout=(self.timeout, max(30, self.timeout * 4)),
+                )
+                if not 200 <= int(getattr(response, "status_code", 0)) < 300:
+                    raise ConnectionError("Firebase 实时进度订阅失败；请检查账号、规则或网络。")
+                with self._live_lock:
+                    self._live_response = response
+                    self._live_error = ""
+                lines: list[str] = []
+                for raw_line in response.iter_lines(decode_unicode=True):
+                    if stop.is_set():
+                        break
+                    line = raw_line.decode("utf-8", errors="replace") if isinstance(raw_line, bytes) else str(raw_line or "")
+                    if line == "":
+                        block = "\n".join(lines)
+                        lines.clear()
+                        event = re.search(r"^event:\s*(.+)$", block, re.MULTILINE)
+                        data = re.search(r"^data:\s*(.+)$", block, re.MULTILINE)
+                        if event and data:
+                            event_name = event.group(1).strip()
+                            try:
+                                payload = json.loads(data.group(1))
+                            except (TypeError, ValueError):
+                                continue
+                            if event_name in {"put", "patch"} and isinstance(payload, dict):
+                                self._apply_live_event(event_name, payload)
+                            elif event_name in {"cancel", "auth_revoked"}:
+                                with self._live_lock:
+                                    self._live_error = "Firebase 拒绝实时订阅；请检查账号和数据库规则。"
+                                break
+                    elif not line.startswith(":"):
+                        lines.append(line)
+            except Exception:
+                if not stop.is_set():
+                    with self._live_lock:
+                        self._live_error = "云端实时进度暂不可用，正在重连。"
+            finally:
+                if response:
+                    try:
+                        response.close()
+                    except Exception:
+                        pass
+                with self._live_lock:
+                    if self._live_response is response:
+                        self._live_response = None
+            stop.wait(1.5)
 
     @staticmethod
     def _encode_database_path(path: str) -> str:
