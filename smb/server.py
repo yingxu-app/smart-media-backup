@@ -1494,8 +1494,7 @@ def api_firebase_settings():
     return jsonify({"status": "saved", "configured": bool(api_key and database_url)})
 
 
-@app.route("/api/firebase/login", methods=["POST"])
-def api_firebase_login():
+def _firebase_authenticate(create_account: bool):
     data = request.get_json(silent=True) or {}
     email = str(data.get("email", config.firebase_email)).strip()
     password = str(data.get("password", ""))
@@ -1507,15 +1506,37 @@ def api_firebase_login():
             return saved
     try:
         client = _get_firebase_sync_client()
-        account = client.sign_in(email, password)
+        account = client.sign_in(email, password, create_account=create_account)
     except Exception as error:
-        return jsonify({"error": str(error) if isinstance(error, ValueError) else "Firebase 登录失败，请检查项目配置、系统凭据库和网络。"}), 400
+        if isinstance(error, ValueError):
+            messages = {
+                "EMAIL_EXISTS": "这个邮箱已注册，请直接登录。",
+                "INVALID_EMAIL": "邮箱格式无效。",
+                "INVALID_PASSWORD": "邮箱或密码不正确。",
+                "INVALID_LOGIN_CREDENTIALS": "邮箱或密码不正确。",
+                "USER_DISABLED": "此账号已停用，请联系 Firebase 项目所有者。",
+                "TOO_MANY_ATTEMPTS_TRY_LATER": "尝试次数过多，请稍后再试。",
+                "WEAK_PASSWORD": "密码未达到 Firebase 要求，请更换更强的密码。",
+                "OPERATION_NOT_ALLOWED": "Firebase 项目尚未启用邮箱/密码登录。",
+            }
+            return jsonify({"error": messages.get(str(error), "Firebase 账号验证失败。")}), 400
+        return jsonify({"error": "Firebase 登录失败，请检查项目配置、系统凭据库和网络。"}), 400
     config.firebase_email = account["email"]
     config.firebase_uid = account["uid"]
     config.save()
     client.start_live_watch()
     threading.Thread(target=_sync_latest_desktop_history, daemon=True, name="yingxu-firebase-history").start()
     return jsonify({"status": "signed_in", "email": account["email"]})
+
+
+@app.route("/api/firebase/login", methods=["POST"])
+def api_firebase_login():
+    return _firebase_authenticate(create_account=False)
+
+
+@app.route("/api/firebase/register", methods=["POST"])
+def api_firebase_register():
+    return _firebase_authenticate(create_account=True)
 
 
 @app.route("/api/firebase/logout", methods=["POST"])

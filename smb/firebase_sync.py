@@ -122,7 +122,7 @@ class FirebaseSyncClient:
             payload = {}
         if not 200 <= int(getattr(response, "status_code", 0)) < 300:
             code = payload.get("error", {}).get("message", "") if isinstance(payload, dict) else ""
-            if code in {"EMAIL_EXISTS", "INVALID_EMAIL", "INVALID_PASSWORD", "INVALID_LOGIN_CREDENTIALS", "USER_DISABLED", "TOO_MANY_ATTEMPTS_TRY_LATER"}:
+            if code in {"EMAIL_EXISTS", "INVALID_EMAIL", "INVALID_PASSWORD", "INVALID_LOGIN_CREDENTIALS", "USER_DISABLED", "TOO_MANY_ATTEMPTS_TRY_LATER", "WEAK_PASSWORD", "OPERATION_NOT_ALLOWED"}:
                 raise ValueError(code)
             raise ConnectionError("Firebase 请求失败；请检查网络、项目配置或数据库规则")
         return payload

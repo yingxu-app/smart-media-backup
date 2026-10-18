@@ -44,9 +44,26 @@ class FirebaseServerTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(server.config.firebase_uid, "uid-1")
         self.assertEqual(server.config.firebase_email, "a@example.com")
-        fake.sign_in.assert_called_once_with("a@example.com", "do-not-save")
+        fake.sign_in.assert_called_once_with("a@example.com", "do-not-save", create_account=False)
         fake.start_live_watch.assert_called_once_with()
         self.assertNotIn("do-not-save", repr(server.config))
+
+    def test_firebase_registration_creates_account_and_starts_sync(self):
+        fake = SimpleNamespace(
+            sign_in=mock.Mock(return_value={"uid": "uid-new", "email": "new@example.com"}),
+            start_live_watch=mock.Mock(),
+        )
+        with mock.patch.object(server, "_get_firebase_sync_client", return_value=fake), \
+             mock.patch.object(server, "_sync_latest_desktop_history"), \
+             mock.patch.object(server.config, "save"):
+            response = self.client.post("/api/firebase/register", json={
+                "email": "new@example.com", "password": "not-persisted",
+            })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(server.config.firebase_uid, "uid-new")
+        fake.sign_in.assert_called_once_with("new@example.com", "not-persisted", create_account=True)
+        fake.start_live_watch.assert_called_once_with()
+        self.assertNotIn("not-persisted", repr(server.config))
 
     def test_firebase_live_endpoint_starts_watch_and_returns_cached_progress(self):
         fake = SimpleNamespace(

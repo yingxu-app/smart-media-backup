@@ -58,7 +58,8 @@
         <input type="password" id="firebasePassword" autocomplete="current-password" placeholder="只用于本次 Firebase 登录" style="flex:1;">
     </div>
     <div class="form-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn-primary" onclick="firebaseLogin()">登录并同步</button>
+        <button class="btn-primary" onclick="firebaseLogin(false)">登录并同步</button>
+        <button class="btn-secondary" onclick="firebaseLogin(true)">注册账号并同步</button>
         <button class="btn-secondary" onclick="firebaseLogout()">退出同步账号</button>
         <button class="btn-secondary" onclick="loadFirebaseHistory()">刷新云端历史</button>
     </div>
@@ -323,7 +324,7 @@ function loadFirebaseSettings() {
     }).catch(() => firebaseMessage("无法读取同步设置。", true));
 }
 
-async function firebaseLogin() {
+async function firebaseLogin(createAccount = false) {
     const apiKey = document.getElementById("firebaseApiKey").value.trim();
     const databaseUrl = document.getElementById("firebaseDatabaseUrl").value.trim();
     const email = document.getElementById("firebaseEmail").value.trim();
@@ -332,10 +333,11 @@ async function firebaseLogin() {
     try {
         const saved = await fetch("/api/firebase/settings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({api_key:apiKey, database_url:databaseUrl, email})}).then(r => r.json());
         if (saved.error) throw new Error(saved.error);
-        const result = await fetch("/api/firebase/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, password})}).then(r => r.json());
+        const endpoint = createAccount ? "register" : "login";
+        const result = await fetch(`/api/firebase/${endpoint}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, password})}).then(r => r.json());
         passwordInput.value = "";
         if (result.error) throw new Error(result.error);
-        firebaseMessage(`已登录：${result.email}；正在同步本机历史。`);
+        firebaseMessage(`${createAccount ? "账号已创建并登录" : "已登录"}：${result.email}；正在同步本机历史。`);
         await loadFirebaseHistory();
         await loadFirebaseLive();
     } catch (error) { passwordInput.value = ""; firebaseMessage(error.message || "Firebase 登录失败。", true); }
