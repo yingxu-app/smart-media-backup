@@ -270,10 +270,10 @@ class YingxuMediaAccessModule : Module() {
       val base = File(root.path ?: throw IllegalArgumentException("目录无效"))
       require(base.isDirectory) { "所选来源无法读取，请重新授权" }
       return base.walkTopDown().filter { it.isFile && isMedia(it.name) }.map { file ->
-        mapOf("uri" to Uri.fromFile(file).toString(), "name" to file.name,
+        mapOf<String, Any>("uri" to Uri.fromFile(file).toString(), "name" to file.name,
           "relativePath" to file.relativeTo(base).invariantSeparatorsPath,
           "size" to file.length(), "modifiedAt" to file.lastModified().toDouble(),
-          "capturedAt" to exifCapturedAt(file),
+          "capturedAt" to (exifCapturedAt(file) ?: 0.0),
           "mediaType" to mediaType(file.name))
       }.toList()
     }
@@ -303,7 +303,7 @@ class YingxuMediaAccessModule : Module() {
           walkTree(resolver, tree, id, childRelative, out)
         } else if (isMedia(name)) {
           val child = DocumentsContract.buildDocumentUriUsingTree(tree, id)
-          out.add(mapOf("uri" to child.toString(), "name" to name, "relativePath" to childRelative,
+          out.add(mapOf<String, Any>("uri" to child.toString(), "name" to name, "relativePath" to childRelative,
             "size" to maxOf(0L, if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else 0L),
             "modifiedAt" to (if (modifiedIndex >= 0 && !cursor.isNull(modifiedIndex)) cursor.getLong(modifiedIndex) else 0L).toDouble(),
             "capturedAt" to (exifCapturedAt(resolver, child) ?: 0.0),

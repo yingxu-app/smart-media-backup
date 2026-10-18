@@ -31,6 +31,18 @@
 - Firebase REST authentication and RTDB rules have not been exercised against a live project. Cloud history/active progress across two accounts/devices remains unverified.
 - No user secret, signing key, Firebase credential, or service-account file belongs in this repository.
 
+## External acceptance checklist (2026-10-18)
+
+| Gate | Evidence now | User-owned next step |
+| --- | --- | --- |
+| Firebase account and database | Mobile/desktop clients, UID-scoped rules, mock ownership tests, and sanitized offline outboxes are in source. No live project has been configured or exercised. | In the Firebase owner console, create the project and Realtime Database, enable Email/Password Authentication, publish `firebase/database.rules.json`, then enter the public Web API Key and HTTPS database URL on the desktop and mobile app. Log both into the same test account and verify cross-device history/progress and different-UID denial. Do not share the account password or service credentials. |
+| iPhone native app | Earlier iPhone Safari screenshot proved LAN pairing in the Pocket web page; it does not prove native installation or file access. No signed native iOS install has been accepted. | Install the native test build after a valid iOS distribution route is configured. Test local backup, folder access and revocation, duplicate/hash failures, background/lock recovery, Wi-Fi changes, and desktop reconnect. |
+| Android native app | Android sources and tests exist; the first compile of this change currently fails in the local module dependency/type declarations and is being repaired. No current-head APK/device acceptance yet. | After Android CI compile succeeds, install its debug APK on a physical Android device and test SAF/external storage, notification permission, background recovery, failures, and LAN reconnection. |
+| Windows desktop | Current branch Windows preview build is CI evidence only; no physical Windows installation or media transfer has been accepted for this native workflow. | Install the PR preview on a real Windows PC; test SD/source selection, configured backup root, phone-to-PC and PC-to-phone paths, pause/resume/cancel, permission/disk failures, and recovery after network changes. |
+| Expo EAS owner/project | `mobile/eas.json` defines profiles, but `expo.extra.eas.projectId` and owner project association are not configured. | The Expo project owner must log in in their own terminal, run `pnpm dlx eas-cli@latest project:init`, and confirm the generated project ID in `mobile/app.json`; then run internal builds. |
+| Production signing and stores | No production iOS/Android signing, Apple/Google store credentials, Windows signing certificate, or macOS Developer ID/notarization is configured. | The owner must decide which platform stores to use, create the corresponding developer accounts and store records, then configure signing only in the official owner-controlled service/credential store. Keep secrets out of Git and chat. |
+| Formal Release | The code change is not a release. Existing public release/download/rollback state must be checked separately before any release work; this goal does not publish. | After device acceptance and user approval in a later release task, prepare version promotion, signed packages, download/readback, upgrade and rollback verification. |
+
 ## Current local verification checkpoint (2026-10-18)
 
 - `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass locally; the mobile Node suite has 24 passing tests covering capture-time ordering, preference persistence, copy-only old-archive import, preserved source folders, duplicate and error accounting, cancellation recovery, desktop-to-phone chunk imports, metadata/account isolation, cloud outbox sanitization, and TCP framing.
