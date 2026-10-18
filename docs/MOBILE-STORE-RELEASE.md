@@ -8,6 +8,10 @@
 | `preview` | Android 设备安装与验收 | 内部分发 APK |
 | `production` | 商店候选 | Android AAB；iOS 默认生成商店发行构建 |
 
+GitHub Actions 另有 `ios-device-unsigned` 候选 job：使用 GitHub macOS runner 构建 iPhoneOS `.app`，封装成未签名 IPA 并附 SHA-256。该包不能直接安装到 iPhone；需要用户自行使用 AltStore Classic / AltServer 等侧载工具，用自己的 Apple Account 在安装时签名。免费个人签名会过期并要求定期刷新，且有同时安装数量限制。这个路径用于个人设备测试，不是公开发行渠道，也不等于 App Store 签名或审核。
+
+用户电脑不需要安装 Xcode；Xcode 仍在 GitHub 的 macOS 构建 runner 中执行。若希望官方 EAS 内测链接直接安装到 iPhone，仍需 Apple Developer Program 和注册设备。
+
 提交档案目前只指定 Google Play 内部测试轨道。iOS App Store Connect App ID、开发者团队、Apple 签名、Google Play 服务账号、EAS 项目 ID 均未配置；不得把当前 CI debug APK 或模拟器 App 当作商店包。
 
 ## 账号绑定后执行
