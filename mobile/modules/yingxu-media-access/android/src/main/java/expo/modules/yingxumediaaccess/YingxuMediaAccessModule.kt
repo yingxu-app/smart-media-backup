@@ -10,8 +10,6 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Base64
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -30,6 +28,9 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import expo.modules.kotlin.activityresult.AppContextActivityResultContract
+import expo.modules.kotlin.activityresult.AppContextActivityResultLauncher
+import expo.modules.interfaces.permissions.PermissionsStatus
 
 private data class IncomingWrite(
   val output: OutputStream,
@@ -43,12 +44,22 @@ private data class IncomingWrite(
   var received: Long = 0,
 )
 
+private class OpenDocumentTreeContract : AppContextActivityResultContract<String, String?> {
+  override fun createIntent(context: Context, input: String): Intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+    if (input.isNotBlank() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      putExtra(DocumentsContract.EXTRA_INITIAL_URI, Uri.parse(input))
+    }
+  }
+
+  override fun parseResult(input: String, resultCode: Int, intent: Intent?): String? =
+    if (resultCode == android.app.Activity.RESULT_OK) intent?.data?.toString() else null
+}
+
 class YingxuMediaAccessModule : Module() {
   private val incomingWrites = mutableMapOf<String, IncomingWrite>()
-  private var directoryLauncher: ActivityResultLauncher<Uri?>? = null
-  private var notificationPermissionLauncher: ActivityResultLauncher<String>? = null
+  private var directoryLauncher: AppContextActivityResultLauncher<String, String?>? = null
   private var pendingPicker: Promise? = null
-  private var pendingNotificationPermission: Promise? = null
   private val photoExtensions = setOf("jpg", "jpeg", "png", "heic", "heif", "webp", "tif", "tiff", "bmp", "gif", "dng", "arw", "cr2", "cr3", "nef", "nrw", "orf", "rw2", "raf", "pef", "srw", "3fr", "ari", "bay", "cap", "data", "dcs", "dcr", "drf", "eip", "erf", "fff", "gpr", "iiq", "k25", "kdc", "mdc", "mef", "mos", "mrw", "obm", "ptx", "pxn", "r3d", "rwl", "rwz", "x3f")
   private val videoExtensions = setOf("mp4", "mov", "m4v", "avi", "mkv", "mts", "m2ts", "3gp", "mpg", "mpeg", "wmv", "webm", "insv", "lrv", "braw", "crm")
 
@@ -56,33 +67,30 @@ class YingxuMediaAccessModule : Module() {
     Name("YingxuMediaAccess")
 
     RegisterActivityContracts {
-      directoryLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { _, result ->
-        val promise = pendingPicker
-        pendingPicker = null
-        if (result == null) {
-          promise?.resolve(null)
-        } else {
-          try {
-            appContext.reactContext?.contentResolver?.takePersistableUriPermission(
-              result,
-              android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
-          } catch (_: SecurityException) {}
-          promise?.resolve(mapOf("uri" to result.toString(), "name" to displayName(result)))
-        }
-      }
-      notificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        pendingNotificationPermission?.resolve(granted)
-        pendingNotificationPermission = null
-      }
+      directoryLauncher = registerForActivityResult(OpenDocumentTreeContract())
     }
 
     AsyncFunction("pickDirectoryAsync") { promise: Promise ->
       val launcher = directoryLauncher
-      if (launcher == null) promise.reject("PICKER_UNAVAILABLE", "系统文件选择器当前不可用")
+      if (launcher == null) promise.reject("PICKER_UNAVAILABLE", "系统文件选择器当前不可用", null)
       else {
         pendingPicker = promise
-        launcher.launch(null)
+        launcher.launch("") { result ->
+          val pending = pendingPicker
+          pendingPicker = null
+          if (result == null) {
+            pending?.resolve(null)
+          } else {
+            val uri = Uri.parse(result)
+            try {
+              appContext.reactContext?.contentResolver?.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+              )
+            } catch (_: SecurityException) {}
+            pending?.resolve(mapOf("uri" to result, "name" to displayName(uri)))
+          }
+        }
       }
     }
 
@@ -110,15 +118,13 @@ class YingxuMediaAccessModule : Module() {
     AsyncFunction("requestNotificationPermissionAsync") { promise: Promise ->
       if (Build.VERSION.SDK_INT < 33) promise.resolve(true)
       else {
-        val context = appContext.reactContext ?: throw IllegalStateException("Android context unavailable")
-        if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED) promise.resolve(true)
+        val permissions = appContext.permissions
+        if (permissions == null) promise.reject("PERMISSION_UNAVAILABLE", "系统通知权限请求暂不可用", null)
+        else if (permissions.hasGrantedPermissions(android.Manifest.permission.POST_NOTIFICATIONS)) promise.resolve(true)
         else {
-          val launcher = notificationPermissionLauncher
-          if (launcher == null) promise.reject("PERMISSION_UNAVAILABLE", "系统通知权限请求暂不可用")
-          else {
-            pendingNotificationPermission = promise
-            launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-          }
+          permissions.askForPermissions({ result ->
+            promise.resolve(result[android.Manifest.permission.POST_NOTIFICATIONS]?.status == PermissionsStatus.GRANTED)
+          }, android.Manifest.permission.POST_NOTIFICATIONS)
         }
       }
     }
