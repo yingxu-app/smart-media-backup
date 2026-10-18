@@ -60,6 +60,12 @@ class FirebaseServerTests(unittest.TestCase):
         self.assertEqual(response.get_json()["items"][0]["status"], "copying")
         fake.start_live_watch.assert_called_once_with()
 
+    def test_firebase_settings_and_cloud_metadata_are_restricted_to_desktop_loopback(self):
+        for path in ("/api/firebase/settings", "/api/firebase/history", "/api/firebase/live"):
+            with self.subTest(path=path):
+                response = self.client.get(path, environ_base={"REMOTE_ADDR": "192.168.31.20"})
+                self.assertEqual(response.status_code, 403)
+
 
 if __name__ == "__main__":
     unittest.main()
