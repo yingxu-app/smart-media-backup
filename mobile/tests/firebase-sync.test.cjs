@@ -39,3 +39,30 @@ test("Firebase database paths reject traversal and invalid key characters", asyn
   await assert.rejects(client.get("../../uid-b/history"), /无效字段/);
   await assert.rejects(client.get("history/record.with.dots"), /无效字段/);
 });
+
+test("live progress omits the growing file manifest while history retains every file name", async () => {
+  const calls = [];
+  const client = new FirebaseSyncClient({ apiKey: "public-key", databaseUrl: "https://yingxu.firebaseio.com",
+    secureStore: { async get() { return null; }, async set() {}, async remove() {} }, deviceId: "device-a",
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url: String(url), options });
+      return { ok: true, async json() { return {}; } };
+    } });
+  client.uid = "uid-a";
+  client.session = { idToken: "id-token", expiresAt: Date.now() + 3600_000 };
+  const record = { id: "mobile-1", status: "copying", eventName: "山景", currentFile: "IMG_3.JPG",
+    processedFiles: 2, totalFiles: 12, files: [
+      { name: "IMG_1.JPG", size: 1024, status: "copied" },
+      { name: "IMG_2.JPG", size: 2048, status: "copied" },
+    ] };
+  await client.publishProgress(record);
+  await client.syncHistory(record);
+  const liveCall = calls.find((call) => call.url.includes("/live/device-a.json"));
+  const historyCall = calls.find((call) => call.url.includes("/history/mobile-1.json"));
+  const live = JSON.parse(liveCall.options.body);
+  const history = JSON.parse(historyCall.options.body);
+  assert.equal(live.currentFile, "IMG_3.JPG");
+  assert.equal(live.processedFiles, 2);
+  assert.equal(Object.hasOwn(live, "files"), false);
+  assert.deepEqual(history.files.map((file) => file.name), ["IMG_1.JPG", "IMG_2.JPG"]);
+});

@@ -178,7 +178,9 @@ class FirebaseSyncClient {
 
   async publishProgress(record) {
     const metadata = publicMetadata(record);
-    await this.put(`live/${this.deviceId}`, { ...metadata, deviceId: this.deviceId, updatedAt: Date.now() });
+    const liveMetadata = { ...metadata };
+    delete liveMetadata.files;
+    await this.put(`live/${this.deviceId}`, { ...liveMetadata, deviceId: this.deviceId, updatedAt: Date.now() });
     if (["completed", "partial", "cancelled", "failed"].includes(metadata.status)) {
       await this.syncHistory(record);
       await this.put(`live/${this.deviceId}`, null);
