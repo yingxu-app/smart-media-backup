@@ -105,3 +105,11 @@
 
 - 候选已完成源码基线、exact-head 桌面 artifact 元数据及内层包体校验、版本/API 核对、站点差异与回退路径记录；仍不具备公开发布条件：PR 未合并、公开 PWA 路由 404、Firebase 真实账号未登录、macOS 未公证/无 Team ID、Windows unsigned 且无设备验收。
 - 只有真实 Firebase 同步与目标范围内的设备验收完成，并具备签名/公证策略与最终发布授权后，才可替换公开 Release。iOS 原生及 Android 真机不属于本轮门禁。
+
+## 2026-10-20 exact-head artifact refresh — `38d32ec`
+
+- `38d32ec7c08b09c07b111a1c01e901cdf6758478` changed only the candidate review and its pre-edit snapshot; product source remains `196c287945657241e114aa174bcee4aa64598624`.
+- Reliability PR `39289641542`, Reliability push `39289633420`, macOS candidate `39289641565`, and Windows preview `39289644307` completed success. Pocket run `39289641525` PWA/check job `118186624019` completed success; Android debug job `118186624491` remained on `Build debug APK` when checked and was not restarted.
+- macOS artifact `12204808629`, 21,081,358 bytes, GitHub digest `sha256:7d3b2367d6b88fc94440173f16040863223936c9f814b8a5a005110b2c0db841`. `gh run download` extracted the artifact; raw ZIP bytes were not locally re-hashed. Inner v1.0.40 DMG SHA-256 `c196691169ccfd2e5b7a358cb997ef80336377e17457ed474d58f278d9ace7ca` matches `SHA256SUMS.txt`; `hdiutil verify` VALID. Mounted app version 1.0.40, arm64, deep/strict signature verification passed; signature is ad-hoc, Team ID not set, no notarization.
+- Windows artifact `12205525691`, 27,873,499 bytes, GitHub digest `sha256:8e8bc7fe4c0c5ee86747c021915eb7241db74a93ec4f19b80bca8bd6a612a9e5`. `gh run download` extracted the artifact; raw ZIP bytes were not locally re-hashed. Inner EXE SHA-256 `1bf3dc9200617c53d487e0a4566e6e2b58576db4301e46b10196110e1b8f6e6b` matches `SHA256SUMS.txt`; file is PE32+ GUI x86-64. It remains unsigned and has no Windows device install evidence.
+- Release, site and rollback state remain unchanged from the previous checkpoint: public Release `v1.0.34`, Pages `/pocket/` HTTP 404, no replacement of the old download, and rollback instructions remain as listed above. This artifact evidence does not authorize publication or satisfy real-device acceptance.
