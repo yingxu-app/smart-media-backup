@@ -45,7 +45,7 @@ class FirebaseServerTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(server.config.firebase_uid, "uid-1")
         self.assertEqual(server.config.firebase_email, "a@example.com")
-        fake.sign_in.assert_called_once_with("a@example.com", "do-not-save", create_account=False)
+        fake.sign_in.assert_called_once_with("a@example.com", "do-not-save", create_account=False, display_name="")
         fake.start_live_watch.assert_called_once_with()
         self.assertNotIn("do-not-save", repr(server.config))
 

@@ -77,14 +77,25 @@ class FirebaseSyncClient {
   async signIn(email, password, createAccount = false, displayName = "") {
     const endpoint = createAccount ? "accounts:signUp" : "accounts:signInWithPassword";
     const request = { email: email.trim(), password };
-    if (createAccount) request.displayName = String(displayName || "").trim().slice(0, 40);
-    const data = await this._authRequest(endpoint, request);
+    const username = String(displayName || "").trim().slice(0, 40);
+    if (createAccount && !username) throw new Error("注册时请填写用户名。");
+    let data = await this._authRequest(endpoint, request);
+    if ((createAccount || username) && username) {
+      try {
+        const updated = await this._authRequest("accounts:update", { idToken: data.idToken, displayName: username });
+        data = { ...data, ...updated };
+      } catch (_) {
+        throw new Error(createAccount
+          ? "账号已创建，但用户名暂未同步。请用登录按钮重试，并保留用户名字段。"
+          : "账号已登录，但用户名暂未同步；请检查网络后重试。");
+      }
+    }
     this.session = {
       idToken: data.idToken,
       refreshToken: data.refreshToken,
       expiresAt: Date.now() + Math.max(60, Number(data.expiresIn) || 3600) * 1000,
       email: data.email || email.trim(),
-      displayName: String(data.displayName || (createAccount ? displayName : "") || "").trim().slice(0, 40),
+      displayName: String(data.displayName || username || "").trim().slice(0, 40),
     };
     this.uid = data.localId;
     await this.secureStore.set("firebase.session", JSON.stringify({

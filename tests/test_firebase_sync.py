@@ -92,6 +92,26 @@ class FirebaseSyncTests(unittest.TestCase):
         self.assertNotIn("backup_root", request["json"])
         self.assertNotIn("Private", str(request["json"]))
 
+    def test_registration_persists_display_name_with_profile_update_endpoint(self):
+        session = FakeSession([
+            FakeResponse(200, {"localId": "uid-2", "email": "new@example.test", "idToken": "id-old", "refreshToken": "refresh-old", "expiresIn": "3600"}),
+            FakeResponse(200, {"localId": "uid-2", "email": "new@example.test", "displayName": "影序用户", "idToken": "id-new", "refreshToken": "refresh-new", "expiresIn": "3600"}),
+        ])
+        store = MemoryTokenStore()
+        with tempfile.TemporaryDirectory() as directory:
+            client = FirebaseSyncClient("api-key", "https://yingxu.firebaseio.com", store, "desktop-1", session=session,
+                                        outbox_path=Path(directory) / "outbox.json")
+            account = client.sign_in("new@example.test", "temporary-input", create_account=True, display_name="影序用户")
+
+        self.assertEqual(account["display_name"], "影序用户")
+        self.assertEqual(store.get("uid-2"), "refresh-new")
+        auth_request = session.calls[0][2]["json"]
+        profile_request = session.calls[1][2]["json"]
+        self.assertNotIn("displayName", auth_request)
+        self.assertEqual(profile_request["displayName"], "影序用户")
+        self.assertNotIn("password", profile_request)
+        self.assertNotIn("temporary-input", repr(client.__dict__))
+
     def test_unauthenticated_publish_is_rejected_before_network_access(self):
         session = FakeSession([])
         with tempfile.TemporaryDirectory() as directory:

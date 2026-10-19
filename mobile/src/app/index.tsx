@@ -611,7 +611,7 @@ export default function PocketHome() {
       }
       const client = makeFirebaseClient(FIREBASE_CONFIG, await getDeviceId());
       cloudClientRef.current = client;
-      const account = await client.signIn(firebaseEmail, firebasePassword, createAccount, createAccount ? firebaseDisplayName.trim() : "");
+      const account = await client.signIn(firebaseEmail, firebasePassword, createAccount, firebaseDisplayName.trim());
       setFirebaseUser(account.displayName || account.email);
       setFirebasePassword("");
       await refreshCloudHistory(client);
@@ -844,7 +844,7 @@ export default function PocketHome() {
           <View style={styles.card}>
             <Text style={styles.bodyText}>Firebase 账号仅同步备份元数据；照片、视频、电脑路径和凭据不会进入云端。Firebase Spark 免费额度不是服务稳定性承诺。</Text>
             <TextInput autoCapitalize="none" keyboardType="email-address" value={firebaseEmail} onChangeText={setFirebaseEmail} placeholder="邮箱" placeholderTextColor="#99958E" style={[styles.input, styles.cloudInput]} />
-            <TextInput value={firebaseDisplayName} onChangeText={setFirebaseDisplayName} maxLength={40} placeholder="用户名（注册时填写，登录可留空）" placeholderTextColor="#99958E" style={[styles.input, styles.cloudInput]} />
+            <TextInput value={firebaseDisplayName} onChangeText={setFirebaseDisplayName} maxLength={40} placeholder="用户名（注册必填；已有账号可修改）" placeholderTextColor="#99958E" style={[styles.input, styles.cloudInput]} />
             <TextInput secureTextEntry value={firebasePassword} onChangeText={setFirebasePassword} placeholder="密码（只用于登录，不保存）" placeholderTextColor="#99958E" style={[styles.input, styles.cloudInput]} />
             <View style={styles.actionRow}>
               <Pressable onPress={() => signInFirebase(false)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>登录</Text></Pressable>

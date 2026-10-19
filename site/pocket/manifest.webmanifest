@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "影序 Pocket 手机协作台",
+  "short_name": "影序 Pocket",
+  "description": "查看影序备份进度和账号归档记录。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080b0c",
+  "theme_color": "#080b0c",
+  "icons": [
+    { "src": "../assets/yingxu-icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "../assets/yingxu-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "../assets/yingxu-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

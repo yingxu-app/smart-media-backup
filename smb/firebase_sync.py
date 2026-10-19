@@ -135,12 +135,24 @@ class FirebaseSyncClient:
             raise RuntimeError("尚未配置 Firebase 项目")
         endpoint = "accounts:signUp" if create_account else "accounts:signInWithPassword"
         body = {"email": email.strip(), "password": password, "returnSecureToken": True}
-        if create_account:
-            body["displayName"] = str(display_name or "").strip()[:40]
+        username = str(display_name or "").strip()[:40]
         payload = self._json_request(
             "POST", f"https://identitytoolkit.googleapis.com/v1/{endpoint}?key={quote(self.api_key, safe='')}",
             body=body,
         )
+        if (create_account or username) and username:
+            try:
+                updated = self._json_request(
+                    "POST", f"https://identitytoolkit.googleapis.com/v1/accounts:update?key={quote(self.api_key, safe='')}",
+                    body={"idToken": payload.get("idToken", ""), "displayName": username, "returnSecureToken": True},
+                )
+                payload = {**payload, **updated}
+            except Exception as error:
+                message = (
+                    "账号已创建，但用户名暂未同步。请用登录按钮重试，并保留用户名字段。"
+                    if create_account else "账号已登录，但用户名暂未同步；请检查网络后重试。"
+                )
+                raise RuntimeError(message) from error
         uid = str(payload.get("localId") or "")
         refresh = str(payload.get("refreshToken") or "")
         if not uid or not refresh:
@@ -148,7 +160,7 @@ class FirebaseSyncClient:
         with self._lock:
             self.uid = uid
             self.email = str(payload.get("email") or email.strip())
-            self.display_name = str(payload.get("displayName") or display_name or "").strip()[:40]
+            self.display_name = str(payload.get("displayName") or username or "").strip()[:40]
             self._id_token = str(payload.get("idToken") or "")
             self._expires_at = time.time() + max(60, int(payload.get("expiresIn") or 3600))
             self.token_store.set(uid, refresh)

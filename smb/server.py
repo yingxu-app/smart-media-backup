@@ -1572,8 +1572,10 @@ def _firebase_authenticate(create_account: bool):
                 email, password, create_account=True, display_name=display_name,
             )
         else:
-            account = client.sign_in(email, password, create_account=False)
+            account = client.sign_in(email, password, create_account=False, display_name=display_name)
     except Exception as error:
+        if isinstance(error, RuntimeError) and str(error).startswith("账号已"):
+            return jsonify({"error": str(error)}), 502
         if isinstance(error, ValueError):
             messages = {
                 "EMAIL_EXISTS": "这个邮箱已注册，请直接登录。",

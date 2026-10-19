@@ -20,6 +20,29 @@ test("Firebase authentication errors with detail suffixes show actionable guidan
   }
 });
 
+test("email registration persists username with Firebase profile update", async () => {
+  const calls = [];
+  const saved = new Map();
+  const client = new FirebaseSyncClient({ apiKey: "public-key", databaseUrl: "https://yingxu.firebaseio.com",
+    secureStore: { async set(key, value) { saved.set(key, value); }, async get(key) { return saved.get(key) || null; }, async remove(key) { saved.delete(key); } },
+    deviceId: "phone-1", fetchImpl: async (url, options) => {
+      const body = JSON.parse(options.body);
+      calls.push({ url: String(url), body });
+      if (String(url).includes("accounts:signUp")) {
+        return { ok: true, async json() { return { localId: "uid-a", email: "photo@example.test", idToken: "token-a", refreshToken: "refresh-a", expiresIn: "3600" }; } };
+      }
+      return { ok: true, async json() { return { displayName: "影序用户", idToken: "token-a2", refreshToken: "refresh-a2", expiresIn: "3600" }; } };
+    } });
+
+  const account = await client.signIn("photo@example.test", "temporary-password", true, "影序用户");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].body.displayName, undefined);
+  assert.equal(calls[1].url.includes("accounts:update"), true);
+  assert.equal(calls[1].body.displayName, "影序用户");
+  assert.equal(account.displayName, "影序用户");
+  assert.equal(JSON.stringify([...saved.values()]).includes("temporary-password"), false);
+});
+
 test("Firebase accounts only read under their own UID and keep refresh tokens in secure storage", async () => {
   const storageA = new Map();
   const storageB = new Map();

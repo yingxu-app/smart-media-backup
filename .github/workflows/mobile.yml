@@ -4,16 +4,20 @@ on:
   pull_request:
     paths:
       - "mobile/**"
+      - "site/pocket/**"
       - "smb/pocket_tcp.py"
       - "smb/server.py"
+      - "tests/pocket-cloud-sync.test.cjs"
       - "tests/test_pocket_tcp.py"
       - ".github/workflows/mobile.yml"
   push:
     branches: [main]
     paths:
       - "mobile/**"
+      - "site/pocket/**"
       - "smb/pocket_tcp.py"
       - "smb/server.py"
+      - "tests/pocket-cloud-sync.test.cjs"
       - "tests/test_pocket_tcp.py"
       - ".github/workflows/mobile.yml"
   workflow_dispatch:
@@ -36,6 +40,14 @@ jobs:
           cache: true
           cache-dependency-path: mobile/pnpm-lock.yaml
           install: false
+      - name: Check iPhone PWA JavaScript and cloud client
+        working-directory: .
+        run: |
+          node --check site/pocket/app.js
+          node --check site/pocket/cloud-sync.js
+          node --check site/pocket/sw.js
+          node --test tests/pocket-cloud-sync.test.cjs
+          node -e "JSON.parse(require('node:fs').readFileSync('site/pocket/manifest.webmanifest', 'utf8'))"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Check Expo package compatibility
