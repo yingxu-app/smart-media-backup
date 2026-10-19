@@ -1,4 +1,5 @@
 import json
+import ssl
 import unittest
 from unittest import mock
 
@@ -50,6 +51,24 @@ class UpdateCheckerTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 502)
         self.assertIn("更新服务", response.get_json()["error"])
+
+    def test_uses_certifi_trust_roots_without_disabling_tls_verification(self):
+        context = ssl.create_default_context()
+        with (
+            self._mock_release() as open_release,
+            mock.patch("sys.platform", "darwin"),
+            mock.patch("certifi.where", return_value="/trusted/ca-bundle.pem") as certifi_bundle,
+            mock.patch("ssl.create_default_context", return_value=context) as create_context,
+        ):
+            response = self.client.get("/api/updates/latest")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)
+        certifi_bundle.assert_called_once()
+        create_context.assert_called_once_with(cafile="/trusted/ca-bundle.pem")
+        open_release.assert_called_once()
+        self.assertEqual(open_release.call_args.kwargs["context"], context)
 
 
 if __name__ == "__main__":

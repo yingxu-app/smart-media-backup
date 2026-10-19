@@ -42,7 +42,7 @@ a = Analysis(
         "html", "html.parser",
         "xml", "xml.etree", "xml.etree.ElementTree",
         "socket", "ssl",
-        "smb.firebase_sync", "keyring", "keyring.backends.macOS",
+        "smb.firebase_sync", "keyring", "keyring.backends.macOS", "certifi",
     ],
     hookspath=[],
     hooksconfig={},

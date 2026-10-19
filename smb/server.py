@@ -866,7 +866,9 @@ def api_status():
 def api_latest_update():
     """Check the newest public GitHub release and provide this OS download."""
     import re
+    import ssl
     import urllib.request
+    import certifi
     from . import __version__
 
     release_url = "https://api.github.com/repos/yingxu-app/smart-media-backup/releases/latest"
@@ -875,7 +877,8 @@ def api_latest_update():
             release_url,
             headers={"Accept": "application/vnd.github+json", "User-Agent": "YINGXU-Update-Checker"},
         )
-        with urllib.request.urlopen(request, timeout=12) as response:
+        tls_context = ssl.create_default_context(cafile=certifi.where())
+        with urllib.request.urlopen(request, timeout=12, context=tls_context) as response:
             release = json.loads(response.read().decode("utf-8"))
     except Exception:
         return jsonify({"error": "暂时无法连接影序更新服务，请检查网络后重试。"}), 502
