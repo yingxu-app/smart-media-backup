@@ -1,6 +1,17 @@
 # 影序全端闭环状态审计 v1.0.40
 
-审计日期：2026-10-19。最新候选核对至 PR #4 head `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。下方旧矩阵是历史核对记录，当前 CI 与候选包以“2026-10-19 当前 head 候选复核”节为准。
+审计日期：2026-10-20。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。历史矩阵保留当时证据，最新范围和线上状态以本节为准。
+
+## 2026-10-20 当前范围与线上复核
+
+- 用户范围：iPhone 只交付 Safari PWA；macOS/Windows 不做身份代码签名或公证；Android 真机验收因无设备暂缓；小程序停止并移出活跃门禁；异地原始媒体传输和浏览器在线备份不在本阶段。
+- PR #4 与 PR #7 已合并至主线，当前相关合并 SHA 分别为 `40cb4dfe82e6917fe0d404b5d5a9eb8be8a7f005`、`9281242accbb6e66db51fa36ff96594109d93f1d`。PR #4 包含 PWA/Firebase 候选和更新检查 TLS CA 修复；PR #7 修正文案，标明 PWA HTTPS 已上线。
+- 线上 Pages `/pocket/` 与 `/download/` 在 2026-10-20 复核均 HTTP 200；部署 run `39307408371` success。只证明静态路由可访问，不证明真实 Firebase 认证、Safari 安装或离线恢复。
+- GitHub Latest Release API 当前返回 `v1.0.34`，资产只有 Windows EXE 与 `SHA256SUMS.txt`；下载页展示 Windows v1.0.34。v1.0.40 尚为候选。
+- Pocket run `39306460382` 当前仍为 `in_progress`；JS/CNG 与 Android 导出 job success，Android debug APK build job 在运行；run 的 `updated_at` 停在 `2026-10-19T18:54:30Z`。Reliability run `39307408377` success。目标要求继续观察同一 Pocket run，不重启。
+- Firebase 安全探针：桌面 `/api/firebase/settings` 是 `configured=true`、`signed_in=false`；虚构邮箱登录依次返回 `INVALID_EMAIL` 与 `INVALID_LOGIN_CREDENTIALS`，匿名 RTDB 根读取返回 HTTP 401。Firebase Auth endpoint/API key 可响应且数据库拒绝匿名访问；用户真实注册/登录、同步和 UID 隔离仍未验证。
+- 桌面登录错误处理新增安全本机异常类型提示；定向 Firebase server suite 8/8 通过，未提交且未构建成公开应用。此改动不能替代用户账号登录验证。
+- 真实账号 Firebase 登录/云同步、iPhone PWA 安装与离线/恢复、Windows 真机核心备份，以及正式 Release/公开下载与升级/回退尚无足够的当前设备证据。签名/公证、原生 iOS、Android 真机和小程序不是当前验收条件。
 
 ## 2026-10-19 当前 head 候选复核
 

@@ -1596,7 +1596,12 @@ def _firebase_authenticate(create_account: bool):
                 "CONFIGURATION_NOT_FOUND": "Firebase Authentication 尚未完成项目配置。",
             }
             return jsonify({"error": messages.get(str(error), "Firebase 账号验证失败。")}), 400
-        return jsonify({"error": "Firebase 登录失败，请检查项目配置、系统凭据库和网络。"}), 400
+        # Surface a safe exception class so the user can distinguish an unexpected
+        # local failure without exposing exception text, tokens, or request URLs.
+        error_type = type(error).__name__
+        return jsonify({
+            "error": f"Firebase 登录未完成（本机错误类型：{error_type}）。请将错误类型提供给支持人员；不要发送密码。"
+        }), 400
     config.firebase_email = account["email"]
     config.firebase_uid = account["uid"]
     config.firebase_display_name = account.get("display_name") or display_name or email.split("@", 1)[0]

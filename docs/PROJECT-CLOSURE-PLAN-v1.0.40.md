@@ -1,6 +1,21 @@
 # 影序全端闭环计划 v1.0.40
 
-核对日期：2026-10-19。最新候选核对至 PR #4 head `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。早期候选记录保留为历史，当前结果以“2026-10-19 当前 head 候选交付”节为准。
+核对日期：2026-10-20。下方历史记录保留当时证据；当前范围与状态以本节为准。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
+
+## 2026-10-20 当前目标范围与权威状态
+
+- **范围决定：**iPhone 交付为 Safari PWA；不开发原生 iOS。Android 真机验收暂缓（用户没有 Android 设备），Android CI/debug artifact 仍保留为构建证据。停止小程序开发，不纳入活跃发布门禁。异地原始媒体上传/下载和浏览器在线备份不在本阶段。
+- **发行决定：**用户明确不做 macOS/Windows 身份代码签名与公证。未签名发行候选可继续准备；必须在官网和安装说明中如实提示系统安全警告。不得把签名/公证列为本阶段完成门槛。
+- **仓库与合并：**当前主线已包含 PR #4（merge `40cb4dfe82e6917fe0d404b5d5a9eb8be8a7f005`）及 PR #7（merge `9281242accbb6e66db51fa36ff96594109d93f1d`）。PR #4 的更新检查 TLS CA bundle 修复和 PWA/Firebase 实现已进入 main；PR #7 将首页状态改为 HTTPS PWA 已上线。工作分支 `codex/pwa-live-status` 的文档提交 `6eccc2f` 已合入 PR #7。
+- **线上站点：**2026-10-20 本机 `curl` 检查规范 Pages `/pocket/` 与 `/download/` 均返回 HTTP 200；Pages 部署 run `39307408371` success。PWA 线上可访问，不等于 Firebase 真实登录、iPhone 主屏幕安装或离线恢复已验收。
+- **公开版本：**GitHub Latest Release 当前实查仍为 `v1.0.34`，仅有 Windows EXE 和 `SHA256SUMS.txt`；下载页也仍展示 Windows v1.0.34。v1.0.40 仍是候选，不能描述为已公开发行。
+- **当前 CI：**主线合并后的 Reliability run `39307408377` 已 success。Pocket run `39306460382` 仍由 GitHub API 报告 `in_progress`；JS/CNG 与 Android 导出 job 已 success，唯一 Android debug build job 仍在运行。该 run 的 `updated_at` 停在 `2026-10-19T18:54:30Z`；继续观察同一 run 到终态，不重新启动。
+- **Firebase 安全诊断：**当前桌面 `/api/firebase/settings` 返回 `configured=true`、`signed_in=false`。使用仓库公开 Web 配置发起的无副作用 Auth 登录探针：格式无效邮箱返回 `HTTP 400 INVALID_EMAIL`；格式有效的虚构邮箱返回 `HTTP 400 INVALID_LOGIN_CREDENTIALS`。RTDB 匿名根读取返回 `HTTP 401`。这证明 Auth endpoint/API key 可响应、匿名数据库访问被拒绝；不证明用户账号密码、注册、云同步或 Safari 的真实登录成功。
+- **本轮代码进展：**桌面 Firebase 登录此前对未分类的本机异常返回通用提示；现在响应中只显示安全的异常类型，不返回底层异常详情、密码或请求 URL。Firebase server 定向测试 8/8 通过，`git diff --check` 通过；当前改动尚未提交、尚未进入 CI 或公开应用包。
+- **仍待证实：**由用户在本机输入凭据后验证 Firebase 注册/登录、用户名、桌面与 PWA 实时进度及云历史、UID 隔离、断网恢复；iPhone Safari 主屏幕安装、PWA 离线缓存/恢复和网络重连；Windows 真机安装及核心备份、失败恢复、升级回退；之后更新正式 Release、下载页与回滚说明并从公开链接回读验证。
+- **有限结束条件：**范围内每项交付都要有源码/CI/线上或设备证据；正式 Release 与下载说明一致，安装包及校验文件可回读，升级/回退路径有证据。若只剩用户凭据输入或设备操作，完成可独立工作后提供一条明确步骤并保持目标未完成。明确排除的签名/公证、原生 iOS、Android 真机、小程序、异地原片传输不作为阻塞项。
+
+以下内容是 2026-10-19 及更早的历史证据快照；其中未完成事项和平台范围可能已被本节后续决定取代。
 
 ## 2026-10-19 当前 head 候选交付
 
