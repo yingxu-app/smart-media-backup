@@ -135,7 +135,59 @@ test("queues desktop-target work offline without marking files failed", async ()
   const record = await engine.run({ sourceUri: "source://camera", destinationUri: "yingxu-desktop://inbox" });
   assert.equal(record.status, "queued");
   assert.equal(record.failedFiles, 0);
-  assert.equal(record.processedFiles, 0);
+  assert.equal(record.processedFiles, 1);
+  assert.equal(record.files[0].status, "queued");
+});
+
+test("continues local targets while desktop is offline and completes queued copies after reconnect", async () => {
+  let desktopOnline = false;
+  const localCopies = new Set();
+  const desktopCopies = new Set();
+  let desktopAttempts = 0;
+  const engine = new MobileBackupEngine({ mediaAccess: {
+    async scanMediaAsync() { return [
+      { uri: "source/a.jpg", name: "a.jpg", size: 10, modifiedAt: 1 },
+      { uri: "source/b.jpg", name: "b.jpg", size: 20, modifiedAt: 2 },
+    ]; },
+    async copyFileVerifiedAsync(source, target) {
+      const name = source.split("/").pop();
+      const copies = target === "yingxu-desktop://inbox" ? desktopCopies : localCopies;
+      if (target === "yingxu-desktop://inbox") {
+        desktopAttempts += 1;
+        if (!desktopOnline) { const error = new Error("offline"); error.code = "DESKTOP_OFFLINE"; throw error; }
+      }
+      const status = copies.has(name) ? "skipped" : "copied";
+      copies.add(name);
+      return { status, sha256: `${name}-digest` };
+    },
+  } });
+  const options = { sourceUri: "source://camera", destinationUri: "yingxu-desktop://inbox",
+    destinationName: "影序电脑", destinationTargets: [
+      { uri: "yingxu-desktop://inbox", name: "影序电脑" },
+      { uri: "phone://backup", name: "手机存储" },
+    ] };
+
+  const queued = await engine.run(options);
+  assert.equal(queued.status, "queued");
+  assert.equal(queued.processedFiles, 2);
+  assert.equal(queued.copiedFiles, 2);
+  assert.equal(queued.verifiedFiles, 0);
+  assert.equal(queued.failedFiles, 0);
+  assert.equal(localCopies.size, 2);
+  assert.equal(desktopAttempts, 1, "after the first offline error, don't retry the same desktop for every file");
+  assert.equal(queued.files[0].targets[0].status, "queued");
+  assert.equal(queued.files[0].targets[1].status, "copied");
+  assert.equal(queued.files[1].targets[1].status, "copied");
+
+  desktopOnline = true;
+  const resumed = await engine.run(options);
+  assert.equal(resumed.status, "completed");
+  assert.equal(resumed.processedFiles, 2);
+  assert.equal(resumed.copiedFiles, 2);
+  assert.equal(resumed.skippedFiles, 0);
+  assert.equal(resumed.verifiedFiles, 2);
+  assert.equal(desktopCopies.size, 2);
+  assert.ok(resumed.files.every((file) => file.targets.every((target) => ["copied", "skipped"].includes(target.status))));
 });
 
 test("cloud metadata includes file names and counts but excludes local paths and credentials", () => {

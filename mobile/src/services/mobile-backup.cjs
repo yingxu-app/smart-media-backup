@@ -84,6 +84,7 @@ class MobileBackupEngine {
     this.cancelled = false;
     this.queued = false;
     this.paused = false;
+    this.offlineTargets = new Set();
     this.pauseWaiters = [];
     this.current = null;
   }
@@ -130,6 +131,7 @@ class MobileBackupEngine {
     this.cancelled = false;
     this.queued = false;
     this.paused = false;
+    this.offlineTargets.clear();
     const startedAt = this.now();
     this.current = {
       id: taskId || `mobile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -170,33 +172,38 @@ class MobileBackupEngine {
         if (this.cancelled) break;
         this._publish({ status: "copying", currentFile: file.name });
         const results = [];
-        let offline = false;
         for (const target of targets) {
+          if (this.offlineTargets.has(target.uri)) {
+            results.push({ targetName: target.name, status: "queued" });
+            this.queued = true;
+            continue;
+          }
           try {
             const result = await this.mediaAccess.copyFileVerifiedAsync(
               file.uri, target.uri, file.destinationRelativePath, file,
             );
             results.push({ targetName: target.name, status: result.status, sha256: result.sha256 });
           } catch (error) {
-            if (error?.code === "DESKTOP_OFFLINE") { offline = true; break; }
+            if (error?.code === "DESKTOP_OFFLINE") {
+              this.offlineTargets.add(target.uri);
+              this.queued = true;
+              results.push({ targetName: target.name, status: "queued" });
+              continue;
+            }
             results.push({ targetName: target.name, status: "failed", error: error.message || "复制失败" });
           }
         }
-        if (offline) {
-          this.queued = true;
-          this._publish({ status: "queued", currentFile: file.name });
-          break;
-        }
         const failures = results.filter((result) => result.status === "failed");
         const copied = results.filter((result) => result.status === "copied");
+        const queuedTargets = results.filter((result) => result.status === "queued");
         if (failures.length) this.current.failedFiles += 1;
-        else {
+        if (copied.length) this.current.copiedFiles += 1;
+        else if (!failures.length && !queuedTargets.length) this.current.skippedFiles += 1;
+        if (!failures.length && !queuedTargets.length) {
           this.current.verifiedFiles += 1;
-          if (copied.length) this.current.copiedFiles += 1;
-          else this.current.skippedFiles += 1;
         }
         this.current.files.push({ name: file.name, size: file.size, mediaType: file.mediaType,
-          status: failures.length ? "partial" : copied.length ? "copied" : "skipped",
+          status: failures.length ? "partial" : queuedTargets.length ? "queued" : copied.length ? "copied" : "skipped",
           targets: results, sha256: results.find((result) => result.sha256)?.sha256 || "" });
         this.current.processedFiles += 1;
         this.onUpdate({ ...this.current });

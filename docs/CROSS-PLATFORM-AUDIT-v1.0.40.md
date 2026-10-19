@@ -301,3 +301,8 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 5. **Formal update and rollback:** publish the signed release assets, update the public download page, then verify new-user install, in-app version discovery, upgrade, and rollback. Latest Release is still `v1.0.34`; there is no published mobile APK/IPA.
 
 The finite code-side phase ends after identified source gaps are closed, targeted automation and latest candidate CI pass, Mini Program gates remain absent, and this evidence stays current. Stop at device/account/store-owner prerequisites with a precise handoff; do not infer release or full cross-platform closure from green CI.
+
+### Source follow-up: multi-target phone backup with an offline desktop
+
+- The mobile copy engine previously stopped the full task when the LAN desktop target went offline. It now queues only that target and continues available phone/attached-storage targets and remaining files. On reconnect, completed copies are hash-deduplicated and the missing destination is filled.
+- Targeted mobile Node tests pass 26/26; Expo lint and TypeScript no-emit checks pass. Physical drive and reconnect behavior still require device acceptance.

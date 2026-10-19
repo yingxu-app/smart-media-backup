@@ -62,3 +62,9 @@
 ## Goal stop condition
 
 The code-side goal is complete when stages 1–4 are implemented, local checks and the latest PR checks pass, the evidence and external gates are committed, and PR #4 remains OPEN/DRAFT. Stop the automated goal at that point. Physical-device acceptance, Firebase/EAS owner setup, signing, store release, and the formal public Release are separate owner-dependent goals; do not keep retrying CI or claim full product closure while those gates remain open.
+
+## 2026-10-19 multi-target offline continuation
+
+- When a phone backup includes both a LAN desktop destination and local/attached storage, a desktop disconnect now queues only that destination. The engine keeps processing the other selected targets and remaining media instead of ending the whole backup at the first offline target.
+- The desktop destination is marked queued once per run to avoid repeating the same connection timeout for every file. After reconnect, rerunning the queued task hash-checks completed local copies and fills in the missing desktop copies.
+- Targeted mobile Node tests pass 26/26; Expo lint and TypeScript no-emit checks pass. These checks do not replace iPhone, Android, or removable-drive acceptance.
