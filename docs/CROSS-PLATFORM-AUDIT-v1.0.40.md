@@ -312,7 +312,7 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 
 ### Current product scope
 
-- **In scope:** desktop backup app, iPhone Safari PWA, desktop collaboration over the same LAN, Firebase account-scoped progress/history metadata, and the product/download/privacy website.
+- **In scope:** desktop backup app, iPhone Safari PWA, Android CI/debug candidate, desktop collaboration over the same LAN, Firebase account-scoped progress/history metadata, and the product/download/privacy website.
 - **Discontinued:** Mini Program development. Preserve its source for reference; do not treat Mini Program AppID, DevTools, review, or release as an open product gate. Current `.github/workflows` definitions have no Mini Program checks.
 - **Deferred:** browser-based online backup and remote original-file transfer.
 
@@ -323,7 +323,7 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 3. **Windows device:** install the current preview on a real Windows PC and exercise source/target selection, backup, pause/resume/cancel, disk/network failures, and recovery.
 4. **Formal update and rollback:** publish the approved unsigned desktop release assets, update the public download page, then verify new-user install, in-app version discovery, upgrade, and rollback. The last confirmed public Release is `v1.0.34`; the current API refresh failed with TLS EOF, so the live version still needs confirmation.
 
-Out of scope by user decision: formal code signing/notarization, native iOS, Android real-device acceptance (no device available), Mini Program, EAS/store distribution, browser online backup, and remote original-media transfer.
+Out of scope by user decision: formal desktop code signing/notarization, native iOS, Android real-device acceptance (no device available), Mini Program, browser online backup, and remote original-media transfer. Android store distribution is not a completion gate in the current objective.
 
 The finite code-side phase ends after identified source gaps are closed, targeted automation and latest candidate CI pass, Mini Program gates remain absent, and this evidence stays current. Stop at device/account/store-owner prerequisites with a precise handoff; do not infer release or full cross-platform closure from green CI.
 
@@ -341,5 +341,8 @@ The finite code-side phase ends after identified source gaps are closed, targete
 
 - PR #8 head `cde86f9f3da2945270cfe972e83c5171ce694160` is OPEN/DRAFT and CLEAN. Reliability push `39310220046`, Reliability PR `39310316477`, macOS candidate `39310316390`, Windows preview `39310316494`, and Pocket `39310316189` all pass.
 - Pocket run `39310316189` reached terminal success. Artifact `12216379161` is 94,609,017 bytes; the downloaded raw ZIP SHA-256 `5c0ee4205ce7ea39a2e41b607f9e97311f953b0fd2e06196fef929d4164039a8` matches GitHub artifact metadata and ZIP integrity passes. It contains one APK, 269,595,675 bytes, SHA-256 `0034aefa422f53c7e6f2bb0b09fe55a638452e945490772016d8d0d0d741be9b`; APK ZIP integrity passes and ABIs are arm64-v8a, armeabi-v7a, x86, and x86_64. It remains a debug artifact, not Android device acceptance or a public release.
-- Current Pages check: `/download/`, `/pocket/`, `/update/`, and `/privacy.html` returned HTTP 200; the root request hit TLS EOF. GitHub Latest Release API also hit TLS EOF; the most recent confirmed version remains v1.0.34.
+- Current Pages check: `/download/`, `/pocket/`, `/update/`, and `/privacy.html` returned HTTP 200; the root request hit TLS EOF. A subsequent successful GitHub Latest Release API read confirmed `v1.0.34` with `YINGXU-Windows-v1.0.34.exe` and `SHA256SUMS.txt`.
+- Release correction: the authenticated GitHub API read after the Pages/TLS errors succeeded and confirmed the current public version remains `v1.0.34`; only the Windows EXE and checksum file are published.
+- Local update-check runtime remains unverified: the running desktop server `/api/status` returned v1.0.40/idle, but `/api/updates/latest` returned HTTP 502 twice. A separate direct Python request to the same GitHub Release API returned HTTP 200. The discrepancy is unresolved; do not mark the preference update check as runtime-passing until the server path works.
+- Update-check diagnostics now classify failures as safe codes (`HTTP_*`, `TLS_ERROR`, `TIMEOUT`, `NETWORK_ERROR`, or `UPDATE_CHECK_FAILED`) and omit raw exception details. Focused tests pass 5/5; the pre-existing server process loaded the old handler before this patch, so its live response has not been rechecked. Restart only after preserving the active iPhone pairing session, then confirm `/api/updates/latest` returns the v1.0.34 Windows asset.
 - Remaining in-scope: real Firebase account/sync verification, iPhone PWA install/offline/recovery, Windows device acceptance, formal release/download-page update, and upgrade/rollback verification. Signing/notarization, native iOS, Android device acceptance, Mini Program and remote original media are excluded by the user's decisions.

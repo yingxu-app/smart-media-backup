@@ -207,7 +207,7 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 
 ### Scope decision and remaining work
 
-- **Active product:** desktop app, iPhone Safari PWA, LAN collaboration and Firebase account-scoped metadata sync. Native iOS is out of scope; Android device acceptance is deferred because no Android phone is available.
+- **Active product:** desktop app, iPhone Safari PWA, Android CI/debug candidate, LAN collaboration and Firebase account-scoped metadata sync. Native iOS is out of scope; Android device acceptance is deferred because no Android phone is available.
 - **Web:** maintain the static product/download/privacy site only. Browser online backup and remote original-file transfer are out of this phase.
 - **Needs device or account owner:** verify the iOS Safari PWA on the user's iPhone (home-screen launch, page refresh, LAN disconnect/reconnect, background/lock recovery); verify live Firebase sign-in and account-scoped sync on the already configured owner account; exercise Windows desktop on a physical PC. Android device acceptance is explicitly deferred; no Android phone is available.
 - **Needs distribution setup:** publish a formal desktop release, update the download page, and verify install/update/rollback. The user has explicitly excluded Windows/macOS signing and notarization. Do not publish the internal Android preview APK as a release. iOS uses the PWA route, not the native store route.

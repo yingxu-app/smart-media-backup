@@ -866,6 +866,7 @@ def api_status():
 def api_latest_update():
     """Check the newest public GitHub release and provide this OS download."""
     import re
+    import urllib.error
     import ssl
     import urllib.request
     import certifi
@@ -880,8 +881,28 @@ def api_latest_update():
         tls_context = ssl.create_default_context(cafile=certifi.where())
         with urllib.request.urlopen(request, timeout=12, context=tls_context) as response:
             release = json.loads(response.read().decode("utf-8"))
-    except Exception:
-        return jsonify({"error": "暂时无法连接影序更新服务，请检查网络后重试。"}), 502
+    except Exception as error:
+        if isinstance(error, urllib.error.HTTPError):
+            diagnostic_code = f"HTTP_{int(error.code)}"
+        elif isinstance(error, urllib.error.URLError):
+            reason = error.reason
+            if isinstance(reason, ssl.SSLError):
+                diagnostic_code = "TLS_ERROR"
+            elif isinstance(reason, TimeoutError):
+                diagnostic_code = "TIMEOUT"
+            else:
+                diagnostic_code = "NETWORK_ERROR"
+        elif isinstance(error, ssl.SSLError):
+            diagnostic_code = "TLS_ERROR"
+        elif isinstance(error, TimeoutError):
+            diagnostic_code = "TIMEOUT"
+        else:
+            diagnostic_code = "UPDATE_CHECK_FAILED"
+        app.logger.warning("Latest release lookup failed (%s)", diagnostic_code)
+        return jsonify({
+            "error": f"更新服务暂时无法访问（诊断码 {diagnostic_code}）。请检查网络后重试。",
+            "diagnostic_code": diagnostic_code,
+        }), 502
 
     def version_key(value):
         numbers = re.findall(r"\d+", str(value or ""))
