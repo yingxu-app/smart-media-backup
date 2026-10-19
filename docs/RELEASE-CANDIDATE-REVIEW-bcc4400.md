@@ -67,3 +67,11 @@
 3. 在 iPhone Safari 验收 HTTPS PWA 添加到主屏幕、离线壳、已同步历史、刷新和恢复；不做原生 iOS 验收。
 4. 在 Windows 实机验收当前候选安装、备份、升级与回退；Android 设备验收等有设备后再做。
 5. 在真实 Firebase 登录验证后，部署 Pages PWA 路由并用 iPhone Safari 实测；完成正式 Release 及下载校验。签名策略、Windows 用户设备验收和最终发布确认未完成前保持候选状态。
+
+## 最新头部与产物边界（2026-10-19 16:30 UTC）
+
+- 当前 PR #4 head 为 `196c287945657241e114aa174bcee4aa64598624`，仍为 OPEN/DRAFT、mergeable；新增提交 `74b1e0a`、`da07f20`、`196c287` 修复桌面/PWA 登录诊断并递增 PWA Service Worker cache version。
+- 最新本地定向验证：桌面 Firebase sync 11/11、Firebase server 7/7、PWA cloud sync 8/8，`node --check site/pocket/sw.js` 与 `git diff --check` 通过。
+- 最新 head 的 Reliability PR run `39284960337`：Ubuntu 3.11、Ubuntu 3.12、macOS 3.11 已 success；macOS 3.12 与 Windows 3.11/3.12 在本次记录时仍 queued。最新 macOS candidate、Windows preview、Pocket runs `39284960188`、`39284960305`、`39284960287` 也尚未产出本 head 的新 artifact。GitHub status 同时将 Actions 与 Pages 标记为 degraded_performance，incident 仍在调查：<https://stspg.io/nrv2k8s68bwn>。未重启这些任务。
+- 表格中的桌面包体哈希仍来自产品候选 head `bcc4400`，不是 `196c287` 的构建产物。由于 Firebase 登录诊断代码已经变化，在 `196c287` 对应桌面构建完成并核验前，不将旧包称作最新发布候选。
+- 当前本机预览 `http://127.0.0.1:8766/pocket/` 返回 HTTP 200，Service Worker shell 为 v2；GitHub Pages `/pocket/` 返回 HTTP 404，故真实账号测试只能通过本机预览。正式 GitHub Release 仍为 v1.0.34。
