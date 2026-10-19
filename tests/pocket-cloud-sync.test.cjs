@@ -47,6 +47,22 @@ test("registration requires a username and maps Firebase auth errors", async () 
   assert.equal(store.values.has("session"), false);
 });
 
+test("unknown Firebase auth errors expose only a safe code and HTTP status", async () => {
+  const store = new MemoryStore();
+  const client = new FirebaseCloudClient({
+    apiKey: "public-test-key", databaseUrl: "https://example.test", store,
+    fetchImpl: async () => jsonResponse({ error: { message: "API_KEY_SERVICE_BLOCKED : key restriction detail" } }, 403),
+  });
+
+  await assert.rejects(client.login("user@example.test", "temporary-password"), error => {
+    assert.match(error.message, /API_KEY_SERVICE_BLOCKED（HTTP 403）/);
+    assert.equal(error.message.includes("key restriction detail"), false);
+    assert.equal(error.message.includes("temporary-password"), false);
+    return true;
+  });
+  assert.equal(store.values.has("session"), false);
+});
+
 test("registration writes the username through Firebase profile update", async () => {
   const store = new MemoryStore();
   const calls = [];

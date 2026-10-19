@@ -17,9 +17,11 @@
     CONFIGURATION_NOT_FOUND: "Firebase Authentication 尚未完成项目配置。",
   };
 
-  function userError(message) {
+  function userError(message, status = 0) {
     const code = String(message || "").split(":", 1)[0].trim();
-    return AUTH_ERRORS[code] || "Firebase 服务暂时不可用，请检查网络或项目配置。";
+    if (AUTH_ERRORS[code]) return AUTH_ERRORS[code];
+    const diagnosticCode = /^[A-Z0-9_]{1,60}$/.test(code) ? code : `HTTP_${Number(status) || 0}`;
+    return `Firebase 返回错误代码 ${diagnosticCode}（HTTP ${Number(status) || 0}）。请将错误代码提供给支持人员；不要发送密码。`;
   }
 
   class IndexedDbStore {
@@ -96,7 +98,7 @@
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         const message = payload?.error?.message || "";
-        const error = new Error(authRequest ? userError(message) : "云端数据读取失败，请检查账号权限或网络。");
+        const error = new Error(authRequest ? userError(message, response.status) : "云端数据读取失败，请检查账号权限或网络。");
         error.code = String(message).split(":", 1)[0].trim();
         throw error;
       }
