@@ -51,6 +51,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Check Expo package compatibility
+        env:
+          EXPO_OFFLINE: "1"
         run: pnpm exec expo install --check
       - name: Lint, typecheck, and unit tests
         run: |
