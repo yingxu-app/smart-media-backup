@@ -4,9 +4,15 @@
 {% block content %}
 <div class="page-header">
     <div><h2>03 归档记录</h2><div id="historyCount" class="history-count">—</div></div>
-    <button class="btn-danger" onclick="clearAllHistory()">🗑 清空全部记录</button>
 </div>
 
+<div class="history-source-switch" role="tablist" aria-label="归档记录来源">
+    <button type="button" class="history-source-tab active" id="localHistoryTab" role="tab" aria-selected="true" onclick="switchHistorySource('local')">本机归档</button>
+    <button type="button" class="history-source-tab" id="cloudHistoryTab" role="tab" aria-selected="false" onclick="switchHistorySource('cloud')">查看云端历史</button>
+</div>
+
+<section id="localHistoryView" aria-labelledby="localHistoryTab">
+<div class="local-history-actions"><button class="btn-danger" onclick="clearAllHistory()">🗑 清空全部记录</button></div>
 <div class="card history-search">
     <div class="search-grid">
         <div class="form-row">
@@ -70,6 +76,18 @@
     </div>
     <div id="detailContent"></div>
 </div>
+</section>
+
+<section id="cloudHistoryView" aria-labelledby="cloudHistoryTab" hidden>
+    <div class="card cloud-history-panel">
+        <div class="cloud-history-heading">
+            <div><h3>云端归档记录</h3><p class="setting-help">显示已登录账号同步的设备、进度与历史元数据。</p></div>
+            <button type="button" class="btn-secondary" onclick="loadFirebaseHistory()">刷新云端历史</button>
+        </div>
+        <div id="cloudHistoryMessage" class="setting-help" aria-live="polite">点击“刷新云端历史”读取记录。</div>
+        <div id="cloudHistoryList" class="history-list" style="margin-top:12px;"></div>
+    </div>
+</section>
 {% endblock %}
 
 {% block scripts %}
@@ -86,6 +104,85 @@ document.addEventListener("DOMContentLoaded", function() {
 
 let historyTargetGroups = [];
 let openHistoryDays = new Set();
+
+function switchHistorySource(source) {
+    const isCloud = source === "cloud";
+    document.getElementById("localHistoryView").hidden = isCloud;
+    document.getElementById("cloudHistoryView").hidden = !isCloud;
+    document.getElementById("localHistoryTab").classList.toggle("active", !isCloud);
+    document.getElementById("cloudHistoryTab").classList.toggle("active", isCloud);
+    document.getElementById("localHistoryTab").setAttribute("aria-selected", String(!isCloud));
+    document.getElementById("cloudHistoryTab").setAttribute("aria-selected", String(isCloud));
+    if (isCloud) loadFirebaseHistory();
+}
+
+async function loadFirebaseHistory() {
+    const message = document.getElementById("cloudHistoryMessage");
+    const host = document.getElementById("cloudHistoryList");
+    message.textContent = "正在读取云端历史…";
+    host.replaceChildren();
+    try {
+        const response = await fetch("/api/firebase/history");
+        const result = await response.json();
+        if (response.status === 401) {
+            message.textContent = "请先到账户设置登录并同步，再查看云端历史。";
+            return;
+        }
+        if (!response.ok || result.error) throw new Error(result.error || "读取云端历史失败。");
+        const items = result.items || [];
+        if (!items.length) {
+            message.textContent = "当前账号还没有云端归档记录。";
+            return;
+        }
+        message.textContent = `共 ${items.length} 条云端归档记录。`;
+        items.slice(0, 100).forEach(item => {
+            const entry = document.createElement("details");
+            entry.className = "firebase-history-entry";
+            const summary = document.createElement("summary");
+            const title = document.createElement("strong");
+            title.textContent = item.eventName || item.deviceName || "影序同步记录";
+            const summaryDetail = document.createElement("small");
+            summaryDetail.textContent = `${item.deviceName || "设备"} · ${item.targetName || "目标未知"} · ${item.status || "状态未知"} · ${item.processedFiles || 0}/${item.totalFiles || 0}`;
+            summary.append(title, summaryDetail);
+            entry.append(summary);
+            const detail = document.createElement("div");
+            detail.className = "firebase-history-detail";
+            [
+                `开始：${item.startedAt || "未知"}；结束：${item.finishedAt || "进行中"}`,
+                `文件：${item.totalFiles || 0}；总大小：${item.totalBytes || 0} bytes；已复制：${item.copiedFiles || 0}；已跳过：${item.skippedFiles || 0}；已校验：${item.verifiedFiles || 0}；失败：${item.failedFiles || 0}`,
+                item.location ? `地点：${item.location}` : "",
+                item.cameraDevice ? `拍摄设备：${item.cameraDevice}` : "",
+                item.notes ? `备注：${item.notes}` : "",
+                item.currentFile ? `当前文件：${item.currentFile}` : "",
+            ].filter(Boolean).forEach(text => {
+                const line = document.createElement("div");
+                line.textContent = text;
+                detail.append(line);
+            });
+            if (Array.isArray(item.files) && item.files.length) {
+                const files = document.createElement("details");
+                const filesSummary = document.createElement("summary");
+                filesSummary.textContent = `文件明细（${item.files.length} 项）`;
+                const list = document.createElement("ul");
+                files.addEventListener("toggle", () => {
+                    if (!files.open || files.dataset.loaded) return;
+                    item.files.forEach(file => {
+                        const li = document.createElement("li");
+                        li.textContent = `${file.name || "未命名文件"} · ${file.status || "未知"} · ${file.size || 0} bytes`;
+                        list.append(li);
+                    });
+                    files.dataset.loaded = "true";
+                });
+                files.append(filesSummary, list);
+                detail.append(files);
+            }
+            entry.append(detail);
+            host.append(entry);
+        });
+    } catch (error) {
+        message.textContent = error.message || "读取云端历史失败。";
+    }
+}
 
 function loadHistoryTargets() {
     fetch("/api/history_targets").then(r => r.json()).then(payload => {

@@ -44,7 +44,8 @@ class ChecksumVerifier:
         manifest_path = os.path.join(output_dir, "checksums.json")
         Path(manifest_path).parent.mkdir(parents=True, exist_ok=True)
         Path(manifest_path).write_text(
-            json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False)
+            json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False),
+            encoding="utf-8",
         )
         return manifest_path
 

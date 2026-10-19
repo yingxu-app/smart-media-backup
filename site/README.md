@@ -4,8 +4,10 @@
 
 - 首页：`index.html`
 - 正式版下载页：`download/index.html`
+- 桌面版升级和回退说明：`update/index.html`
 - 隐私说明：`privacy.html`
+- iPhone Safari PWA 候选：`pocket/`（HTTPS 应用壳、Firebase 元数据同步、浏览器本机缓存）
 - 发布入口：`https://yingxu-app.github.io/smart-media-backup/`
 - 发布工作流：`.github/workflows/deploy-website.yml`
 
-页面只链接正式公开版本。macOS v1.0.40 本机候选未完成 Developer ID 签名与公证，微信小程序原型与 Windows CI 预览也未公开；均不会被列为下载。若 GitHub Releases 更新，需同步核对下载链接、版本、校验文件和文案。
+下载页只链接正式公开版本。用户已决定不配置 macOS Developer ID、Windows Authenticode 身份签名或 Apple 公证；macOS arm64 包保留无身份的 ad-hoc 技术签名以兼容系统启动要求，Windows 包保持未签名。未公开候选仍不会被列为下载。iOS 采用 Safari PWA，不开发原生 iOS App；Android 真机验收因无设备暂缓，微信小程序已停止开发。Pocket PWA 的当前源码候选尚未部署或进行 iPhone HTTPS/离线验收。若 GitHub Releases 更新，需同步核对下载链接、版本、校验文件、升级回滚流程和文案。

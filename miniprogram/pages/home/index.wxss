@@ -1,0 +1,34 @@
+.page { padding: 40rpx 30rpx 64rpx; max-width: 900rpx; margin: 0 auto; }
+.brand { display:flex; align-items:center; gap:18rpx; margin: 18rpx 0 34rpx; }
+.brand-mark { width:74rpx; height:74rpx; display:grid; place-items:center; border:1px solid #56d99a; border-radius:22rpx; color:#56d99a; font-size:38rpx; font-weight:700; }
+.brand-title { font-size:34rpx; font-weight:700; letter-spacing:1rpx; }
+.brand-subtitle { color:#89968e; font-size:22rpx; margin-top:5rpx; }
+.card { background:#111a16; border:1px solid #26352c; border-radius:24rpx; padding:28rpx; margin-bottom:22rpx; box-shadow:0 14rpx 38rpx rgba(0,0,0,.14); }
+.section-title { font-size:29rpx; font-weight:700; margin-bottom:18rpx; }
+.hint,.security-note,.privacy-note,.footer-note { color:#95a39a; font-size:22rpx; line-height:1.65; }
+.field-label { color:#aebbb3; font-size:22rpx; margin:22rpx 0 10rpx; }
+.fixed-port { color:#d2ddd5; background:#0b120e; border:1px solid #2b3b31; border-radius:14rpx; padding:22rpx 20rpx; font-size:25rpx; }
+.input { box-sizing:border-box; width:100%; min-height:84rpx; padding:20rpx; border:1px solid #2b3b31; border-radius:14rpx; background:#0b120e; color:#e7eee9; font-size:25rpx; }
+.code-input { letter-spacing:9rpx; font-size:32rpx; }
+.primary-button { margin-top:24rpx; background:#3fba7c; color:#06110a; font-size:26rpx; }
+.security-note { margin-top:18rpx; }
+.privacy-note { margin-top:12rpx; }
+.error { margin-top:16rpx; color:#ff9c91; font-size:23rpx; }
+.success { color:#6fe2a2; margin-top:14rpx; font-size:23rpx; }
+.status-head { display:flex; justify-content:space-between; align-items:flex-start; }
+.status-label { color:#70dfa1; font-size:25rpx; }
+.small-button { margin:0; padding:0 20rpx; height:62rpx; line-height:62rpx; color:#d8e3dc; background:#223128; font-size:22rpx; }
+.progress-track { height:12rpx; margin:24rpx 0; border-radius:20rpx; background:#25332a; overflow:hidden; }
+.progress-fill { height:100%; border-radius:20rpx; background:linear-gradient(90deg,#43bd7d,#7ce6a7); }
+.metrics { display:flex; justify-content:space-between; padding:8rpx 4rpx 18rpx; }
+.metrics view { display:flex; flex-direction:column; gap:6rpx; }
+.metric-value { font-size:31rpx; font-weight:700; }
+.metric-label,.source-line { color:#98a69d; font-size:21rpx; }
+.history-row { display:flex; justify-content:space-between; gap:18rpx; align-items:center; padding:20rpx 0; border-top:1px solid #26352c; }
+.history-main { display:flex; flex-direction:column; gap:7rpx; min-width:0; }
+.history-title { font-size:24rpx; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.history-sub,.history-count,.empty { color:#98a69d; font-size:21rpx; }
+.history-count { flex:none; }
+.notes-card .input { margin:14rpx 0; }
+.textarea { min-height:150rpx; }
+.footer-note { text-align:center; padding:12rpx; }

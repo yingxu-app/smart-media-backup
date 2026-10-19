@@ -24,8 +24,9 @@ class WasteHeuristicPixelAccessTests(unittest.TestCase):
         self.assertEqual(result["label"], "黑图")
         self.assertEqual(result["source"], "heuristic")
 
-    def test_falls_back_when_flattened_pixel_api_is_unavailable(self):
-        with mock.patch.object(Image.Image, "get_flattened_data", None, create=True):
+    def test_reads_pixels_without_flattened_or_deprecated_pixel_api(self):
+        with mock.patch.object(Image.Image, "get_flattened_data", None, create=True), \
+             mock.patch.object(Image.Image, "getdata", side_effect=AssertionError("deprecated API used")):
             result = self.reviewer._heuristic_review(str(self.image_path))
         self.assertEqual(result["label"], "黑图")
 

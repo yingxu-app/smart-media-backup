@@ -8,10 +8,13 @@ import webbrowser
 import subprocess
 import ipaddress
 import socket
+import time
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
 import flask
+import psutil
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
 
@@ -32,7 +35,9 @@ from .detector import (list_removable_volumes, list_all_volumes, list_candidate_
 from .backup import BackupEngine
 from . import db
 from .pocket import PocketPairingManager, PocketNotesStore
+from .pocket_tcp import DesktopMediaSource, MobileInbox, PocketTcpBridge
 from .transfer import transfer_manager
+from .firebase_sync import FirebaseSyncClient, FirebaseSyncError, KeyringTokenStore
 
 # 初始化数据库
 db.init_db()
@@ -40,12 +45,213 @@ db.init_db()
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 engine = BackupEngine()
-_scan_cache = {"files": [], "volumes": []}
+_scan_cache = {"files": [], "volumes": [], "mount_point": ""}
 _scan_response_cache = {}
 _scan_lock = threading.Lock()
 _open_browser_on_start = True
 pocket_pairing = PocketPairingManager(session_hours=config.pocket_session_hours)
 pocket_notes = PocketNotesStore()
+POCKET_TCP_PORT = 18080
+_pocket_tcp_bridge = None
+_pocket_tcp_bridge_lock = threading.Lock()
+_firebase_sync_client = None
+_firebase_sync_lock = threading.RLock()
+
+
+def _get_firebase_sync_client():
+    global _firebase_sync_client
+    with _firebase_sync_lock:
+        if _firebase_sync_client is None:
+            _firebase_sync_client = FirebaseSyncClient(
+                config.firebase_api_key,
+                config.firebase_database_url,
+                KeyringTokenStore(),
+                config.firebase_device_id,
+            )
+        return _firebase_sync_client
+
+
+def _restore_firebase_session():
+    try:
+        client = _get_firebase_sync_client()
+        restored = client.restore_session(
+            client.uid or _firebase_uid_for_email(config.firebase_email),
+            config.firebase_email,
+            config.firebase_display_name,
+        )
+        if restored:
+            try:
+                client.flush_outbox()
+            except Exception as error:
+                print(f"[Firebase] 待同步记录仍未上传：{error}", file=sys.stderr)
+        return restored
+    except Exception:
+        return False
+
+
+def _firebase_uid_for_email(email: str) -> str:
+    """Resolve stored credential identity without exposing it to app config."""
+    if not email:
+        return ""
+    return str(config.firebase_uid or "")
+
+
+def _sync_latest_desktop_history():
+    try:
+        client = _get_firebase_sync_client()
+        if client.uid:
+            client.flush_outbox()
+        for record in db.get_backups(limit=100):
+            backup_id = record.get("id")
+            if backup_id is None:
+                continue
+            files = db.get_backup_files(backup_id, 5000)
+            public_record = dict(record)
+            public_record["target_name"] = os.path.basename(str(record.get("backup_root") or "").rstrip(os.sep))
+            client.publish_history(public_record, files)
+    except Exception as error:
+        print(f"[Firebase] 桌面历史同步失败：{error}", file=sys.stderr)
+
+
+def _publish_desktop_progress(data: dict):
+    try:
+        client = _get_firebase_sync_client()
+        if not client.uid:
+            client.restore_session(
+                _firebase_uid_for_email(config.firebase_email),
+                config.firebase_email,
+                config.firebase_display_name,
+            )
+        if not client.uid:
+            return
+        record = {
+            "id": f"active-{config.firebase_device_id}",
+            "status": data.get("status", "unknown"),
+            "current_file": data.get("current_file", ""),
+            "total_files": data.get("total_files", 0),
+            "total_size": data.get("total_bytes", 0),
+            "processed_files": data.get("processed_files", 0),
+            "copied_files": data.get("copied_files", 0),
+            "skipped_files": data.get("skipped_files", 0),
+            "verified_files": data.get("verified_files", 0),
+            "failed_files": data.get("failed_files", 0),
+            "started_at": datetime.fromtimestamp(engine.progress.start_time).astimezone().isoformat()
+            if engine.progress.start_time else None,
+            "updatedAt": int(time.time() * 1000),
+        }
+        client.publish_progress(record, force=data.get("status") in {"done", "partial", "cancelled", "error"})
+    except Exception as error:
+        print(f"[Firebase] 桌面进度同步失败：{error}", file=sys.stderr)
+
+
+def _pocket_tcp_status() -> dict:
+    raw = engine.progress.to_dict()
+    allowed = (
+        "total_files", "copied_files", "skipped_files", "processed_files",
+        "verified_files", "failed_files", "current_speed", "bytes_copied",
+        "total_bytes", "elapsed_seconds", "status", "phase_progress",
+        "current_device", "current_media_type",
+    )
+    progress = {key: raw.get(key) for key in allowed}
+    return {
+        "paired": True,
+        "status": raw.get("status", "idle"),
+        "progress": progress,
+        "source": os.path.basename(raw.get("mount_point") or ""),
+    }
+
+
+def _pocket_tcp_history(limit: int) -> list[dict]:
+    records = db.get_backups(limit=limit)
+    clean = []
+    for record in records:
+        root = str(record.get("backup_root") or "")
+        clean.append({
+            "id": record.get("id"),
+            "event_name": record.get("event_name") or "未命名任务",
+            "started_at": record.get("started_at"),
+            "status": record.get("status"),
+            "total_files": record.get("total_files", 0),
+            "skipped_files": record.get("skipped_files", 0),
+            "failed_files": record.get("failed_files", 0),
+            "target": os.path.basename(root.rstrip(os.sep)) or "本机",
+        })
+    return clean
+
+
+def _pocket_start_desktop_backup() -> dict:
+    if engine.progress.status in ("copying", "verifying", "paused"):
+        return {"ok": False, "error": "电脑已有备份任务正在运行"}
+    source = find_likely_media_source(list_candidate_source_volumes())
+    if not source:
+        return {"ok": False, "error": "电脑没有检测到可用的 SD 卡或素材来源"}
+    backup_root = config.last_backup_root
+    backup_targets = list(config.backup_targets or [])
+    if not backup_root and not backup_targets:
+        return {"ok": False, "error": "请先在电脑端设置备份目标位置"}
+
+    def run_backup():
+        try:
+            engine.run(
+                source["mount_point"], "", backup_root,
+                enable_verify=config.verify_method == "sha256",
+                backup_targets=backup_targets or None,
+            )
+        except Exception as error:
+            print(f"[SMB] Pocket 启动的桌面备份失败: {error}", file=sys.stderr)
+
+    threading.Thread(target=run_backup, daemon=True, name="yingxu-pocket-backup").start()
+    return {"ok": True, "status": "started"}
+
+
+def _pocket_pause_desktop_backup() -> dict:
+    if engine.progress.status == "paused":
+        engine.resume()
+        return {"ok": True, "status": "resumed"}
+    if engine.progress.status not in ("copying", "verifying"):
+        return {"ok": False, "error": "当前没有可暂停的电脑备份任务"}
+    engine.pause()
+    return {"ok": True, "status": "paused"}
+
+
+def _pocket_cancel_desktop_backup() -> dict:
+    if engine.progress.status not in ("copying", "verifying", "paused"):
+        return {"ok": False, "error": "当前没有可取消的电脑备份任务"}
+    engine.cancel()
+    return {"ok": True, "status": "cancelling"}
+
+
+def _pocket_mobile_inbox_root() -> str | None:
+    return config.last_backup_root or next(iter(config.backup_targets or []), None)
+
+
+def _configure_pocket_tcp(enabled: bool) -> None:
+    """Start or stop the opt-in native Pocket bridge."""
+    global _pocket_tcp_bridge
+    if enabled and not config.pocket_enabled:
+        raise RuntimeError("请先启用影序 Pocket")
+    with _pocket_tcp_bridge_lock:
+        if enabled:
+            if _pocket_tcp_bridge is None:
+                bridge = PocketTcpBridge(
+                    pairing=pocket_pairing,
+                    status_provider=_pocket_tcp_status,
+                    history_provider=_pocket_tcp_history,
+                    notes_store=pocket_notes,
+                    host="0.0.0.0",
+                    port=POCKET_TCP_PORT,
+                    start_provider=_pocket_start_desktop_backup,
+                    pause_provider=_pocket_pause_desktop_backup,
+                    cancel_provider=_pocket_cancel_desktop_backup,
+                    mobile_inbox=MobileInbox(_pocket_mobile_inbox_root),
+                    desktop_media_source=DesktopMediaSource(lambda: _scan_cache),
+                )
+                bridge.start()
+                _pocket_tcp_bridge = bridge
+        elif _pocket_tcp_bridge is not None:
+            bridge = _pocket_tcp_bridge
+            _pocket_tcp_bridge = None
+            bridge.stop()
 
 
 def _is_loopback_request() -> bool:
@@ -85,7 +291,57 @@ def _pocket_authorized() -> bool:
 
 
 def _local_ip() -> str:
-    """获取手机可访问的局域网地址；不向公网发送数据。"""
+    """Prefer an active Wi-Fi/Ethernet address over VPN and virtual adapters."""
+    tunnel_prefixes = (
+        "utun", "tun", "tap", "ppp", "wg", "tailscale", "zerotier", "zt",
+        "vpn", "docker", "veth", "vmnet", "vboxnet",
+    )
+    benchmark_network = ipaddress.ip_network("198.18.0.0/15")
+    candidates: list[tuple[int, str, str]] = []
+    try:
+        addresses_by_interface = psutil.net_if_addrs()
+        stats_by_interface = psutil.net_if_stats()
+    except (OSError, RuntimeError):
+        addresses_by_interface = {}
+        stats_by_interface = {}
+
+    for interface, addresses in addresses_by_interface.items():
+        normalized = interface.casefold().replace(" ", "")
+        if normalized.startswith(tunnel_prefixes):
+            continue
+        stats = stats_by_interface.get(interface)
+        if stats is not None and not stats.isup:
+            continue
+        if normalized.startswith(("wifi", "wlan", "wireless")):
+            priority = 0
+        elif normalized.startswith(("en", "eth", "ethernet")):
+            priority = 1
+        elif normalized.startswith(("bridge", "ap")):
+            priority = 2
+        else:
+            priority = 3
+        for address in addresses:
+            if address.family != socket.AF_INET:
+                continue
+            try:
+                parsed = ipaddress.ip_address(address.address)
+            except ValueError:
+                continue
+            if (
+                not parsed.is_private
+                or parsed.is_loopback
+                or parsed.is_link_local
+                or parsed.is_unspecified
+                or parsed.is_multicast
+                or parsed in benchmark_network
+            ):
+                continue
+            candidates.append((priority, normalized, str(parsed)))
+
+    if candidates:
+        return min(candidates)[2]
+
+    # Keep a route-based fallback for hosts whose adapter details are unavailable.
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         probe.connect(("192.0.2.1", 9))
@@ -121,6 +377,8 @@ def restrict_lan_surface():
         "/pocket/sw.js", "/static/img/icon.svg",
         "/api/pocket/connect",
     }
+    if request.path == "/api/pocket/tcp-settings":
+        return jsonify({"error": "Pocket TCP 设置只能从桌面端修改"}), 403
     if not config.pocket_enabled:
         return jsonify({"error": "影序 Pocket 未启用"}), 403
     if request.path in allowed_public or request.path.startswith("/api/pocket/"):
@@ -136,6 +394,11 @@ def broadcast_progress(data):
         socketio.emit("backup_progress", data)
     except Exception:
         pass
+    if config.firebase_api_key and config.firebase_database_url and config.firebase_uid:
+        threading.Thread(target=_publish_desktop_progress, args=(dict(data),), daemon=True,
+                         name="yingxu-firebase-progress").start()
+        if data.get("status") in {"done", "partial", "cancelled", "error"}:
+            threading.Timer(1.0, _sync_latest_desktop_history).start()
 
 
 # 注册进度回调
@@ -304,8 +567,56 @@ def api_pocket_pairing():
     issued.update({
         "url": f"http://{_local_ip()}:{config.web_port}/pocket/",
         "enabled": config.pocket_enabled,
+        "tcp_enabled": bool(
+            config.pocket_enabled and _pocket_tcp_bridge and _pocket_tcp_bridge.running
+        ),
+        "tcp_host": _local_ip(),
+        "tcp_port": POCKET_TCP_PORT,
     })
     return jsonify(issued)
+
+
+@app.route("/api/pocket/tcp-settings", methods=["GET", "POST"])
+def api_pocket_tcp_settings():
+    """Locally control the optional native Pocket TCP listener."""
+    if request.method == "GET":
+        return jsonify({
+            "enabled": bool(config.pocket_tcp_enabled),
+            "running": bool(_pocket_tcp_bridge and _pocket_tcp_bridge.running),
+            "host": _local_ip(),
+            "port": POCKET_TCP_PORT,
+            "phone_transfer": (_pocket_tcp_bridge.mobile_transfer_progress if _pocket_tcp_bridge else {"status": "idle"}),
+        })
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get("enabled"), bool):
+        return jsonify({"error": "enabled 必须是布尔值"}), 400
+    enabled = data["enabled"]
+    previous = bool(config.pocket_tcp_enabled)
+    try:
+        _configure_pocket_tcp(enabled)
+    except OSError as exc:
+        return jsonify({"error": f"TCP 端口 {POCKET_TCP_PORT} 无法启动: {exc}"}), 409
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    config.pocket_tcp_enabled = enabled
+    try:
+        config.save()
+    except OSError as exc:
+        config.pocket_tcp_enabled = previous
+        if previous != enabled:
+            try:
+                _configure_pocket_tcp(previous)
+            except OSError:
+                pass
+        return jsonify({"error": f"设置保存失败: {exc}"}), 500
+    return jsonify({
+        "enabled": enabled,
+        "running": bool(_pocket_tcp_bridge and _pocket_tcp_bridge.running),
+        "host": _local_ip(),
+        "port": POCKET_TCP_PORT,
+    })
 
 
 @app.route("/api/pocket/connect", methods=["POST"])
@@ -551,6 +862,57 @@ def api_status():
     })
 
 
+@app.route("/api/updates/latest")
+def api_latest_update():
+    """Check the newest public GitHub release and provide this OS download."""
+    import re
+    import ssl
+    import urllib.request
+    import certifi
+    from . import __version__
+
+    release_url = "https://api.github.com/repos/yingxu-app/smart-media-backup/releases/latest"
+    try:
+        request = urllib.request.Request(
+            release_url,
+            headers={"Accept": "application/vnd.github+json", "User-Agent": "YINGXU-Update-Checker"},
+        )
+        tls_context = ssl.create_default_context(cafile=certifi.where())
+        with urllib.request.urlopen(request, timeout=12, context=tls_context) as response:
+            release = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "暂时无法连接影序更新服务，请检查网络后重试。"}), 502
+
+    def version_key(value):
+        numbers = re.findall(r"\d+", str(value or ""))
+        return tuple(int(number) for number in numbers[:4]) or (0,)
+
+    latest = str(release.get("tag_name") or "").strip().lstrip("vV")
+    assets = release.get("assets") if isinstance(release.get("assets"), list) else []
+    if sys.platform == "darwin":
+        platform_name, suffixes = "macOS", (".dmg",)
+    elif sys.platform.startswith("win"):
+        platform_name, suffixes = "Windows", (".exe", ".msi")
+    else:
+        platform_name, suffixes = "Linux", (".appimage", ".deb", ".rpm")
+    platform_assets = [
+        {"name": str(asset.get("name") or ""), "url": str(asset.get("browser_download_url") or ""), "size": int(asset.get("size") or 0)}
+        for asset in assets
+        if str(asset.get("name") or "").lower().endswith(suffixes)
+        and asset.get("browser_download_url")
+    ]
+    current = __version__
+    return jsonify({
+        "current_version": current,
+        "latest_version": latest,
+        "update_available": bool(latest) and version_key(latest) > version_key(current),
+        "platform": platform_name,
+        "assets": platform_assets,
+        "release_url": str(release.get("html_url") or "https://github.com/yingxu-app/smart-media-backup/releases/latest"),
+        "published_at": str(release.get("published_at") or ""),
+    })
+
+
 @app.route("/api/volumes")
 def api_volumes():
     """列出所有可用卷（用于目标磁盘选择）"""
@@ -705,7 +1067,8 @@ def api_scan():
         event_groups = build_date_groups(files)
         for group in event_groups:
             group["previews"] = group_previews.get(group["date_key"], [])
-        _scan_cache = {"files": files, "devices": device_list, "event_groups": event_groups}
+        _scan_cache = {"files": files, "devices": device_list, "event_groups": event_groups,
+                       "mount_point": str(Path(mount_point).expanduser().resolve())}
 
     # 扫描必须始终快速、离线且可预测。AI 命名属于可选增强，不得阻塞
     # 存储卡识别；尤其不能在首页轮询请求中等待本地模型超时。
@@ -1163,6 +1526,148 @@ def api_settings():
     })
 
 
+@app.route("/api/firebase/settings", methods=["GET", "POST"])
+def api_firebase_settings():
+    global _firebase_sync_client
+    if request.method == "GET":
+        signed_in = bool(_firebase_sync_client and _firebase_sync_client.uid)
+        if not signed_in and config.firebase_uid:
+            signed_in = _restore_firebase_session()
+        return jsonify({
+            "email": config.firebase_email,
+            "display_name": config.firebase_display_name,
+            "configured": bool(config.firebase_api_key and config.firebase_database_url),
+            "signed_in": signed_in,
+        })
+    data = request.get_json(silent=True) or {}
+    api_key = str(data.get("api_key", config.firebase_api_key)).strip()
+    database_url = str(data.get("database_url", config.firebase_database_url)).strip().rstrip("/")
+    email = str(data.get("email", config.firebase_email)).strip()
+    if database_url and not database_url.startswith("https://"):
+        return jsonify({"error": "Realtime Database 地址必须使用 HTTPS。"}), 400
+    if _firebase_sync_client:
+        _firebase_sync_client.stop_live_watch()
+    config.firebase_api_key = api_key
+    config.firebase_database_url = database_url
+    config.firebase_email = email
+    config.save()
+    _firebase_sync_client = None
+    return jsonify({"status": "saved", "configured": bool(api_key and database_url)})
+
+
+def _firebase_authenticate(create_account: bool):
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", config.firebase_email)).strip()
+    password = str(data.get("password", ""))
+    display_name = str(data.get("display_name", "")).strip()
+    if not email or not password:
+        return jsonify({"error": "请输入 Firebase 邮箱和密码。"}), 400
+    if create_account and not 1 <= len(display_name) <= 40:
+        return jsonify({"error": "注册时请填写 1 到 40 个字符的用户名。"}), 400
+    if data.get("api_key") is not None or data.get("database_url") is not None:
+        saved = api_firebase_settings()
+        if isinstance(saved, tuple):
+            return saved
+    try:
+        client = _get_firebase_sync_client()
+        if create_account:
+            account = client.sign_in(
+                email, password, create_account=True, display_name=display_name,
+            )
+        else:
+            account = client.sign_in(email, password, create_account=False, display_name=display_name)
+    except Exception as error:
+        if isinstance(error, RuntimeError) and str(error).startswith("账号已"):
+            return jsonify({"error": str(error)}), 502
+        if isinstance(error, FirebaseSyncError):
+            return jsonify({"error": str(error)}), 502
+        if isinstance(error, ValueError):
+            messages = {
+                "EMAIL_EXISTS": "这个邮箱已注册，请直接登录。",
+                "EMAIL_NOT_FOUND": "这个邮箱尚未注册，请先注册账号。",
+                "INVALID_EMAIL": "邮箱格式无效。",
+                "INVALID_PASSWORD": "邮箱或密码不正确。",
+                "INVALID_LOGIN_CREDENTIALS": "邮箱或密码不正确。",
+                "USER_DISABLED": "此账号已停用，请联系 Firebase 项目所有者。",
+                "TOO_MANY_ATTEMPTS_TRY_LATER": "尝试次数过多，请稍后再试。",
+                "WEAK_PASSWORD": "密码未达到 Firebase 要求，请更换更强的密码。",
+                "OPERATION_NOT_ALLOWED": "Firebase 项目尚未启用邮箱/密码登录。",
+                "API_KEY_INVALID": "Firebase Web API Key 无效，请检查应用配置。",
+                "CONFIGURATION_NOT_FOUND": "Firebase Authentication 尚未完成项目配置。",
+            }
+            return jsonify({"error": messages.get(str(error), "Firebase 账号验证失败。")}), 400
+        return jsonify({"error": "Firebase 登录失败，请检查项目配置、系统凭据库和网络。"}), 400
+    config.firebase_email = account["email"]
+    config.firebase_uid = account["uid"]
+    config.firebase_display_name = account.get("display_name") or display_name or email.split("@", 1)[0]
+    config.save()
+    client.start_live_watch()
+    threading.Thread(target=_sync_latest_desktop_history, daemon=True, name="yingxu-firebase-history").start()
+    return jsonify({
+        "status": "signed_in",
+        "email": account["email"],
+        "display_name": config.firebase_display_name,
+    })
+
+
+@app.route("/api/firebase/login", methods=["POST"])
+def api_firebase_login():
+    return _firebase_authenticate(create_account=False)
+
+
+@app.route("/api/firebase/register", methods=["POST"])
+def api_firebase_register():
+    return _firebase_authenticate(create_account=True)
+
+
+@app.route("/api/firebase/logout", methods=["POST"])
+def api_firebase_logout():
+    global _firebase_sync_client
+    try:
+        if _firebase_sync_client:
+            _firebase_sync_client.stop_live_watch()
+            _firebase_sync_client.sign_out()
+        elif config.firebase_uid:
+            KeyringTokenStore().remove(config.firebase_uid)
+    except Exception:
+        return jsonify({"error": "无法清除系统凭据库中的 Firebase 会话。"}), 500
+    config.firebase_uid = ""
+    config.firebase_display_name = ""
+    config.save()
+    _firebase_sync_client = None
+    return jsonify({"status": "signed_out"})
+
+
+@app.route("/api/firebase/history")
+def api_firebase_history():
+    try:
+        client = _get_firebase_sync_client()
+        if not client.uid and not client.restore_session(
+            config.firebase_uid, config.firebase_email, config.firebase_display_name
+        ):
+            return jsonify({"error": "请先登录影序云同步账号。"}), 401
+        client.start_live_watch()
+        values = client.get("history") or {}
+        items = sorted(values.values(), key=lambda item: str(item.get("startedAt") or ""), reverse=True)
+        return jsonify({"items": items[:100]})
+    except Exception:
+        return jsonify({"error": "读取 Firebase 历史失败，请检查账号、项目配置、数据库规则或网络。"}), 502
+
+
+@app.route("/api/firebase/live")
+def api_firebase_live():
+    try:
+        client = _get_firebase_sync_client()
+        if not client.uid and not client.restore_session(
+            config.firebase_uid, config.firebase_email, config.firebase_display_name
+        ):
+            return jsonify({"error": "请先登录影序云同步账号。"}), 401
+        client.start_live_watch()
+        return jsonify(client.live_snapshot())
+    except Exception:
+        return jsonify({"error": "读取 Firebase 实时进度失败，请检查账号、项目配置、数据库规则或网络。"}), 502
+
+
 @app.route("/api/setup/status")
 def api_setup_status():
     """返回当前安装状态（用于首次启动引导）"""
@@ -1235,6 +1740,12 @@ def main(open_browser: bool = True, host_override: str | None = None):
     from .config import CONFIG_DIR
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
+    if config.pocket_tcp_enabled and config.pocket_enabled:
+        try:
+            _configure_pocket_tcp(True)
+        except OSError as exc:
+            print(f"[Pocket TCP] 无法监听端口 {POCKET_TCP_PORT}: {exc}")
+
     global _open_browser_on_start
     _open_browser_on_start = open_browser
 
@@ -1251,7 +1762,7 @@ def main(open_browser: bool = True, host_override: str | None = None):
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          影序 YINGXU  v1.0.37           ║
+║          影序 YINGXU  v1.0.40           ║
 ║                                          ║
 ║  打开浏览器访问:                         ║
 ║    http://localhost:{port}                ║

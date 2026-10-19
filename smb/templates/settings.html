@@ -37,6 +37,44 @@
     <div id="saveMsg" class="save-msg" style="display:none;"></div>
 </div>
 
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>⬆️ 软件更新</h3></div>
+    <p class="pocket-copy">检查影序 GitHub 正式发行版。发现适用于这台电脑的新版本后，可打开官方发行页下载并安装。</p>
+    <div class="form-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn-primary" id="checkUpdateButton" onclick="checkForUpdates()">检查更新</button>
+        <a class="btn-secondary" id="updateReleaseLink" href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer" style="display:none;text-decoration:none;">打开官方发行页</a>
+    </div>
+    <div id="updateCheckMessage" class="save-msg" style="display:none;" aria-live="polite"></div>
+    <p class="pocket-copy">更新需要你手动下载和安装。建议先结束备份任务，并按步骤保存旧版本与历史数据副本。</p>
+    <a class="btn-secondary" href="https://yingxu-app.github.io/smart-media-backup/update/" target="_blank" rel="noopener noreferrer" style="display:inline-flex;text-decoration:none;">查看升级与回退步骤 ↗</a>
+</div>
+
+<!-- Cross-device metadata sync -->
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>🔄 影序账号与设备同步</h3></div>
+    <p class="pocket-copy">登录后同步备份进度和归档信息。原始照片、视频与电脑本地路径不会上传。</p>
+    <div class="form-row">
+        <label for="firebaseEmail">邮箱</label>
+        <input type="email" id="firebaseEmail" autocomplete="username" placeholder="name@example.com" style="flex:1;">
+    </div>
+    <div class="form-row">
+        <label for="firebaseDisplayName">用户名（注册时必填）</label>
+        <input type="text" id="firebaseDisplayName" autocomplete="nickname" maxlength="40" placeholder="例如：影序用户" style="flex:1;">
+        <small class="setting-help">已有账号可填写此项并登录，以同步或修正账号昵称；留空则保留现有昵称。</small>
+    </div>
+    <div class="form-row">
+        <label for="firebasePassword">密码</label>
+        <input type="password" id="firebasePassword" autocomplete="current-password" placeholder="只用于本次 Firebase 登录" style="flex:1;">
+    </div>
+    <div class="form-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-primary" onclick="firebaseLogin(false)">登录并同步</button>
+        <button class="btn-secondary" onclick="firebaseLogin(true)">注册账号并同步</button>
+        <button class="btn-secondary" onclick="firebaseLogout()">退出同步账号</button>
+    </div>
+    <div id="firebaseSyncMsg" class="save-msg" style="display:none;"></div>
+    <div id="firebaseLive" class="history-list" style="margin-top:12px;" aria-live="polite"></div>
+</div>
+
 <!-- 百度网盘设置 -->
 <div class="card settings-form" style="margin-top:16px;">
     <div class="card-header"><h3>☁️ 百度网盘</h3></div>
@@ -186,8 +224,18 @@
     <div id="pocketPairing" class="pocket-pairing" style="display:none;">
         <div><span class="pocket-caption">手机访问地址</span><strong id="pocketUrl">—</strong></div>
         <div><span class="pocket-caption">10 分钟有效配对码</span><strong id="pocketCode" class="pocket-code">—</strong></div>
+        <div id="pocketTcpPairing" style="display:none;"><span class="pocket-caption">Pocket App TCP 地址</span><strong id="pocketTcpUrl">—</strong></div>
     </div>
     <small class="setting-help">iPhone：Safari 打开地址并配对后，可点“分享 → 添加到主屏幕”。此网页不能像原生 App 一样读取手机全部照片或在后台自动复制。</small>
+    <div class="form-row pocket-tcp-row">
+        <label for="pocketTcpEnabled">Pocket 手机 App 局域网协作</label>
+        <label class="toggle">
+            <input type="checkbox" id="pocketTcpEnabled" onchange="savePocketTcpSetting()">
+            <span class="toggle-slider"></span>
+        </label>
+        <small class="setting-help">默认关闭。开启后在端口 18080 启动 Pocket 专用 TCP 服务，接受配对手机的状态、历史、拍摄备注及电脑备份控制；手机原片只可写入电脑已配置目标下的“影序手机备份”目录，并逐文件校验，不开放任意桌面路径。连接不使用 TLS，只应在可信局域网使用，切勿转发到公网。手机 App 使用此处生成的配对码。</small>
+        <div id="pocketTcpStatus" class="save-msg" style="display:none;"></div>
+    </div>
 </div>
 
 <div class="card" style="margin-top:16px;">
@@ -196,7 +244,7 @@
 </div>
 
 <div class="card" style="margin-top:16px;text-align:center;color:var(--text-dim);font-size:0.85em;">
-    影序 YINGXU v1.0.37<br>
+    影序 YINGXU v1.0.40<br>
     By nanyu-lu
 </div>
 {% endblock %}
@@ -208,6 +256,11 @@ document.addEventListener("DOMContentLoaded", function() {
     loadStorageChart();
     loadBaiduStatus();
     loadAIStatus();
+    loadPocketTcpSettings();
+    loadFirebaseSettings();
+    loadFirebaseLive();
+    window.setInterval(loadPocketTcpSettings, 3000);
+    window.setInterval(loadFirebaseLive, 3000);
 });
 
 function loadSettings() {
@@ -260,6 +313,126 @@ function resetSettings() {
     document.getElementById("saveMsg").textContent = "🔄 已恢复默认设置";
     document.getElementById("saveMsg").style.color = "#fbbf24";
     setTimeout(() => document.getElementById("saveMsg").style.display = "none", 3000);
+}
+
+async function checkForUpdates() {
+    const button = document.getElementById("checkUpdateButton");
+    const message = document.getElementById("updateCheckMessage");
+    const releaseLink = document.getElementById("updateReleaseLink");
+    button.disabled = true;
+    button.textContent = "正在检查…";
+    message.style.display = "block";
+    message.style.color = "var(--text-dim)";
+    message.textContent = "正在查询影序正式发行版本…";
+    releaseLink.style.display = "none";
+    try {
+        const response = await fetch("/api/updates/latest", {cache:"no-store"});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "暂时无法检查更新，请稍后重试。");
+        releaseLink.href = result.release_url;
+        if (result.update_available && result.assets.length) {
+            message.textContent = `发现 ${result.platform} 新版本 v${result.latest_version}（当前 v${result.current_version}）。点击“打开官方发行页”下载并安装。`;
+            message.style.color = "#4ade80";
+            releaseLink.style.display = "inline-flex";
+        } else if (result.update_available) {
+            message.textContent = `发现 v${result.latest_version}，但该版本暂未提供 ${result.platform} 安装包。`;
+            message.style.color = "#fbbf24";
+            releaseLink.style.display = "inline-flex";
+        } else if (result.latest_version && result.current_version && result.latest_version !== result.current_version) {
+            message.textContent = `当前 v${result.current_version}，高于公开发行版 v${result.latest_version}；目前没有可更新的正式版本。`;
+            message.style.color = "#fbbf24";
+        } else {
+            message.textContent = `当前已是最新正式版本 v${result.current_version}。`;
+            message.style.color = "#4ade80";
+        }
+    } catch (error) {
+        message.textContent = error.message || "暂时无法检查更新，请检查网络后重试。";
+        message.style.color = "#e74c3c";
+    } finally {
+        button.disabled = false;
+        button.textContent = "检查更新";
+    }
+}
+
+function firebaseMessage(text, failed = false) {
+    const msg = document.getElementById("firebaseSyncMsg");
+    msg.style.display = "block";
+    msg.textContent = text;
+    msg.style.color = failed ? "#e74c3c" : "#4ade80";
+}
+
+function loadFirebaseSettings() {
+    fetch("/api/firebase/settings").then(r => r.json()).then(data => {
+        document.getElementById("firebaseEmail").value = data.email || "";
+        document.getElementById("firebaseDisplayName").value = data.display_name || "";
+        if (data.signed_in) firebaseMessage(`已登录：${data.display_name || data.email || "影序账号"}`);
+    }).catch(() => firebaseMessage("无法读取同步设置。", true));
+}
+
+async function firebaseLogin(createAccount = false) {
+    const email = document.getElementById("firebaseEmail").value.trim();
+    const displayName = document.getElementById("firebaseDisplayName").value.trim();
+    const passwordInput = document.getElementById("firebasePassword");
+    const password = passwordInput.value;
+    try {
+        if (createAccount && !displayName) throw new Error("注册时请填写用户名。");
+        const endpoint = createAccount ? "register" : "login";
+        const response = await fetch(`/api/firebase/${endpoint}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, password, display_name:displayName})});
+        const result = await response.json();
+        if (!response.ok || result.error) throw new Error(result.error || "Firebase 登录失败，请稍后重试。");
+        passwordInput.value = "";
+        const account = {signed_in:true, email:result.email, display_name:result.display_name};
+        refreshFirebaseAccountBadge(account);
+        firebaseMessage(`${createAccount ? "账号已创建并登录" : "已登录"}：${result.display_name || result.email}；正在同步本机历史。`);
+        await loadFirebaseLive();
+    } catch (error) { firebaseMessage(error.message || "Firebase 登录失败。", true); }
+}
+
+async function firebaseLogout() {
+    try {
+        const result = await fetch("/api/firebase/logout", {method:"POST"}).then(r => r.json());
+        if (result.error) throw new Error(result.error);
+        document.getElementById("firebaseLive").replaceChildren();
+        refreshFirebaseAccountBadge({signed_in:false});
+        firebaseMessage("已退出同步账号；本机备份和历史不受影响。");
+    } catch (error) { firebaseMessage(error.message || "退出登录失败。", true); }
+}
+
+let firebaseLiveLoading = false;
+async function loadFirebaseLive() {
+    if (firebaseLiveLoading) return;
+    firebaseLiveLoading = true;
+    try {
+        const response = await fetch("/api/firebase/live");
+        const result = await response.json();
+        const host = document.getElementById("firebaseLive");
+        if (response.status === 401) {
+            host.textContent = "登录影序云同步账号后，可在此查看其他设备的实时备份进度。";
+            return;
+        }
+        if (!response.ok || result.error) throw new Error(result.error || "读取实时进度失败");
+        host.replaceChildren();
+        const active = (result.items || []).filter(item => ["scanning", "copying", "verifying", "paused", "queued"].includes(String(item.status)));
+        if (active.length === 0) {
+            host.textContent = result.error || (result.updatedAt ? "当前没有其他设备正在备份。" : "正在连接云端实时进度…");
+            return;
+        }
+        active.forEach(item => {
+            const row = document.createElement("div");
+            row.className = "history-row";
+            const title = document.createElement("strong");
+            title.textContent = `${item.deviceName || "影序设备"} · ${item.eventName || "备份任务"}`;
+            const detail = document.createElement("small");
+            const current = item.currentFile ? ` · 当前：${item.currentFile}` : "";
+            detail.textContent = `${item.status} · ${item.processedFiles || 0}/${item.totalFiles || 0} 项 · 已校验 ${item.verifiedFiles || 0} · 失败 ${item.failedFiles || 0}${current}`;
+            row.append(title, detail);
+            host.append(row);
+        });
+    } catch (error) {
+        document.getElementById("firebaseLive").textContent = error.message || "云端实时进度暂不可用。";
+    } finally {
+        firebaseLiveLoading = false;
+    }
 }
 
 function loadStorageChart() {
@@ -482,10 +655,70 @@ async function createPocketPairing() {
         if (!response.ok) throw new Error(data.error || "生成失败");
         document.getElementById("pocketUrl").textContent = data.url;
         document.getElementById("pocketCode").textContent = data.code;
+        const tcpPairing = document.getElementById("pocketTcpPairing");
+        tcpPairing.style.display = data.tcp_enabled ? "flex" : "none";
+        if (data.tcp_enabled) {
+            document.getElementById("pocketTcpUrl").textContent = `${data.tcp_host}:${data.tcp_port}`;
+        }
         panel.style.display = "grid";
     } catch (error) {
         panel.style.display = "block";
         panel.textContent = `❌ ${error.message}`;
+    }
+}
+
+async function loadPocketTcpSettings() {
+    try {
+        const response = await fetch("/api/pocket/tcp-settings");
+        const data = await response.json();
+        document.getElementById("pocketTcpEnabled").checked = data.enabled === true;
+        showPocketTcpStatus(data);
+    } catch (_) {
+        showPocketTcpStatus({error: "读取 Pocket App 连接状态失败"});
+    }
+}
+
+async function savePocketTcpSetting() {
+    const enabled = document.getElementById("pocketTcpEnabled").checked;
+    const toggle = document.getElementById("pocketTcpEnabled");
+    toggle.disabled = true;
+    try {
+        const response = await fetch("/api/pocket/tcp-settings", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({enabled}),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "设置失败");
+        showPocketTcpStatus(data);
+    } catch (error) {
+        toggle.checked = !enabled;
+        showPocketTcpStatus({error: error.message});
+    } finally {
+        toggle.disabled = false;
+    }
+}
+
+function showPocketTcpStatus(data) {
+    const status = document.getElementById("pocketTcpStatus");
+    status.style.display = "block";
+    if (data.error) {
+        status.textContent = `❌ ${data.error}`;
+        status.style.color = "#e74c3c";
+    } else if (data.running) {
+        const transfer = data.phone_transfer || {};
+        const active = ["copying", "paused", "queued"].includes(transfer.status);
+        const count = `${transfer.processed_files || 0} / ${transfer.total_files || 0} 项`;
+        const current = transfer.current_file ? ` · ${transfer.current_file}` : "";
+        const label = transfer.status === "paused" ? "已暂停" : transfer.status === "queued" ? "等待重连" : "正在传输";
+        status.textContent = `✅ 已开启：${data.host}:${data.port}（仅局域网）${active ? `\n手机导入：${label} ${count}${current}` : ""}`;
+        status.style.color = "#4ade80";
+    } else if (data.enabled) {
+        status.textContent = "⚠️ 设置为开启，但服务未运行；请检查端口占用后重启影序";
+        status.style.color = "#f0ad4e";
+    } else {
+        status.textContent = "已关闭；不会开放 Pocket 手机 App TCP 端口";
+        status.style.color = "var(--text-dim)";
     }
 }
 
@@ -559,6 +792,7 @@ document.addEventListener("DOMContentLoaded", function() { loadAdvancedSettings(
 .save-msg { margin-top: 12px; font-weight: 500; }
 .setting-help { display:block; width:100%; margin-top:2px; color:var(--text-dim); font-size:.84em; line-height:1.55; }
 .pocket-copy { color:var(--text-dim); line-height:1.65; margin-bottom:16px; }
+.pocket-tcp-row { margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
 .pocket-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .pocket-open { display:inline-grid; place-items:center; text-decoration:none; }
 .pocket-pairing { grid-template-columns:minmax(0,1fr) auto; gap:12px; margin-top:16px; padding:16px; border:1px solid var(--border); border-radius:14px; background:var(--bg); }
@@ -566,6 +800,12 @@ document.addEventListener("DOMContentLoaded", function() { loadAdvancedSettings(
 .pocket-caption { color:var(--text-dim); font-size:.78em; }
 .pocket-pairing strong { overflow-wrap:anywhere; }
 .pocket-code { color:var(--accent); font-size:1.7em; letter-spacing:.18em; }
+.firebase-history-entry { padding:10px 0; border-bottom:1px solid var(--border); }
+.firebase-history-entry > summary { display:flex; flex-direction:column; gap:5px; cursor:pointer; }
+.firebase-history-entry > summary small { color:var(--text-dim); }
+.firebase-history-detail { padding:10px 0 0 16px; color:var(--text-dim); font-size:.88em; line-height:1.7; overflow-wrap:anywhere; }
+.firebase-history-detail ul { max-height:320px; overflow:auto; padding-left:20px; }
+.firebase-history-detail details { margin-top:8px; }
 @media (max-width:680px) { .pocket-pairing { grid-template-columns:1fr; } }
 
 /* Toggle开关 */

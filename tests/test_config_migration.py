@@ -55,6 +55,7 @@ class ConfigMigrationTests(unittest.TestCase):
 
         self.assertEqual(config.pocket_enabled, True)
         self.assertEqual(config.pocket_session_hours, 12)
+        self.assertFalse(config.pocket_tcp_enabled)
         self.assertEqual(config.backup_targets, legacy["backup_targets"])
         self.assertEqual(config.max_speed_mbps, 80)
         self.assertEqual(config_module.CONFIG_FILE.read_bytes(), original)
@@ -66,21 +67,36 @@ class ConfigMigrationTests(unittest.TestCase):
         config = config_module.AppConfig.load()
         config.pocket_enabled = False
         config.pocket_session_hours = 6
+        config.pocket_tcp_enabled = True
         config.save()
         reloaded = config_module.AppConfig.load()
 
         self.assertFalse(reloaded.pocket_enabled)
         self.assertEqual(reloaded.pocket_session_hours, 6)
+        self.assertTrue(reloaded.pocket_tcp_enabled)
         self.assertEqual(reloaded.backup_root, "/Volumes/Archive")
         saved_config = json.loads(config_module.CONFIG_FILE.read_text(encoding="utf-8"))
         self.assertNotIn("schema_version", saved_config)
         self.assertEqual(
             json.loads(config_module.CONFIG_SCHEMA_FILE.read_text(encoding="utf-8")),
-            {"schema_version": 2},
+            {"schema_version": 4},
         )
         # Released v1.0.34 reads config.json directly; keep its fields backward compatible.
         self.assertIn("pocket_enabled", saved_config)
         self.assertIn("pocket_session_hours", saved_config)
+
+    def test_v2_config_adds_app_firebase_project_fields_without_credentials(self):
+        self._write({"backup_root": "/Volumes/Archive", "pocket_tcp_enabled": False})
+        config_module.CONFIG_SCHEMA_FILE.write_text(json.dumps({"schema_version": 2}), encoding="utf-8")
+
+        migrated = config_module.AppConfig.load()
+
+        self.assertEqual(migrated.firebase_api_key, config_module.FIREBASE_PUBLIC_API_KEY)
+        self.assertEqual(migrated.firebase_database_url, config_module.FIREBASE_DATABASE_URL)
+        self.assertEqual(migrated.firebase_email, "")
+        self.assertEqual(migrated.firebase_uid, "")
+        self.assertEqual(migrated.firebase_display_name, "")
+        self.assertTrue(migrated.firebase_device_id.startswith("desktop-"))
 
     def test_failed_atomic_replace_keeps_existing_config_and_cleans_temp_file(self):
         self._write({"backup_root": "/Volumes/Old"})
@@ -111,7 +127,7 @@ class ConfigMigrationTests(unittest.TestCase):
     def test_reset_removes_config_and_schema_sidecar(self):
         self._write({"backup_root": "/Volumes/Archive"})
         config_module.CONFIG_SCHEMA_FILE.write_text(
-            json.dumps({"schema_version": 2}), encoding="utf-8"
+            json.dumps({"schema_version": 3}), encoding="utf-8"
         )
 
         config_module.AppConfig.reset()

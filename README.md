@@ -2,19 +2,19 @@
 
 > 摄影师的本地优先素材备份与归档工具。插卡、确认、备份、校验、可追溯。
 
-[官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
+[官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [全端闭环计划](docs/PROJECT-CLOSURE-PLAN-v1.0.40.md) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
 
-> **版本状态（2026-10-16）**：GitHub 最新公开版为 v1.0.34，Release 目前只有 Windows 安装包。macOS v1.0.37 候选已构建并安装，但当前主机真实存储卡首页扫描仍停滞，尚未完成运行验收、签名公证或公开发布；不要把候选当作公开下载。详见 [v1.0.37 候选验收记录](docs/RELEASE-v1.0.37.md) 与 [v1.0.36 多端差距审计](docs/CROSS-PLATFORM-AUDIT-v1.0.36.md)。
+> **版本状态（2026-10-19）**：GitHub 最新正式版仍为 v1.0.34，只有 Windows 安装包。v1.0.40 macOS 候选为 ad-hoc 签名、无 Team ID、未公证；Windows 仅有 unsigned preview。iOS 采用 Safari PWA；Android EAS preview 已构建但未公开，真机验收暂缓。Firebase 真实账号跨设备同步与新正式版本发布仍待完成。详见 [v1.0.40 候选验收记录](docs/RELEASE-v1.0.40.md) 和 [v1.0.40 全端闭环计划](docs/PROJECT-CLOSURE-PLAN-v1.0.40.md)。
 
 ## 给摄影师的三个步骤
 
-1. 从 Releases 下载当前系统已有的正式安装包；macOS v1.0.37 仍是候选，没有公开 DMG。
+1. 从 Releases 下载当前系统已有的正式安装包；macOS v1.0.40 候选、Windows unsigned preview 和 Android EAS preview 均未公开发行。
 2. 插入相机存储卡或读卡器，影序会扫描来源、文件数量、照片和视频。
 3. 选择备份位置，确认事件名称和目录预览，点击“开始备份”。完成后可在“归档记录”打开报告、查询素材位置。
 
-默认只读取、复制和校验，**绝不自动删除原卡素材**。首次备份保留每一个文件；再次备份同一来源到同一目标时会逐个跳过已完成文件。
+新内容备份默认只读、复制和校验，**不会自动删除原卡素材**。首次备份保留每一个文件；再次备份同一来源到同一目标时会逐个跳过已完成文件。“转移老内容”是单独的用户主动操作：目标副本通过 SHA-256 校验后才移除来源，取消或失败会保留来源。
 
-## 当前本地候选：v1.0.37（未发布）
+## 当前开发版本：v1.0.40（macOS 本机候选已安装；未公开发行）
 
 | 能力 | 当前行为 |
 | --- | --- |
@@ -27,19 +27,22 @@
 | 历史与报告 | 保留成功、跳过、失败、校验数量、来源卡、每个目标结果，并导出 JSON、CSV、Markdown 报告。 |
 | 本地优先 | 素材和历史默认留在本机；百度网盘为可选项，未配置时不会影响本地备份。 |
 | 影序 Pocket | 同一 Wi-Fi 下用手机查看桌面备份进度、历史并填写拍摄信息；无需安装原生 App。 |
+| iOS Pocket | 按最新决定只维护 Safari PWA，不开发原生 iOS App。当前新增独立 HTTPS PWA 源码候选，可登录 Firebase 查看云端进度和历史；尚未部署或在 iPhone 上验收。 |
+| Android Pocket | EAS Android preview APK 已生成并校验；目前没有 Android 测试设备，真机验收和公开发行暂缓。 |
 
 ## 影序 Pocket 手机协作台
 
-1. 在 Mac 版“偏好设置 → 影序 Pocket”生成 6 位配对码。
-2. 保持手机与 Mac 在同一 Wi-Fi，用手机 Safari 打开界面显示的局域网地址。
-3. 输入配对码后，可查看实时进度、历史记录，并把事件、地点、设备和备注发送到当前 Mac。
-4. iPhone 可在 Safari 的“分享 → 添加到主屏幕”中把它保存为接近 App 的入口。
+1. iPhone 可从官网打开“手机协作台”，用 Safari“分享 → 添加到主屏幕”安装 PWA；登录后查看 Firebase 云端备份进度与历史，首次打开需网络。
+2. 若要与附近电脑配对，在 Mac 版“偏好设置 → 影序 Pocket”生成 6 位配对码。
+3. 保持手机与 Mac 在同一 Wi-Fi，用手机 Safari 打开界面显示的局域网地址并输入配对码，即可查看该电脑实时进度、历史并发送事件、地点、设备和备注。
 
-Pocket 默认只在本地局域网工作，配对码十分钟后失效且只能使用一次。它不会读取、上传、删除或修改手机照片，也不能替代桌面端在后台读取整张存储卡。详见 [Pocket 使用说明](docs/POCKET.md)。
+Pocket 分为两个入口：`site/pocket/` 是独立 HTTPS PWA 候选，用 Firebase 查看按账号隔离的备份进度与历史，离线时显示浏览器已缓存的页面和历史；它尚未部署，首次打开必须联网。桌面软件的局域网 `/pocket/` 页面仍使用 HTTP 配对，需要电脑运行且手机与电脑同一 Wi‑Fi；该 HTTP 页面不能使用 Service Worker。PWA 不读取手机照片或 SD 卡，不提供原生后台备份。
+
+局域网配对码十分钟后失效且只能使用一次。Pocket 不读取、上传、删除或修改手机照片，也不能替代桌面端在后台读取整张存储卡。详见 [Pocket 使用说明](docs/POCKET.md)。
 
 ## macOS 安装与首次打开
 
-当前 GitHub Release 尚无 macOS v1.0.37 下载包。v1.0.37 DMG 仍是候选，待完成发布门槛后才会出现在公开下载页。
+当前 GitHub Release 尚无 macOS v1.0.40 下载包。本机已安装的 v1.0.40 候选仅用于验收，不是公开发行版；Windows 只有 unsigned CI preview，Android EAS APK 也只是内部 preview。
 
 公开版发布后，请只从本仓库 Releases 下载并核对该 Release 提供的 SHA-256。未公证的候选可能触发 macOS Gatekeeper 提示；不要对来源不明的安装包放行。
 

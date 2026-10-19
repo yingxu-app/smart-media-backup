@@ -73,9 +73,10 @@ class WasteReviewer:
         # 缩小后做分析，兼顾速度
         img = img.resize((96, 96), Image.LANCZOS)
         gray = img.convert("L")
-        get_flattened_data = getattr(gray, "get_flattened_data", None)
-        pixel_data = get_flattened_data() if callable(get_flattened_data) else gray.getdata()
-        pixels = list(pixel_data)
+        # A grayscale image stores one byte per pixel. Reading its bytes avoids
+        # Pillow's deprecated getdata() API while remaining compatible with
+        # versions that do not expose get_flattened_data().
+        pixels = list(gray.tobytes())
         if not pixels:
             return {"label": "正常", "confidence": 0.0, "reason": "空图像", "source": "heuristic"}
 

@@ -24,6 +24,7 @@ a = Analysis(
     hiddenimports=[
         "smb", "smb.config", "smb.detector", "smb.backup",
         "smb.organizer", "smb.verifier", "smb.db", "smb.cli",
+        "smb.server", "smb.transfer", "smb.pocket_tcp",
         "smb.phash", "smb.lightroom", "smb.baidu", "smb.ai_namer",
         "smb.waste_filter", "smb.windows_preview", "smb.pocket",
         "flask", "flask_socketio", "engineio", "engineio.async_drivers",
@@ -41,6 +42,7 @@ a = Analysis(
         "html", "html.parser",
         "xml", "xml.etree", "xml.etree.ElementTree",
         "socket", "ssl",
+        "smb.firebase_sync", "keyring", "keyring.backends.macOS", "certifi",
     ],
     hookspath=[],
     hooksconfig={},
@@ -101,8 +103,8 @@ app = BUNDLE(
         "CFBundleName": "影序 YINGXU",
         "CFBundleDisplayName": "影序 YINGXU",
         "CFBundleIdentifier": "com.luguanlin.yingxu",
-        "CFBundleVersion": "1.0.37",
-        "CFBundleShortVersionString": "1.0.37",
+        "CFBundleVersion": "1.0.40",
+        "CFBundleShortVersionString": "1.0.40",
         "CFBundleExecutable": "影序 YINGXU",
         "CFBundleInfoDictionaryVersion": "6.0",
         "NSHighResolutionCapable": True,
@@ -111,5 +113,6 @@ app = BUNDLE(
         "NSSupportsAutomaticTermination": False,
         "LSBackgroundOnly": False,
         "CFBundlePackageType": "APPL",
+        "NSRemovableVolumesUsageDescription": "影序需要读取相机存储卡和外接硬盘中的素材，以便扫描、备份并校验文件；默认不会删除原卡素材。",
     },
 )
