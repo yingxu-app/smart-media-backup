@@ -1577,6 +1577,7 @@ def _firebase_authenticate(create_account: bool):
         if isinstance(error, ValueError):
             messages = {
                 "EMAIL_EXISTS": "这个邮箱已注册，请直接登录。",
+                "EMAIL_NOT_FOUND": "这个邮箱尚未注册，请先注册账号。",
                 "INVALID_EMAIL": "邮箱格式无效。",
                 "INVALID_PASSWORD": "邮箱或密码不正确。",
                 "INVALID_LOGIN_CREDENTIALS": "邮箱或密码不正确。",
@@ -1584,6 +1585,8 @@ def _firebase_authenticate(create_account: bool):
                 "TOO_MANY_ATTEMPTS_TRY_LATER": "尝试次数过多，请稍后再试。",
                 "WEAK_PASSWORD": "密码未达到 Firebase 要求，请更换更强的密码。",
                 "OPERATION_NOT_ALLOWED": "Firebase 项目尚未启用邮箱/密码登录。",
+                "API_KEY_INVALID": "Firebase Web API Key 无效，请检查应用配置。",
+                "CONFIGURATION_NOT_FOUND": "Firebase Authentication 尚未完成项目配置。",
             }
             return jsonify({"error": messages.get(str(error), "Firebase 账号验证失败。")}), 400
         return jsonify({"error": "Firebase 登录失败，请检查项目配置、系统凭据库和网络。"}), 400

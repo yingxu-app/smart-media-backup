@@ -67,6 +67,16 @@ class FirebaseServerTests(unittest.TestCase):
         fake.start_live_watch.assert_called_once_with()
         self.assertNotIn("not-persisted", repr(server.config))
 
+    def test_firebase_registration_reports_password_policy_errors_clearly(self):
+        fake = SimpleNamespace(sign_in=mock.Mock(side_effect=ValueError("WEAK_PASSWORD")))
+        with mock.patch.object(server, "_get_firebase_sync_client", return_value=fake):
+            response = self.client.post("/api/firebase/register", json={
+                "email": "new@example.com", "password": "temporary-input", "display_name": "小影",
+            })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("密码未达到 Firebase 要求", response.get_json()["error"])
+        self.assertNotIn("temporary-input", repr(server.config))
+
     def test_firebase_live_endpoint_starts_watch_and_returns_cached_progress(self):
         fake = SimpleNamespace(
             uid="uid-1",

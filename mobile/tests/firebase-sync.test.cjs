@@ -2,6 +2,24 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { FirebaseSyncClient } = require("../src/services/firebase-sync.cjs");
 
+test("Firebase authentication errors with detail suffixes show actionable guidance", async () => {
+  const cases = [
+    ["WEAK_PASSWORD : Password should be at least 6 characters", "密码未达到 Firebase 要求"],
+    ["OPERATION_NOT_ALLOWED : PASSWORD sign-in is disabled", "尚未启用邮箱/密码登录"],
+    ["API_KEY_INVALID", "Web API Key 无效"],
+  ];
+  for (const [code, expected] of cases) {
+    const client = new FirebaseSyncClient({ apiKey: "public-key", databaseUrl: "https://yingxu.firebaseio.com",
+      secureStore: { async set() {}, async get() { return null; }, async remove() {} }, deviceId: "phone-1",
+      fetchImpl: async () => ({ ok: false, async json() { return { error: { message: code } }; } }) });
+    await assert.rejects(client.signIn("photo@example.com", "temporary-input", true, "影序用户"), (error) => {
+      assert.ok(error.message.includes(expected), error.message);
+      assert.ok(!JSON.stringify(client).includes("temporary-input"));
+      return true;
+    });
+  }
+});
+
 test("Firebase accounts only read under their own UID and keep refresh tokens in secure storage", async () => {
   const storageA = new Map();
   const storageB = new Map();

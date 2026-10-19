@@ -68,3 +68,9 @@ The code-side goal is complete when stages 1–4 are implemented, local checks a
 - When a phone backup includes both a LAN desktop destination and local/attached storage, a desktop disconnect now queues only that destination. The engine keeps processing the other selected targets and remaining media instead of ending the whole backup at the first offline target.
 - The desktop destination is marked queued once per run to avoid repeating the same connection timeout for every file. After reconnect, rerunning the queued task hash-checks completed local copies and fills in the missing desktop copies.
 - Targeted mobile Node tests pass 26/26; Expo lint and TypeScript no-emit checks pass. These checks do not replace iPhone, Android, or removable-drive acceptance.
+
+## 2026-10-19 Firebase authentication error guidance
+
+- Desktop and Pocket clients now extract the Firebase error code prefix when the API includes additional policy text, such as `WEAK_PASSWORD : ...`.
+- Weak-password, disabled email/password provider, invalid Web API Key, missing Authentication configuration, and common account errors receive actionable Chinese messages instead of falling through to the generic network/configuration error.
+- Local simulated-response verification: Pocket Node suite 27/27; desktop Firebase sync tests 7/7; Firebase server route tests 6/6; Expo lint and TypeScript no-emit pass. No real account password was used, and live multi-device authentication remains unverified.

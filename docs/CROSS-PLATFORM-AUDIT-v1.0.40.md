@@ -306,3 +306,8 @@ The finite code-side phase ends after identified source gaps are closed, targete
 
 - The mobile copy engine previously stopped the full task when the LAN desktop target went offline. It now queues only that target and continues available phone/attached-storage targets and remaining files. On reconnect, completed copies are hash-deduplicated and the missing destination is filled.
 - Targeted mobile Node tests pass 26/26; Expo lint and TypeScript no-emit checks pass. Physical drive and reconnect behavior still require device acceptance.
+
+### Source follow-up: Firebase authentication diagnostics
+
+- Desktop and Pocket clients now extract Firebase error-code prefixes when API messages include detail suffixes and display specific help for weak passwords, disabled email/password sign-in, invalid Web API keys, and incomplete Authentication configuration.
+- Simulated local checks pass: Pocket Node 27/27, desktop Firebase sync 7/7, Firebase server route 6/6, Expo lint, TypeScript no-emit, and `git diff --check`. Live owner-account login and cross-device sync remain unverified.

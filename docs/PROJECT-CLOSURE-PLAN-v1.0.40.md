@@ -186,3 +186,8 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 
 - The mobile copy engine previously stopped the entire multi-target task at the first offline desktop destination. It now marks that destination queued, continues copying to the phone/attached destinations and remaining files, then retries missing destinations after reconnection; already-copied local files are hash-deduplicated.
 - Targeted mobile Node tests now pass 26/26; Expo lint and TypeScript no-emit checks pass. Physical media, app-background, and LAN reconnect behavior remain device acceptance items.
+
+### Source follow-up: make Firebase authentication errors actionable
+
+- Desktop and Pocket authentication now parse the Firebase error-code prefix even when Firebase appends policy details. They distinguish weak passwords, disabled email/password sign-in, invalid Web API keys, and incomplete Authentication setup.
+- Local simulated-response checks pass: Pocket 27/27, desktop Firebase sync 7/7, Firebase server routes 6/6; Expo lint and TypeScript no-emit pass. This does not prove a live account can sign in or sync across devices.

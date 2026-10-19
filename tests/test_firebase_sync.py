@@ -101,6 +101,21 @@ class FirebaseSyncTests(unittest.TestCase):
                 client.publish_history({"id": 1})
             self.assertEqual(session.calls, [])
 
+    def test_auth_errors_with_firebase_details_keep_the_actionable_error_code(self):
+        cases = (
+            ("WEAK_PASSWORD : Password should be at least 6 characters", "WEAK_PASSWORD"),
+            ("OPERATION_NOT_ALLOWED : PASSWORD sign-in is disabled", "OPERATION_NOT_ALLOWED"),
+            ("API_KEY_INVALID", "API_KEY_INVALID"),
+        )
+        for message, expected in cases:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                session = FakeSession([FakeResponse(400, {"error": {"message": message}})])
+                client = FirebaseSyncClient("api-key", "https://yingxu.firebaseio.com", MemoryTokenStore(), "desktop-1",
+                                            session=session, outbox_path=Path(directory) / "outbox.json")
+                with self.assertRaisesRegex(ValueError, expected):
+                    client.sign_in("photo@example.com", "temporary-input", create_account=True, display_name="影序用户")
+                self.assertNotIn("temporary-input", repr(client.__dict__))
+
     def test_database_path_rejects_traversal_before_request(self):
         with tempfile.TemporaryDirectory() as directory:
             client = FirebaseSyncClient("api-key", "https://yingxu.firebaseio.com", MemoryTokenStore(), "desktop-1",
