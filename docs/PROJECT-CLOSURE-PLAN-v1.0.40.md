@@ -1,6 +1,19 @@
 # 影序全端闭环计划 v1.0.40
 
-核对日期：2026-10-17（最新专项核对至 PR head `a271c92edfa800d2f5230bfd915ccf72eb97659a`；该 head 为审计文档更新，产品源码基线仍为 `9bbae707f51575a862693de4349b33de4135843d`）。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
+核对日期：2026-10-19。最新候选核对至 PR #4 head `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。早期候选记录保留为历史，当前结果以“2026-10-19 当前 head 候选交付”节为准。
+
+## 2026-10-19 当前 head 候选交付
+
+- PR #4 OPEN/DRAFT、mergeable，工作树 clean；当前 head `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。
+- Reliability PR `39188941105`、push `39188938449`、macOS `39188941117`、Windows `39188941135`、Pocket `39188941122` 均 success；Pocket JS/CNG、Android debug、iOS Simulator 全通过。iOS Simulator job 不产出 IPA。
+- macOS artifact `12159535671`（21,078,353 bytes；metadata SHA-256 `17f5e0804e2a34135e20085325ed8db24fa9f5f4745ba3ae7c61ec831dd1f221`）。内含 DMG SHA-256 `89eef56bebafa483d65c5a4e54c7d93ed1e6a04337798e9273c0a57f45f1caf7`，清单一致、hdiutil VALID；arm64 app deep/strict code verification 通过，但 ad-hoc、无 Team ID、未公证。
+- Windows artifact `12159231755`（27,874,165 bytes；metadata SHA-256 `b12d22207311defe362acbf917bba43005a0f36ec793516994a5cc0a3dc590e6`）。内含 x86-64 PE EXE SHA-256 `79bce8d91a9a06c8d04dc763f58cda592dabaac9d30b5a736dabd83ea5e5a061`，与清单一致；未做 Windows 实机运行验收。
+- Android artifact `12159314027`（94,608,820 bytes；ZIP SHA-256 `0ebeca6aef5b874e4e34e748018b12a1447eab17e6c52f6a85b8e84271c94fdd` 与 metadata 一致）。APK SHA-256 `a6aaa85668cd927b069b7e340083b7cd58167f94ec3746705a35077168609518`，269,595,547 bytes、四 ABI；属于 debug 包，未在实体手机安装。
+- 最新公开 Release 仍为 `v1.0.34`，只有 Windows EXE 与校验文件。当前 CI 无小程序门禁。
+
+## 阶段停止条件与外部交接
+
+代码候选阶段以最新 PR checks 成功、候选证据和外部验收清单记录完毕、PR #4 保持 OPEN/DRAFT 为结束点；不把这一结束点称为产品发布或真机闭环。后续需要 owner/设备：iPhone、Android、Windows 实机验收；Firebase 同账号多端进度与历史、不同 UID 隔离和断网恢复；EAS 项目关联；各平台签名、公证/商店；正式 Release 下载、升级与回滚。
 
 ## 当前交付面与权威证据
 

@@ -1,6 +1,16 @@
 # 影序全端闭环状态审计 v1.0.40
 
-审计日期：2026-10-17（最新专项核对至 PR head `a271c92edfa800d2f5230bfd915ccf72eb97659a`；该 head 为审计文档更新，产品源码基线仍为 `9bbae707f51575a862693de4349b33de4135843d`）。范围依据用户目标覆盖 PC 桌面、手机端、网页、小程序、多端测试、部署与上架。本文把源码、CI、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。
+审计日期：2026-10-19。最新候选核对至 PR #4 head `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。下方旧矩阵是历史核对记录，当前 CI 与候选包以“2026-10-19 当前 head 候选复核”节为准。
+
+## 2026-10-19 当前 head 候选复核
+
+- PR #4 仍为 OPEN/DRAFT、mergeable；head `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`，工作树 clean。
+- 同一 head 的 Reliability PR run `39188941105`、Reliability push run `39188938449`、macOS candidate run `39188941117`、Windows preview run `39188941135`、Pocket run `39188941122` 均 success。Pocket 的 JS/CNG/check、Android debug、iOS Simulator 三 job 全 success；该 workflow 没有上传 iOS app 或 IPA。
+- macOS artifact `12159535671` metadata：21,078,353 bytes，SHA-256 `17f5e0804e2a34135e20085325ed8db24fa9f5f4745ba3ae7c61ec831dd1f221`。DMG SHA-256 `89eef56bebafa483d65c5a4e54c7d93ed1e6a04337798e9273c0a57f45f1caf7` 与包内清单一致，`hdiutil verify` 为 VALID；app `codesign --verify --deep --strict` 通过，arm64、ad-hoc、无 Team ID，未公证。
+- Windows artifact `12159231755` metadata：27,874,165 bytes，SHA-256 `b12d22207311defe362acbf917bba43005a0f36ec793516994a5cc0a3dc590e6`。内含 EXE SHA-256 `79bce8d91a9a06c8d04dc763f58cda592dabaac9d30b5a736dabd83ea5e5a061` 与清单一致，文件类型为 PE32+ x86-64；该预览包未在真实 Windows 设备运行。
+- Android artifact `12159314027` metadata 为 94,608,820 bytes、SHA-256 `0ebeca6aef5b874e4e34e748018b12a1447eab17e6c52f6a85b8e84271c94fdd`；本机下载 ZIP 后 SHA-256 与 metadata 一致。内含 269,595,547-byte `app-debug.apk`，SHA-256 `a6aaa85668cd927b069b7e340083b7cd58167f94ec3746705a35077168609518`，包含 arm64-v8a、armeabi-v7a、x86、x86_64。APK 是 debug 包，未真机安装。
+- Latest Release API 复核仍为 `v1.0.34`，资产仅 Windows EXE 与 `SHA256SUMS.txt`。活动 `.github/workflows` 没有小程序门禁。
+- 设备/账号/发行验收仍未完成：iPhone/Android/Windows 实机；Firebase 手机与桌面跨端认证、进度/历史、UID 隔离与离线恢复；EAS owner/project；正式签名、公证、商店发行；正式版本下载、升级和回滚。CI 与本机包体核验不能替代这些门槛。
 
 ## 当前证据矩阵
 
