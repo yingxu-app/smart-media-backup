@@ -1,0 +1,68 @@
+name: Build macOS release candidate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/release-macos.yml"
+      - "desktop/**"
+      - "smb/**"
+      - "tests/**"
+      - "requirements.txt"
+      - "setup.py"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install build dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+      - name: Test
+        env:
+          SMB_CONFIG_DIR: ${{ runner.temp }}/yingxu-test-config
+        run: python -m unittest discover -s tests -v
+      - name: Build app
+        working-directory: desktop
+        run: pyinstaller smb.spec --noconfirm --clean
+      - name: Ad-hoc sign
+        run: codesign --force --deep --sign - "desktop/dist/影序 YINGXU.app"
+      - name: Resolve application version
+        id: app-version
+        run: echo "version=$(python -c 'from smb import __version__; print(__version__)')" >> "$GITHUB_OUTPUT"
+      - name: Verify release tag matches application version
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          APP_VERSION: ${{ steps.app-version.outputs.version }}
+        run: |
+          expected_tag="v${APP_VERSION}"
+          if [[ "${TAG_NAME}" != "${expected_tag}" ]]; then
+            echo "Tag ${TAG_NAME} does not match app version ${APP_VERSION} (expected ${expected_tag})." >&2
+            exit 1
+          fi
+      - name: Package DMG
+        run: |
+          mkdir dmg-root
+          cp -R "desktop/dist/影序 YINGXU.app" dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create -volname "影序 YINGXU" -srcfolder dmg-root -ov -format UDZO "YINGXU-macOS-v${APP_VERSION}.dmg"
+          shasum -a 256 "YINGXU-macOS-v${APP_VERSION}.dmg" > SHA256SUMS.txt
+        env:
+          APP_VERSION: ${{ steps.app-version.outputs.version }}
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: YINGXU-macOS-v${{ steps.app-version.outputs.version }}
+          path: |
+            YINGXU-macOS-*.dmg
+            SHA256SUMS.txt

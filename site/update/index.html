@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#09100e">
+  <meta name="description" content="影序桌面版更新、文件校验与回退说明。">
+  <link rel="icon" href="../assets/yingxu-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../styles.css">
+  <title>更新与回退 · 影序 YINGXU</title>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../" aria-label="影序首页"><img src="../assets/yingxu-icon.svg" alt=""><span>影序 <b>YINGXU</b></span></a>
+    <nav aria-label="主导航"><a href="../download/">下载</a><a href="../privacy.html">隐私</a><a class="nav-source" href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer">最新正式版 ↗</a></nav>
+  </header>
+  <main class="wrap download-page">
+    <p class="eyebrow">UPDATE &amp; ROLLBACK</p>
+    <h1>更新与回退</h1>
+    <p class="download-lead">偏好设置里的“检查更新”会查询正式版本并打开官方发行页。它不会在后台替你覆盖应用；请核对版本与 SHA-256 后再手动安装。</p>
+
+    <section class="release-card">
+      <h2>更新前先保护备份记录</h2>
+      <ol>
+        <li>等当前备份任务结束，退出影序。</li>
+        <li>在偏好设置点击“检查更新”，然后只从影序的 <a href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer">GitHub 正式发行页</a>下载对应系统的文件和同版本 <code>SHA256SUMS.txt</code>。</li>
+        <li>按下载页说明计算安装包 SHA-256，并逐字比对清单；不一致时不要打开。</li>
+        <li>把用户数据目录复制到安全位置作为回退副本。默认目录为 macOS/Linux 的 <code>~/.config/smb/</code>，Windows 的 <code>%USERPROFILE%\.config\smb\</code>。里面包含备份历史、设置，也可能有第三方服务凭据；请只保存在你控制的本机或加密磁盘，不要上传或发给他人。</li>
+      </ol>
+    </section>
+
+    <section class="release-card">
+      <h2>安装新版本</h2>
+      <h3>macOS</h3>
+      <ol>
+        <li>退出影序，把当前 <code>影序 YINGXU.app</code> 复制一份并改名标记旧版本，放在应用程序文件夹以外的位置。</li>
+        <li>打开已校验的 DMG，把新 App 拖到“应用程序”，按 Finder 提示替换旧版本。</li>
+        <li>按当前决策，后续发行版不做 Developer ID 签名和 Apple 公证。macOS 可能显示无法验证开发者或无法检查恶意软件的警告；只有在确认文件来自官方发行页且 SHA-256 匹配后，才考虑按 Apple 的<a href="https://support.apple.com/zh-cn/102445" target="_blank" rel="noopener noreferrer">安全打开说明</a>自行决定是否允许打开。若系统提示已检测到恶意软件或应用已损坏，请停止安装，不要绕过该提示。</li>
+      </ol>
+      <h3>Windows</h3>
+      <p>按当前决策，后续 Windows 发行包不做代码签名，系统可能显示发布者未知或安全警告。先从官方发行页下载并核对 SHA-256；只要校验不一致或来源不确定，就不要运行。</p>
+      <ol>
+        <li>退出影序，保留旧版本文件夹不动。</li>
+        <li>把新发行包解压到一个新的版本文件夹，先核对 EXE 的 SHA-256，再从该文件夹启动新版本。不要在旧程序仍运行时覆盖 EXE。</li>
+        <li>确认新版本能启动并正确显示历史后，再自行决定是否清理旧程序副本；不要删除用户数据目录。</li>
+      </ol>
+    </section>
+
+    <section class="release-card">
+      <h2>回退到旧版本</h2>
+      <ol>
+        <li>退出当前版本。macOS 启动保留的旧 App；Windows 从保留的旧版本文件夹启动原 EXE。</li>
+        <li>如果旧版本无法读取升级后的历史数据库，先把当前 <code>.config/smb</code> 文件夹改名保留，再将更新前的安全副本恢复到原位置，然后启动旧版本。</li>
+        <li>回退后暂时停止新的备份写入，保留问题版本、旧版本和两份数据目录，直到确认历史完整。</li>
+      </ol>
+      <p>回退副本只在更新前创建时才能恢复到更新前的数据状态。影序不会自动删除旧程序或自动回滚用户数据。</p>
+    </section>
+
+    <p class="release-meta">官方版本、安装包与校验文件以 <a href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer">GitHub 最新正式发行页</a>为准。<a href="../download/">返回下载页</a></p>
+  </main>
+  <footer class="footer wrap"><a class="brand footer-brand" href="../"><img src="../assets/yingxu-icon.svg" alt=""><span>影序 <b>YINGXU</b></span></a><small>先校验，再安装；保留旧版本和数据副本。</small></footer>
+</body>
+</html>

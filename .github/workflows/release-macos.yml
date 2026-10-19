@@ -35,8 +35,20 @@ jobs:
       - name: Build app
         working-directory: desktop
         run: pyinstaller smb.spec --noconfirm --clean
-      - name: Ad-hoc sign
-        run: codesign --force --deep --sign - "desktop/dist/影序 YINGXU.app"
+      - name: Verify app remains unsigned
+        shell: bash
+        run: |
+          app="desktop/dist/影序 YINGXU.app"
+          set +e
+          details="$(codesign -dv --verbose=2 "$app" 2>&1)"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]] || ! grep -qi "code object is not signed at all" <<< "$details"; then
+            echo "Expected an unsigned app bundle; codesign inspection was inconclusive or found a signature." >&2
+            printf '%s\n' "$details" >&2
+            exit 1
+          fi
+          echo "Confirmed: the application bundle has no code signature."
       - name: Resolve application version
         id: app-version
         run: echo "version=$(python -c 'from smb import __version__; print(__version__)')" >> "$GITHUB_OUTPUT"

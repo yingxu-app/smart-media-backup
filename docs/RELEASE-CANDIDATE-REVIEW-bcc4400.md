@@ -113,3 +113,16 @@
 - macOS artifact `12204808629`, 21,081,358 bytes, GitHub digest `sha256:7d3b2367d6b88fc94440173f16040863223936c9f814b8a5a005110b2c0db841`. `gh run download` extracted the artifact; raw ZIP bytes were not locally re-hashed. Inner v1.0.40 DMG SHA-256 `c196691169ccfd2e5b7a358cb997ef80336377e17457ed474d58f278d9ace7ca` matches `SHA256SUMS.txt`; `hdiutil verify` VALID. Mounted app version 1.0.40, arm64, deep/strict signature verification passed; signature is ad-hoc, Team ID not set, no notarization.
 - Windows artifact `12205525691`, 27,873,499 bytes, GitHub digest `sha256:8e8bc7fe4c0c5ee86747c021915eb7241db74a93ec4f19b80bca8bd6a612a9e5`. `gh run download` extracted the artifact; raw ZIP bytes were not locally re-hashed. Inner EXE SHA-256 `1bf3dc9200617c53d487e0a4566e6e2b58576db4301e46b10196110e1b8f6e6b` matches `SHA256SUMS.txt`; file is PE32+ GUI x86-64. It remains unsigned and has no Windows device install evidence.
 - Release, site and rollback state remain unchanged from the previous checkpoint: public Release `v1.0.34`, Pages `/pocket/` HTTP 404, no replacement of the old download, and rollback instructions remain as listed above. This artifact evidence does not authorize publication or satisfy real-device acceptance.
+
+## Current scope correction and update/rollback guide — 2026-10-20
+
+- 用户已明确当前桌面发行不做 macOS/Windows 代码签名，也不做 Apple 公证；这些不再是目标的发布阻塞项。公开页面必须明确标注未签名/未公证的系统警告与 SHA-256 核验要求，不指导用户忽略“已检测到恶意软件”或“应用已损坏”一类阻断提示。
+- iPhone 交付仅为 Safari PWA；原生 iOS、Android 真机验收（暂无 Android 设备）、微信小程序、异地原始媒体云备份排除在本阶段目标之外。
+- 本目标的剩余发布门槛仍包括：PR 合并并部署 Pages PWA、Firebase 真实账户/多设备/UID隔离/离线恢复验证、iPhone PWA HTTPS 安装与恢复验收、Windows 实机安装与核心备份验收、正式 Release 与下载页版本一致、更新和回退路径验证。最新正式 Release 仍为 v1.0.34。
+- 新增 `site/update/index.html`，说明检查更新是人工下载/安装；升级前结束任务、校验 SHA-256、备份 `~/.config/smb/` 或 `%USERPROFILE%\\.config\\smb\\`；macOS/Windows分别保留旧程序副本；提供回退步骤。设置页和下载页链接到该说明。
+- `https://yingxu-app.github.io/smart-media-backup/pocket/` 的上次现场结果为 HTTP 404；2026-10-20 本轮 `curl` 因 TLS EOF 返回 HTTP 000，未能确认恢复。Firebase 当前本机设置接口 `configured=true`、`signed_in=false`；尚无真实登录证据。
+- 本轮本地定向验证：桌面 Firebase sync/server/update checker 合计 21 项通过；Pocket cloud sync 8/8；`site/pocket` 三个 JS 文件语法检查通过；新建/修改站点 HTML 解析与本地链接检查通过；`git diff --check` 通过。GitHub Pocket run `39291834637` 后续核实 completed/success，Android debug artifact 上传成功；没有重跑。
+- The exact-head macOS artifact listed above predates the user's no-signing decision and has an ad-hoc signature. It must not be described as a fully unsigned package; the updated macOS workflow checks that newly built app bundles have no code signature, and the Windows preview checks PE Authenticode status is `NotSigned`. Fresh candidates are required before release.
+- The exact-head artifacts recorded earlier predate these unsigned checks and are not release assets for the updated distribution decision.
+- This repository does not yet publish desktop build artifacts to GitHub Releases from the CI workflows. The current published release remains v1.0.34; automate/perform publication only after the remaining Firebase, HTTPS PWA and target-device gates are satisfied.
+- The site's PWA and update pages are source changes on the PR branch. GitHub Pages is configured to publish `main`; do not claim these pages are live until the Pages deployment completes and the public route is verified.

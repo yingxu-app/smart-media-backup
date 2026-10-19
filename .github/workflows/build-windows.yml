@@ -101,6 +101,11 @@ jobs:
             $stream.Dispose()
           }
 
+          $signature = Get-AuthenticodeSignature $executable.FullName
+          if ($signature.Status -ne 'NotSigned') {
+            throw "Expected an unsigned preview, got Authenticode status '$($signature.Status)'"
+          }
+
           $hash = (Get-FileHash -Algorithm SHA256 $executable.FullName).Hash.ToLowerInvariant()
           $manifestLine = "$hash  $($executable.Name)"
           $manifestPath = Join-Path $executable.DirectoryName 'SHA256SUMS.txt'
