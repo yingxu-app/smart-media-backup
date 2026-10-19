@@ -17,6 +17,14 @@
 - **仍待证实：**由用户在本机输入凭据后验证 Firebase 注册/登录、用户名、桌面与 PWA 实时进度及云历史、UID 隔离、断网恢复；iPhone Safari 主屏幕安装、PWA 离线缓存/恢复和网络重连；Windows 真机安装及核心备份、失败恢复、升级回退；之后更新正式 Release、下载页与回滚说明并从公开链接回读验证。
 - **有限结束条件：**范围内每项交付都要有源码/CI/线上或设备证据；正式 Release 与下载说明一致，安装包及校验文件可回读，升级/回退路径有证据。若只剩用户凭据输入或设备操作，完成可独立工作后提供一条明确步骤并保持目标未完成。明确排除的签名/公证、原生 iOS、Android 真机、小程序、异地原片传输不作为阻塞项。
 
+## 2026-10-20 PR #8 终态与未完成验收
+
+- 当前 PR #8 head `4478ff024fe37565c1c5adb8882da566068c8c56` 的 Reliability push/PR、macOS、Windows 和 Pocket workflows 均 success；Pocket Android debug artifact `12219107452` 已下载并核对 metadata、ZIP 与 APK SHA-256、ZIP 完整性和四种 ABI。此证据只到构建包，不代表 Android 实机验收。
+- 规范 GitHub Pages 首页、下载、隐私、PWA 与更新说明路由当前均 HTTP 200。PWA 离线 shell 与 standalone manifest 在线可读；iPhone 主屏幕安装、离线启动和恢复仍需真机验证。
+- Codex in-app browser 的 Firebase 登录请求只得到浏览器 `TypeError`/网络错误，没有 Auth 错误码；无凭据 CORS preflight 从主机端返回 200。真实登录、用户名、多端历史/进度、UID 隔离及离线恢复仍未验证。
+- 本机旧桌面服务的 `/api/updates/latest` 仍返回 502；PR #8 更新诊断代码的定向测试通过，但新包尚未替换运行实例。GitHub Latest Release 与下载页仍为 Windows v1.0.34；新正式版、公开下载、升级和回退仍未完成。
+- 下一步先继续完成候选/PR 收尾和更新包验证，再在用户设备上完成 Firebase 登录与 iPhone PWA、Windows 真机流程。遇到需要 iPhone/Safari 或 Windows 设备的门槛时，先完成其他独立工作，再给用户单一步骤。签名/公证不属于结束条件。
+
 以下内容是 2026-10-19 及更早的历史证据快照；其中未完成事项和平台范围可能已被本节后续决定取代。
 
 ## 2026-10-19 当前 head 候选交付

@@ -15,6 +15,17 @@
 - 桌面登录错误处理新增安全本机异常类型提示；定向 Firebase server suite 8/8 通过，未提交且未构建成公开应用。此改动不能替代用户账号登录验证。
 - 真实账号 Firebase 登录/云同步、iPhone PWA 安装与离线/恢复、Windows 真机核心备份，以及正式 Release/公开下载与升级/回退尚无足够的当前设备证据。签名/公证、原生 iOS、Android 真机和小程序不是当前验收条件。
 
+## 2026-10-20 PR #8 head 终态与现场复核
+
+- PR #4 已合并（merge `40cb4dfe82e6917fe0d404b5d5a9eb8be8a7f005`），PR #7 已合并（merge `9281242accbb6e66db51fa36ff96594109d93f1d`）。当前 PR #8 为 OPEN/DRAFT、mergeable，head `4478ff024fe37565c1c5adb8882da566068c8c56`；该 head 的 Reliability push `39315220443`、Reliability PR `39315226843`、macOS candidate `39315226900`、Windows preview `39315226827`、Pocket `39315226872` 均终态 success。
+- Pocket run `39315226872` 的 Android job 于 `2026-10-19T20:17:41Z` success。artifact `12219107452` 大小 94,609,016 bytes，ZIP SHA-256 `6033dbbd3505e100426f70fb497c0450fae703cbf76b37394cdcf55719678af3` 与 GitHub metadata 一致；内含 APK SHA-256 `344dfd5ba3562088d6d3e335928b5862e7dc02b86e5f64b524d755194e6f6aae`，ZIP/APK 完整性检查通过，含 arm64-v8a、armeabi-v7a、x86、x86_64。它是 debug APK，不是 Android 实机验收或公开安装包；run 未重启。
+- 本机定向验证：`tests.test_update_checker` 与 `tests.test_firebase_server` 共 13 项通过；Pocket cloud-sync/progress Node tests 共 13 项通过。覆盖安全诊断、错误时保留密码、UID 范围和离线缓存等单元行为，不能证明真实账号或设备成功。
+- 规范 Pages 首页、`/download/`、`/privacy.html`、`/pocket/` 和 `/update/` 本轮均 HTTP 200。线上 PWA manifest 声明 `display=standalone`；service worker `yingxu-pocket-shell-v2` 与离线 shell 文件可读取。没有做 iPhone Safari 安装或真实断网启动测试。
+- Codex in-app browser 实际登录点击后出现“网络连接不可用”且浏览器 fetch 返回 `TypeError`，没有收到 Firebase Auth 状态码；不能据此判为账号/密码错误。无凭据的主机端 Firebase CORS preflight 对 Pages origin 返回 HTTP 200，但这不代替 iPhone Safari 实测。测试页密码字段随后已清空。
+- 当前桌面服务 `/api/status` 返回 v1.0.40/idle，但运行中的旧实例 `/api/updates/latest` 返回 HTTP 502 通用错误；未重启该实例。PR #8 新源码中的安全更新诊断定向测试通过，更新版应用包尚未替换当前运行实例。
+- GitHub Latest Release 仍是 `v1.0.34`，公开下载页也仍展示 Windows v1.0.34；尚未发布新版本，未执行真实升级/回退。
+- 仍需真实 Firebase 账号登录/同步、iPhone PWA 安装/离线/恢复、Windows 设备安装与核心备份验收，以及新正式 Release/下载/升级/回退验证。正式签名和公证仍按用户决定排除。
+
 ## 2026-10-19 当前 head 候选复核
 
 - 产品代码候选 head 为 `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。随后只改审计证据和快照的提交 `a86b28afe50fb26f86fa6f1e7e612d4d0550c44d` 是当前 PR head；PR #4 OPEN/DRAFT、mergeable，工作树 clean。head `a86b28a` 没有产品源码改动。
