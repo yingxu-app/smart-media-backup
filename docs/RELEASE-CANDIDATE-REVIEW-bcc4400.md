@@ -116,13 +116,20 @@
 
 ## Current scope correction and update/rollback guide — 2026-10-20
 
-- 用户已明确当前桌面发行不做 macOS/Windows 代码签名，也不做 Apple 公证；这些不再是目标的发布阻塞项。公开页面必须明确标注未签名/未公证的系统警告与 SHA-256 核验要求，不指导用户忽略“已检测到恶意软件”或“应用已损坏”一类阻断提示。
+- 用户已明确不配置 macOS Developer ID、Windows Authenticode 身份签名或 Apple 公证；这些不再是目标发布阻塞项。macOS arm64 包保留无身份的 ad-hoc 技术签名以满足 Apple Silicon 加载要求；Windows 包保持未签名。公开页面须标明实际状态和 SHA-256 核验要求，不指导用户忽略“已检测到恶意软件”或“应用已损坏”一类阻断提示。
 - iPhone 交付仅为 Safari PWA；原生 iOS、Android 真机验收（暂无 Android 设备）、微信小程序、异地原始媒体云备份排除在本阶段目标之外。
 - 本目标的剩余发布门槛仍包括：PR 合并并部署 Pages PWA、Firebase 真实账户/多设备/UID隔离/离线恢复验证、iPhone PWA HTTPS 安装与恢复验收、Windows 实机安装与核心备份验收、正式 Release 与下载页版本一致、更新和回退路径验证。最新正式 Release 仍为 v1.0.34。
 - 新增 `site/update/index.html`，说明检查更新是人工下载/安装；升级前结束任务、校验 SHA-256、备份 `~/.config/smb/` 或 `%USERPROFILE%\\.config\\smb\\`；macOS/Windows分别保留旧程序副本；提供回退步骤。设置页和下载页链接到该说明。
 - `https://yingxu-app.github.io/smart-media-backup/pocket/` 的上次现场结果为 HTTP 404；2026-10-20 本轮 `curl` 因 TLS EOF 返回 HTTP 000，未能确认恢复。Firebase 当前本机设置接口 `configured=true`、`signed_in=false`；尚无真实登录证据。
 - 本轮本地定向验证：桌面 Firebase sync/server/update checker 合计 21 项通过；Pocket cloud sync 8/8；`site/pocket` 三个 JS 文件语法检查通过；新建/修改站点 HTML 解析与本地链接检查通过；`git diff --check` 通过。GitHub Pocket run `39291834637` 后续核实 completed/success，Android debug artifact 上传成功；没有重跑。
-- The exact-head macOS artifact listed above predates the user's no-signing decision and has an ad-hoc signature. It must not be described as a fully unsigned package; the updated macOS workflow checks that newly built app bundles have no code signature, and the Windows preview checks PE Authenticode status is `NotSigned`. Fresh candidates are required before release.
-- The exact-head artifacts recorded earlier predate these unsigned checks and are not release assets for the updated distribution decision.
+- PyInstaller automatically ad-hoc signs macOS arm64 bundles when no Developer ID identity is supplied. The first workflow check incorrectly demanded a fully unsigned bundle and failed; it is corrected to require an ad-hoc signature with no Team ID/Authority. The Windows workflow correctly verifies PE Authenticode status `NotSigned`.
+- Fresh macOS and Windows candidates are still required after the corrected macOS workflow is pushed, so their exact-head build and hash evidence matches this distribution policy.
 - This repository does not yet publish desktop build artifacts to GitHub Releases from the CI workflows. The current published release remains v1.0.34; automate/perform publication only after the remaining Firebase, HTTPS PWA and target-device gates are satisfied.
 - The site's PWA and update pages are source changes on the PR branch. GitHub Pages is configured to publish `main`; do not claim these pages are live until the Pages deployment completes and the public route is verified.
+
+## Pocket CI terminal result — 2026-10-20
+
+- Pocket run `39296494880` for PR head `6a0ea735ffc94ef9568a0f8039b8507a26acdae4` completed `success`; both `pocket` and `android-debug` jobs succeeded. It was observed to terminal and not restarted.
+- Android artifact `12209584250` (`yingxu-pocket-android-debug-72f849b94c871be2f651423ef4e6267ac0c0119d`) metadata: 94,609,015 bytes, GitHub SHA-256 `b01d2998695912c5b95c74d1b586028fd09707e749c17739990688296dcdbfb9`.
+- The downloaded `app-debug.apk` is 257 MB; SHA-256 `18455f05985e2731563d314fa629f74b8b8a2adc113f968d6249f0c42093ca8a`. `unzip -t` reports no errors and the package includes `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`. It is a debug build; no Android device installation was performed.
+- Current run confirms PWA/JS/cloud-client checks, Expo compatibility, mobile lint/typecheck/tests, Android project generation, and Android bundle export succeeded. The run does not produce an iOS IPA.

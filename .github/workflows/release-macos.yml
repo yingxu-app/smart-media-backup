@@ -35,20 +35,19 @@ jobs:
       - name: Build app
         working-directory: desktop
         run: pyinstaller smb.spec --noconfirm --clean
-      - name: Verify app remains unsigned
+      - name: Apply macOS ad-hoc compatibility signature
+        run: codesign --force --deep --sign - "desktop/dist/影序 YINGXU.app"
+      - name: Verify app has no developer identity
         shell: bash
         run: |
           app="desktop/dist/影序 YINGXU.app"
-          set +e
           details="$(codesign -dv --verbose=2 "$app" 2>&1)"
-          status=$?
-          set -e
-          if [[ $status -eq 0 ]] || ! grep -qi "code object is not signed at all" <<< "$details"; then
-            echo "Expected an unsigned app bundle; codesign inspection was inconclusive or found a signature." >&2
+          if ! grep -q '^Signature=adhoc$' <<< "$details" || ! grep -q '^TeamIdentifier=not set$' <<< "$details" || grep -q '^Authority=' <<< "$details"; then
+            echo "Expected an ad-hoc signature without a developer identity." >&2
             printf '%s\n' "$details" >&2
             exit 1
           fi
-          echo "Confirmed: the application bundle has no code signature."
+          echo "Confirmed: ad-hoc signature only; no Team ID or Developer ID authority."
       - name: Resolve application version
         id: app-version
         run: echo "version=$(python -c 'from smb import __version__; print(__version__)')" >> "$GITHUB_OUTPUT"
