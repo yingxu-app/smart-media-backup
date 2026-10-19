@@ -1,0 +1,54 @@
+# v1.0.40 / iPhone PWA 候选审阅记录
+
+核对时间：2026-10-19。此文记录 PR #4 `bcc440072159504aaf899c2a318cac4559155a4c` 的代码、产物、站点差异和回退边界。该分支仍为 OPEN/DRAFT，不能视为公开发行。
+
+## 当前范围
+
+- iPhone 仅维护 Safari PWA；本阶段不制作原生 iOS 包，不申请 Apple Developer 会员、不做 TestFlight 或 App Store。
+- Android 真机验收因暂无设备而暂缓。Android CI debug APK 只作内部候选，不作正式发布包。
+- Firebase 验证继续进行；真实账户密码只能由用户在本机输入，不从聊天内容读取或保存。
+- 网站只维护静态官网、下载页、隐私页和 Pocket PWA；浏览器在线备份、远程原文件传输和小程序不属于本阶段。
+
+## 代码与 CI
+
+- PR #4：OPEN/DRAFT、mergeable；分支 `codex/v1.0.39-miniprogram-lan-tcp`，HEAD `bcc440072159504aaf899c2a318cac4559155a4c`。
+- Reliability PR `39275732826`、Reliability push `39275655797`、macOS 候选 `39275733038`、Windows 预览 `39275732800` 均 success。
+- Pocket run `39275732818` 的 JS/CNG/check job 已 success；Android debug job `118139429814` 在本记录撰写时仍 in_progress。没有重启该 run。
+- 本地此前已核验桌面 108 项通过、2 项 Windows-only 跳过；PWA Node 7/7；mobile lint/typecheck/28 项通过。它们不替代账号、设备或线上验收。
+
+## 候选产物
+
+| 平台 | 候选 | 包体核验 | 发布限制 |
+|---|---|---|---|
+| macOS | v1.0.40，artifact `12197447373` | ZIP 21,077,308 bytes，SHA-256 `009e05b568341650e06d136c2f0e76710fbcebafeaac51231aed11c1dac3f176`，与 artifact metadata 一致；DMG SHA-256 `c08ab37587d9db5c27d3c820e1db7c225cfabfbfb229786879f22e9bdbdf5c0d` 与包内清单一致。已有的同 head 记录显示 DMG 校验有效、app deep/strict code verification 通过。 | ad-hoc 签名、无 Team ID、未公证；不是面向普通用户的正式发行包。 |
+| Windows | v1.0.40 preview，artifact `12196918288` | ZIP 27,874,541 bytes，SHA-256 `b44174d45b0fe68be67c03007708033623a0929f0eec97cd891a8d4a2917d3ed`，与 metadata 一致；EXE SHA-256 `bf77c2f3051fec3988351560982f66c3b7a84757dc2334df8f407a0d35e73f63` 与 `SHA256SUMS.txt` 一致。 | unsigned x64 preview；当前候选未在 Windows 设备安装运行。 |
+| Android | 当前 Pocket run 如成功会生成 debug APK | APK job 仍在运行；不要重启。 | 不是商店包；真机验收暂缓。 |
+
+## 网站差异与部署状态
+
+- 相对 `origin/main`，网站改动涉及 `site/index.html`、`site/download/index.html`、`site/privacy.html`、`site/README.md`；新增 `site/pocket/` PWA 与两个 PNG 图标。
+- 首页和下载页继续把 Windows v1.0.34 标为唯一公开桌面版；macOS v1.0.40 仍标为未公开候选。新增 Pocket 入口指向 `../pocket/`，隐私文案说明 PWA 同步云端元数据、不读取手机原片。
+- GitHub Pages 配置从 `main:/` 发布；`deploy-website.yml` 在 main 的 site 文件变化时部署。最近一次成功部署为 deployment `7122987293`，commit `93588191778f7754dce8bfbc8d5e5bbd23396025`，时间 2026-10-16 15:35 UTC。当前 PR 未合并，因此本分支 PWA 尚未部署。
+- 本轮从本机 Python 访问 Pages 时遇到 `CERTIFICATE_VERIFY_FAILED`，没有据此宣称线上路由当前可用或不可用。此前成功 HTTP 200 的检查只代表对应检查时间。
+- 当前公开 GitHub Release API 仍是 v1.0.34（2026-09-12），只含 `YINGXU-Windows-v1.0.34.exe` 与 `SHA256SUMS.txt`。
+
+## 版本与更新路径
+
+- 桌面源码显示版本为 1.0.40；当前公开 Release 仍是 1.0.34。下载页应继续保留旧公开包，直到新版本的目标平台包、签名策略、公开下载和回退方案全部确认。
+- 偏好设置的“检查更新”按钮只查询 GitHub 正式 Release 并打开发行页供用户手动下载、安装；它不是静默自动更新器。
+- PWA Service Worker 更新网页壳；Firebase Auth、RTDB 响应不缓存。登录成功后的历史元数据缓存可离线展示，但本轮未用真实账号验证。
+
+## 回退检查
+
+- **网站：**若合并后 PWA 或下载页异常，恢复 `site/` 文件到合并前版本，再推送到 main 触发 Pages 部署。当前 workflow 的 `workflow_dispatch` 从默认分支运行，不支持指定旧 ref；不要把它描述成可直接选择旧 deployment 一键回滚。
+- **Windows：**v1.0.34 当前正式包仍可作为旧版下载入口。新版升级及回退尚未在 Windows 设备实际执行。
+- **macOS：**本机旧版 v1.0.39 备份目录未在 `/tmp` 找到，故本轮没有确认可直接恢复的本机旧 app 副本；当前没有公开 macOS 正式旧版可供回退。
+- **发布准入：**先决定是否接受 macOS ad-hoc/未公证与 Windows unsigned 的公开分发限制；若不接受，先完成相应生产签名。未完成回退前，不替换 v1.0.34 正式下载入口，也不宣称完成正式发布。
+
+## 尚待关闭
+
+1. 用户在本机 PWA 登录页输入密码，完成真实 Firebase 登录；随后验证同账号多端历史/进度、不同 UID 隔离、断网缓存与恢复。
+2. 等待当前 Android debug job 终态，不重启；其结果只作内部构建证据。
+3. 在 iPhone Safari 验收 HTTPS PWA 添加到主屏幕、离线壳、已同步历史、刷新和恢复；不做原生 iOS 验收。
+4. 在 Windows 实机验收当前候选安装、备份、升级与回退；Android 设备验收等有设备后再做。
+5. 完成 Pages HTTPS 路由实测、网站部署、正式 Release 及下载校验；签名策略、用户设备验收和最终发布确认未完成前保持候选状态。
