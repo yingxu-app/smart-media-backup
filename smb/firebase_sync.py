@@ -19,6 +19,10 @@ SERVICE_NAME = "com.yingxuapp.smartmediabackup.firebase"
 TERMINAL_STATES = {"done", "completed", "partial", "cancelled", "error", "failed"}
 
 
+class FirebaseSyncError(ConnectionError):
+    """Safe, actionable Firebase failure text suitable for the local UI."""
+
+
 class KeyringTokenStore:
     """Keep refresh tokens in the OS credential store, never in app config."""
 
@@ -116,7 +120,16 @@ class FirebaseSyncClient:
         return bool(self.api_key and self.database_url and self.token_store)
 
     def _json_request(self, method: str, url: str, *, body=None, data=None):
-        response = self.session.request(method, url, json=body, data=data, timeout=self.timeout)
+        try:
+            response = self.session.request(method, url, json=body, data=data, timeout=self.timeout)
+        except requests.exceptions.Timeout as error:
+            raise FirebaseSyncError("连接 Firebase 超时，请检查网络、代理或防火墙后重试。") from error
+        except requests.exceptions.SSLError as error:
+            raise FirebaseSyncError("与 Firebase 的 TLS 安全连接失败，请检查系统时间、证书或代理设置。") from error
+        except requests.exceptions.ConnectionError as error:
+            raise FirebaseSyncError("无法连接 Firebase，请检查网络、代理或防火墙。") from error
+        except requests.exceptions.RequestException as error:
+            raise FirebaseSyncError("Firebase 网络请求未完成，请检查网络后重试。") from error
         try:
             payload = response.json()
         except (ValueError, AttributeError):
@@ -126,7 +139,11 @@ class FirebaseSyncClient:
             code = str(message).split(":", 1)[0].strip()
             if code in {"EMAIL_EXISTS", "EMAIL_NOT_FOUND", "INVALID_EMAIL", "INVALID_PASSWORD", "INVALID_LOGIN_CREDENTIALS", "USER_DISABLED", "TOO_MANY_ATTEMPTS_TRY_LATER", "WEAK_PASSWORD", "OPERATION_NOT_ALLOWED", "API_KEY_INVALID", "CONFIGURATION_NOT_FOUND"}:
                 raise ValueError(code)
-            raise ConnectionError("Firebase 请求失败；请检查网络、项目配置或数据库规则")
+            status = int(getattr(response, "status_code", 0))
+            safe_code = code if re.fullmatch(r"[A-Z0-9_]{1,60}", code) else f"HTTP_{status}"
+            raise FirebaseSyncError(
+                f"Firebase 返回错误代码 {safe_code}（HTTP {status}）。请将错误代码提供给支持人员；不要发送密码。"
+            )
         return payload
 
     def sign_in(self, email: str, password: str, *, create_account: bool = False,
@@ -157,13 +174,18 @@ class FirebaseSyncClient:
         refresh = str(payload.get("refreshToken") or "")
         if not uid or not refresh:
             raise ConnectionError("Firebase 登录响应缺少账号会话信息")
+        try:
+            self.token_store.set(uid, refresh)
+        except Exception as error:
+            raise FirebaseSyncError(
+                "Firebase 已验证账号，但系统凭据库无法保存安全令牌。请检查钥匙串/系统凭据库状态后重试。"
+            ) from error
         with self._lock:
             self.uid = uid
             self.email = str(payload.get("email") or email.strip())
             self.display_name = str(payload.get("displayName") or username or "").strip()[:40]
             self._id_token = str(payload.get("idToken") or "")
             self._expires_at = time.time() + max(60, int(payload.get("expiresIn") or 3600))
-            self.token_store.set(uid, refresh)
         return {"uid": uid, "email": self.email, "display_name": self.display_name}
 
     def restore_session(self, uid: str, email: str = "", display_name: str = "") -> bool:

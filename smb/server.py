@@ -37,7 +37,7 @@ from . import db
 from .pocket import PocketPairingManager, PocketNotesStore
 from .pocket_tcp import DesktopMediaSource, MobileInbox, PocketTcpBridge
 from .transfer import transfer_manager
-from .firebase_sync import FirebaseSyncClient, KeyringTokenStore
+from .firebase_sync import FirebaseSyncClient, FirebaseSyncError, KeyringTokenStore
 
 # 初始化数据库
 db.init_db()
@@ -1575,6 +1575,8 @@ def _firebase_authenticate(create_account: bool):
             account = client.sign_in(email, password, create_account=False, display_name=display_name)
     except Exception as error:
         if isinstance(error, RuntimeError) and str(error).startswith("账号已"):
+            return jsonify({"error": str(error)}), 502
+        if isinstance(error, FirebaseSyncError):
             return jsonify({"error": str(error)}), 502
         if isinstance(error, ValueError):
             messages = {

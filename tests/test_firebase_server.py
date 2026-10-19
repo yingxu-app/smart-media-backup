@@ -3,6 +3,7 @@ from unittest import mock
 from types import SimpleNamespace
 
 from smb import server
+from smb.firebase_sync import FirebaseSyncError
 
 
 class FirebaseServerTests(unittest.TestCase):
@@ -76,6 +77,18 @@ class FirebaseServerTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("密码未达到 Firebase 要求", response.get_json()["error"])
         self.assertNotIn("temporary-input", repr(server.config))
+
+    def test_firebase_login_reports_safe_transport_diagnostic(self):
+        fake = SimpleNamespace(sign_in=mock.Mock(side_effect=FirebaseSyncError(
+            "Firebase 返回错误代码 API_KEY_SERVICE_BLOCKED（HTTP 403）。请将错误代码提供给支持人员；不要发送密码。"
+        )))
+        with mock.patch.object(server, "_get_firebase_sync_client", return_value=fake):
+            response = self.client.post("/api/firebase/login", json={
+                "email": "a@example.com", "password": "temporary-input",
+            })
+        self.assertEqual(response.status_code, 502)
+        self.assertIn("API_KEY_SERVICE_BLOCKED（HTTP 403）", response.get_json()["error"])
+        self.assertNotIn("temporary-input", response.get_data(as_text=True))
 
     def test_firebase_live_endpoint_starts_watch_and_returns_cached_progress(self):
         fake = SimpleNamespace(

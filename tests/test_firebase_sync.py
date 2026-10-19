@@ -4,8 +4,9 @@ import tempfile
 import time
 import threading
 from pathlib import Path
+from requests.exceptions import Timeout
 
-from smb.firebase_sync import FirebaseSyncClient, public_metadata
+from smb.firebase_sync import FirebaseSyncClient, FirebaseSyncError, public_metadata
 
 
 class MemoryTokenStore:
@@ -135,6 +136,47 @@ class FirebaseSyncTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, expected):
                     client.sign_in("photo@example.com", "temporary-input", create_account=True, display_name="影序用户")
                 self.assertNotIn("temporary-input", repr(client.__dict__))
+
+    def test_unknown_firebase_auth_error_returns_safe_code_and_status(self):
+        session = FakeSession([FakeResponse(403, {"error": {"message": "API_KEY_SERVICE_BLOCKED : key restricted"}})])
+        with tempfile.TemporaryDirectory() as directory:
+            client = FirebaseSyncClient("api-key", "https://yingxu.firebaseio.com", MemoryTokenStore(), "desktop-1",
+                                        session=session, outbox_path=Path(directory) / "outbox.json")
+            with self.assertRaisesRegex(FirebaseSyncError, r"API_KEY_SERVICE_BLOCKED（HTTP 403）") as raised:
+                client.sign_in("photo@example.com", "temporary-input")
+        self.assertNotIn("key restricted", str(raised.exception))
+        self.assertNotIn("temporary-input", str(raised.exception))
+
+    def test_firebase_auth_timeout_returns_actionable_network_message(self):
+        class TimeoutSession:
+            def request(self, *args, **kwargs):
+                raise Timeout("request details must not reach the UI")
+
+        with tempfile.TemporaryDirectory() as directory:
+            client = FirebaseSyncClient("api-key", "https://yingxu.firebaseio.com", MemoryTokenStore(), "desktop-1",
+                                        session=TimeoutSession(), outbox_path=Path(directory) / "outbox.json")
+            with self.assertRaisesRegex(FirebaseSyncError, "连接 Firebase 超时") as raised:
+                client.sign_in("photo@example.com", "temporary-input")
+        self.assertNotIn("request details", str(raised.exception))
+        self.assertNotIn("temporary-input", str(raised.exception))
+
+    def test_credential_store_failure_does_not_leave_partial_signed_in_state(self):
+        class BrokenTokenStore(MemoryTokenStore):
+            def set(self, uid, token):
+                raise OSError("private keychain detail")
+
+        session = FakeSession([FakeResponse(200, {
+            "localId": "uid-1", "email": "photo@example.com", "idToken": "id-token",
+            "refreshToken": "refresh-token", "expiresIn": "3600",
+        })])
+        with tempfile.TemporaryDirectory() as directory:
+            client = FirebaseSyncClient("api-key", "https://yingxu.firebaseio.com", BrokenTokenStore(), "desktop-1",
+                                        session=session, outbox_path=Path(directory) / "outbox.json")
+            with self.assertRaisesRegex(FirebaseSyncError, "系统凭据库无法保存") as raised:
+                client.sign_in("photo@example.com", "temporary-input")
+        self.assertEqual(client.uid, "")
+        self.assertNotIn("private keychain detail", str(raised.exception))
+        self.assertNotIn("temporary-input", str(raised.exception))
 
     def test_database_path_rejects_traversal_before_request(self):
         with tempfile.TemporaryDirectory() as directory:
