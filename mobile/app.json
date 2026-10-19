@@ -36,6 +36,17 @@
     "plugins": [
       "expo-router",
       "./plugins/withAndroidGradleMemory"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "e83a97a0-f588-4068-a66d-f3e38782bcc1"
+      }
+    },
+    "owner": "nanyu-lu"
   }
 }
