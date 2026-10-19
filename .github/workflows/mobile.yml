@@ -45,14 +45,10 @@ jobs:
           pnpm lint
           pnpm typecheck
           pnpm test
-      - name: Generate native projects
-        run: pnpm exec expo prebuild --no-install --platform all
+      - name: Generate Android native project
+        run: pnpm exec expo prebuild --no-install --platform android
       - name: Export Android bundle
         run: pnpm exec expo export --platform android --output-dir "$RUNNER_TEMP/yingxu-pocket-android"
-      - name: Export iOS bundle
-        run: pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/yingxu-pocket-ios"
-        env:
-          EXPO_NO_TELEMETRY: "1"
 
   android-debug:
     runs-on: ubuntu-24.04
@@ -84,31 +80,3 @@ jobs:
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
-
-  ios-simulator:
-    runs-on: macos-26
-    defaults:
-      run:
-        working-directory: mobile
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: pnpm/setup@v1
-        with:
-          version: 11.25.0
-          runtime: node@24
-          cache: true
-          cache-dependency-path: mobile/pnpm-lock.yaml
-          install: false
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Generate iOS project
-        run: pnpm exec expo prebuild --no-install --platform ios
-      - name: Install CocoaPods
-        run: cd ios && pod install
-      - name: Build iOS Simulator app
-        run: >-
-          xcodebuild -workspace ios/Pocket.xcworkspace -scheme Pocket
-          -configuration Debug -sdk iphonesimulator
-          -destination 'generic/platform=iOS Simulator'
-          -derivedDataPath "$RUNNER_TEMP/yingxu-pocket-derived"
-          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build

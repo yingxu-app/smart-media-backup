@@ -375,14 +375,15 @@ async function firebaseLogin(createAccount = false) {
     try {
         if (createAccount && !displayName) throw new Error("注册时请填写用户名。");
         const endpoint = createAccount ? "register" : "login";
-        const result = await fetch(`/api/firebase/${endpoint}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, password, display_name:displayName})}).then(r => r.json());
+        const response = await fetch(`/api/firebase/${endpoint}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, password, display_name:displayName})});
+        const result = await response.json();
+        if (!response.ok || result.error) throw new Error(result.error || "Firebase 登录失败，请稍后重试。");
         passwordInput.value = "";
-        if (result.error) throw new Error(result.error);
         const account = {signed_in:true, email:result.email, display_name:result.display_name};
         refreshFirebaseAccountBadge(account);
         firebaseMessage(`${createAccount ? "账号已创建并登录" : "已登录"}：${result.display_name || result.email}；正在同步本机历史。`);
         await loadFirebaseLive();
-    } catch (error) { passwordInput.value = ""; firebaseMessage(error.message || "Firebase 登录失败。", true); }
+    } catch (error) { firebaseMessage(error.message || "Firebase 登录失败。", true); }
 }
 
 async function firebaseLogout() {

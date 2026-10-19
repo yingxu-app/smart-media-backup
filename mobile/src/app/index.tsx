@@ -561,16 +561,15 @@ export default function PocketHome() {
         if (latestPart !== currentPart) { newer = latestPart > currentPart; break; }
       }
       const assets = Array.isArray(release.assets) ? release.assets : [];
-      const asset = Platform.OS === "android"
-        ? assets.find((item: any) => String(item.name || "").toLowerCase().endsWith(".apk"))
-        : assets.find((item: any) => String(item.name || "").toLowerCase().endsWith(".ipa"));
+      if (Platform.OS === "ios") {
+        setUpdateMessage("iPhone 使用 Safari PWA；请刷新页面获取最新网页内容。原生 iOS App 不在当前发行范围内。");
+        return;
+      }
+      const asset = assets.find((item: any) => String(item.name || "").toLowerCase().endsWith(".apk"));
       const releaseUrl = String(release.html_url || "https://github.com/yingxu-app/smart-media-backup/releases/latest");
-      if (newer && asset?.browser_download_url && Platform.OS === "android") {
+      if (newer && asset?.browser_download_url) {
         setUpdateUrl(String(asset.browser_download_url));
-        setUpdateMessage(`发现 v${latest} 手机端更新。点击下方按钮下载；安装时请按 Android 系统提示确认。`);
-      } else if (newer && asset && Platform.OS === "ios") {
-        setUpdateUrl(releaseUrl);
-        setUpdateMessage(`发现 v${latest} 版本。iPhone 需通过 TestFlight 或 App Store 安装，打开官方发行页查看说明。`);
+        setUpdateMessage(`发现 v${latest} Android 更新。点击下方按钮下载；安装时请按 Android 系统提示确认。`);
       } else if (newer) {
         setUpdateUrl(releaseUrl);
         setUpdateMessage(`发现 v${latest}，但目前没有适用于此手机平台的正式安装包。`);
@@ -829,13 +828,13 @@ export default function PocketHome() {
 
           <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>软件更新</Text><Text style={styles.sectionMeta}>当前 v{Constants.expoConfig?.version || "未知"}</Text></View>
           <View style={styles.card}>
-            <Text style={styles.bodyText}>检查影序正式发行版。手机更新包发布后，可从这里获取；iPhone 更新需通过 TestFlight 或 App Store。</Text>
+            <Text style={styles.bodyText}>检查 Android 原生 App 正式发行版。iPhone 使用 Safari PWA，请刷新页面获取最新内容。</Text>
             <View style={styles.actionRow}>
               <Pressable onPress={checkForUpdates} disabled={checkingUpdate} style={[styles.primaryButton, checkingUpdate && styles.disabled]}>
                 <Text style={styles.primaryButtonText}>{checkingUpdate ? "正在检查…" : "检查更新"}</Text>
               </Pressable>
               {!!updateUrl && <Pressable onPress={() => Linking.openURL(updateUrl).catch(() => setUpdateMessage("无法打开更新页面，请检查设备网络。"))} style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>{Platform.OS === "android" ? "下载更新" : "查看更新"}</Text>
+                <Text style={styles.secondaryButtonText}>下载更新</Text>
               </Pressable>}
             </View>
             {!!updateMessage && <Text style={styles.smallHint}>{updateMessage}</Text>}
