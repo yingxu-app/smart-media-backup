@@ -1,6 +1,30 @@
 # 影序全端闭环状态审计 v1.0.40
 
-审计日期：2026-10-19。最新候选核对至 PR #4 head `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。下方旧矩阵是历史核对记录，当前 CI 与候选包以“2026-10-19 当前 head 候选复核”节为准。
+审计日期：2026-10-20。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。历史矩阵保留当时证据，最新范围和线上状态以本节为准。
+
+## 2026-10-20 当前范围与线上复核
+
+- 用户范围：iPhone 只交付 Safari PWA；macOS/Windows 不做身份代码签名或公证；Android 真机验收因无设备暂缓；小程序停止并移出活跃门禁；异地原始媒体传输和浏览器在线备份不在本阶段。
+- PR #4 与 PR #7 已合并至主线，当前相关合并 SHA 分别为 `40cb4dfe82e6917fe0d404b5d5a9eb8be8a7f005`、`9281242accbb6e66db51fa36ff96594109d93f1d`。PR #4 包含 PWA/Firebase 候选和更新检查 TLS CA 修复；PR #7 修正文案，标明 PWA HTTPS 已上线。
+- 线上 Pages `/pocket/` 与 `/download/` 在 2026-10-20 复核均 HTTP 200；部署 run `39307408371` success。只证明静态路由可访问，不证明真实 Firebase 认证、Safari 安装或离线恢复。
+- Codex 浏览器实际渲染 `/pocket/` 登录页和 `/update/` 更新/回退说明。PWA 页面声明离线缓存已启用，但本轮没有断网启动测试；升级/回退文档已线上可读，但没有执行真实版本升级或回退。
+- GitHub Latest Release API 当前返回 `v1.0.34`，资产只有 Windows EXE 与 `SHA256SUMS.txt`；下载页展示 Windows v1.0.34。v1.0.40 尚为候选。
+- v1.0.40 candidate artifacts have been re-downloaded from Actions: macOS artifact `12212088920` metadata digest `c6927a1b5b4755fbba5a62e88b8ffcda0291401a7117dea44e0914315d40ccff`; DMG digest `01249b61e141e142b3c4c4be5b9befea84b831c34bab1ea605a007b5c67e34a7`, manifest matched, `hdiutil verify` VALID, arm64 app strict/deep signature verification passed with ad-hoc signature/no Team ID. Windows artifact `12211509463` metadata digest `adcfb123859b7e5049ae9d241dd72b54de8be5538ac3ae06741930e7d47e29d9`; EXE digest `40dfe06ec15f7e635d633bd3bceee79b912c7b14c4c7fb66a15e928fe1e77a72` matches manifest and is PE32+ x86-64. These are candidate artifacts from source commit `f60055b`, not Windows device acceptance or public downloads.
+- Pocket run `39306460382` 已终态 success，Reliability run `39307408377` success。Android artifact `12214489435` metadata digest `bb967626196499f628714b5bd03eafa3d17020ef04dd03954cc5182902680958` 与本机下载 ZIP SHA-256 一致；内含 269,595,675-byte debug APK，SHA-256 `93619fd0db5fe982997adc714dce5dcff4a80abef53353736c1f9314e9b44221`，ZIP 完整并包含四种 ABI。该 run 未重启；debug artifact 不等于真机验收。
+- Firebase 安全探针：桌面 `/api/firebase/settings` 是 `configured=true`、`signed_in=false`；虚构邮箱登录依次返回 `INVALID_EMAIL` 与 `INVALID_LOGIN_CREDENTIALS`，匿名 RTDB 根读取返回 HTTP 401。Firebase Auth endpoint/API key 可响应且数据库拒绝匿名访问；用户真实注册/登录、同步和 UID 隔离仍未验证。
+- 桌面登录错误处理新增安全本机异常类型提示；定向 Firebase server suite 8/8 通过，未提交且未构建成公开应用。此改动不能替代用户账号登录验证。
+- 真实账号 Firebase 登录/云同步、iPhone PWA 安装与离线/恢复、Windows 真机核心备份，以及正式 Release/公开下载与升级/回退尚无足够的当前设备证据。签名/公证、原生 iOS、Android 真机和小程序不是当前验收条件。
+
+## 2026-10-20 PR #8 head 终态与现场复核
+
+- PR #4 已合并（merge `40cb4dfe82e6917fe0d404b5d5a9eb8be8a7f005`），PR #7 已合并（merge `9281242accbb6e66db51fa36ff96594109d93f1d`）。当前 PR #8 为 OPEN/DRAFT、mergeable，head `4478ff024fe37565c1c5adb8882da566068c8c56`；该 head 的 Reliability push `39315220443`、Reliability PR `39315226843`、macOS candidate `39315226900`、Windows preview `39315226827`、Pocket `39315226872` 均终态 success。
+- Pocket run `39315226872` 的 Android job 于 `2026-10-19T20:17:41Z` success。artifact `12219107452` 大小 94,609,016 bytes，ZIP SHA-256 `6033dbbd3505e100426f70fb497c0450fae703cbf76b37394cdcf55719678af3` 与 GitHub metadata 一致；内含 APK SHA-256 `344dfd5ba3562088d6d3e335928b5862e7dc02b86e5f64b524d755194e6f6aae`，ZIP/APK 完整性检查通过，含 arm64-v8a、armeabi-v7a、x86、x86_64。它是 debug APK，不是 Android 实机验收或公开安装包；run 未重启。
+- 本机定向验证：`tests.test_update_checker` 与 `tests.test_firebase_server` 共 13 项通过；Pocket cloud-sync/progress Node tests 共 13 项通过。覆盖安全诊断、错误时保留密码、UID 范围和离线缓存等单元行为，不能证明真实账号或设备成功。
+- 规范 Pages 首页、`/download/`、`/privacy.html`、`/pocket/` 和 `/update/` 本轮均 HTTP 200。线上 PWA manifest 声明 `display=standalone`；service worker `yingxu-pocket-shell-v2` 与离线 shell 文件可读取。没有做 iPhone Safari 安装或真实断网启动测试。
+- Codex in-app browser 实际登录点击后出现“网络连接不可用”且浏览器 fetch 返回 `TypeError`，没有收到 Firebase Auth 状态码；不能据此判为账号/密码错误。无凭据的主机端 Firebase CORS preflight 对 Pages origin 返回 HTTP 200，但这不代替 iPhone Safari 实测。测试页密码字段随后已清空。
+- 当前桌面服务 `/api/status` 返回 v1.0.40/idle，但运行中的旧实例 `/api/updates/latest` 返回 HTTP 502 通用错误；未重启该实例。PR #8 新源码中的安全更新诊断定向测试通过，更新版应用包尚未替换当前运行实例。
+- GitHub Latest Release 仍是 `v1.0.34`，公开下载页也仍展示 Windows v1.0.34；尚未发布新版本，未执行真实升级/回退。
+- 仍需真实 Firebase 账号登录/同步、iPhone PWA 安装/离线/恢复、Windows 设备安装与核心备份验收，以及新正式 Release/下载/升级/回退验证。正式签名和公证仍按用户决定排除。
 
 ## 2026-10-19 当前 head 候选复核
 
@@ -299,17 +323,18 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 
 ### Current product scope
 
-- **In scope:** native iOS/Android backup app, desktop collaboration over the same LAN, Firebase account-scoped progress/history metadata, and a static product/download/privacy website.
+- **In scope:** desktop backup app, iPhone Safari PWA, Android CI/debug candidate, desktop collaboration over the same LAN, Firebase account-scoped progress/history metadata, and the product/download/privacy website.
 - **Discontinued:** Mini Program development. Preserve its source for reference; do not treat Mini Program AppID, DevTools, review, or release as an open product gate. Current `.github/workflows` definitions have no Mini Program checks.
 - **Deferred:** browser-based online backup and remote original-file transfer.
 
 ### Remaining acceptance and release gates
 
-1. **Native phone devices:** install and test on iPhone and Android; validate local/external storage access and revocation, copy/hash outcomes, duplicate handling, low-space/errors, app background/lock recovery, task resume, LAN upload/download and Wi-Fi reconnect.
-2. **Firebase live sync:** use the same owner-controlled account on desktop and phone; verify active progress and complete metadata history in both directions, different-UID isolation, token refresh, and offline queue recovery. No password or token belongs in source, chat, or evidence artifacts.
-3. **Windows device:** install the current preview on a real Windows PC and exercise source/target selection, phone-to-PC and PC-to-phone transfer, pause/resume/cancel, disk/network failures, and recovery.
-4. **Distribution:** configure owner-controlled EAS project and signing/distribution; complete Apple TestFlight/App Store and Android signing/store choice; arrange Windows signing and macOS Developer ID/notarization for public desktop distribution as required. Current debug/candidate artifacts are not formal releases.
-5. **Formal update and rollback:** publish the signed release assets, update the public download page, then verify new-user install, in-app version discovery, upgrade, and rollback. Latest Release is still `v1.0.34`; there is no published mobile APK/IPA.
+1. **iPhone PWA device acceptance:** install from the public HTTPS site using Safari's Add to Home Screen flow; verify standalone launch, offline shell and cached history, wake/reconnect recovery, and account status. LAN Pocket pairing was proven earlier but does not prove these PWA behaviors.
+2. **Firebase live sync:** use the same owner-controlled account on desktop and PWA; verify registration/login and username, active progress and complete metadata history, different-UID isolation, token refresh, and offline recovery. No password or token belongs in source, chat, or evidence artifacts.
+3. **Windows device:** install the current preview on a real Windows PC and exercise source/target selection, backup, pause/resume/cancel, disk/network failures, and recovery.
+4. **Formal update and rollback:** publish the approved unsigned desktop release assets, update the public download page, then verify new-user install, in-app version discovery, upgrade, and rollback. The last confirmed public Release is `v1.0.34`; the current API refresh failed with TLS EOF, so the live version still needs confirmation.
+
+Out of scope by user decision: formal desktop code signing/notarization, native iOS, Android real-device acceptance (no device available), Mini Program, browser online backup, and remote original-media transfer. Android store distribution is not a completion gate in the current objective.
 
 The finite code-side phase ends after identified source gaps are closed, targeted automation and latest candidate CI pass, Mini Program gates remain absent, and this evidence stays current. Stop at device/account/store-owner prerequisites with a precise handoff; do not infer release or full cross-platform closure from green CI.
 
@@ -322,3 +347,13 @@ The finite code-side phase ends after identified source gaps are closed, targete
 
 - Desktop and Pocket clients now extract Firebase error-code prefixes when API messages include detail suffixes and display specific help for weak passwords, disabled email/password sign-in, invalid Web API keys, and incomplete Authentication configuration.
 - Simulated local checks pass: Pocket Node 27/27, desktop Firebase sync 7/7, Firebase server route 6/6, Expo lint, TypeScript no-emit, and `git diff --check`. Live owner-account login and cross-device sync remain unverified.
+
+## 2026-10-20 PR #8 Pocket CI terminal evidence
+
+- PR #8 head `cde86f9f3da2945270cfe972e83c5171ce694160` is OPEN/DRAFT and CLEAN. Reliability push `39310220046`, Reliability PR `39310316477`, macOS candidate `39310316390`, Windows preview `39310316494`, and Pocket `39310316189` all pass.
+- Pocket run `39310316189` reached terminal success. Artifact `12216379161` is 94,609,017 bytes; the downloaded raw ZIP SHA-256 `5c0ee4205ce7ea39a2e41b607f9e97311f953b0fd2e06196fef929d4164039a8` matches GitHub artifact metadata and ZIP integrity passes. It contains one APK, 269,595,675 bytes, SHA-256 `0034aefa422f53c7e6f2bb0b09fe55a638452e945490772016d8d0d0d741be9b`; APK ZIP integrity passes and ABIs are arm64-v8a, armeabi-v7a, x86, and x86_64. It remains a debug artifact, not Android device acceptance or a public release.
+- Current Pages check: `/download/`, `/pocket/`, `/update/`, and `/privacy.html` returned HTTP 200; the root request hit TLS EOF. A subsequent successful GitHub Latest Release API read confirmed `v1.0.34` with `YINGXU-Windows-v1.0.34.exe` and `SHA256SUMS.txt`.
+- Release correction: the authenticated GitHub API read after the Pages/TLS errors succeeded and confirmed the current public version remains `v1.0.34`; only the Windows EXE and checksum file are published.
+- Local update-check runtime remains unverified: the running desktop server `/api/status` returned v1.0.40/idle, but `/api/updates/latest` returned HTTP 502 twice. A separate direct Python request to the same GitHub Release API returned HTTP 200. The discrepancy is unresolved; do not mark the preference update check as runtime-passing until the server path works.
+- Update-check diagnostics now classify failures as safe codes (`HTTP_*`, `TLS_ERROR`, `TIMEOUT`, `NETWORK_ERROR`, or `UPDATE_CHECK_FAILED`) and omit raw exception details. Focused tests pass 5/5; the pre-existing server process loaded the old handler before this patch, so its live response has not been rechecked. Restart only after preserving the active iPhone pairing session, then confirm `/api/updates/latest` returns the v1.0.34 Windows asset.
+- Remaining in-scope: real Firebase account/sync verification, iPhone PWA install/offline/recovery, Windows device acceptance, formal release/download-page update, and upgrade/rollback verification. Signing/notarization, native iOS, Android device acceptance, Mini Program and remote original media are excluded by the user's decisions.

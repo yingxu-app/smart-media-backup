@@ -90,6 +90,17 @@ class FirebaseServerTests(unittest.TestCase):
         self.assertIn("API_KEY_SERVICE_BLOCKED（HTTP 403）", response.get_json()["error"])
         self.assertNotIn("temporary-input", response.get_data(as_text=True))
 
+    def test_firebase_login_reports_safe_type_for_unexpected_local_error(self):
+        fake = SimpleNamespace(sign_in=mock.Mock(side_effect=OSError("private local detail")))
+        with mock.patch.object(server, "_get_firebase_sync_client", return_value=fake):
+            response = self.client.post("/api/firebase/login", json={
+                "email": "a@example.com", "password": "temporary-input",
+            })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("本机错误类型：OSError", response.get_json()["error"])
+        self.assertNotIn("private local detail", response.get_data(as_text=True))
+        self.assertNotIn("temporary-input", response.get_data(as_text=True))
+
     def test_firebase_live_endpoint_starts_watch_and_returns_cached_progress(self):
         fake = SimpleNamespace(
             uid="uid-1",

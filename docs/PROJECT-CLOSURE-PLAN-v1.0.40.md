@@ -1,6 +1,31 @@
 # 影序全端闭环计划 v1.0.40
 
-核对日期：2026-10-19。最新候选核对至 PR #4 head `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。早期候选记录保留为历史，当前结果以“2026-10-19 当前 head 候选交付”节为准。
+核对日期：2026-10-20。下方历史记录保留当时证据；当前范围与状态以本节为准。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
+
+## 2026-10-20 当前目标范围与权威状态
+
+- **范围决定：**iPhone 交付为 Safari PWA；不开发原生 iOS。Android 真机验收暂缓（用户没有 Android 设备），Android CI/debug artifact 仍保留为构建证据。停止小程序开发，不纳入活跃发布门禁。异地原始媒体上传/下载和浏览器在线备份不在本阶段。
+- **发行决定：**用户明确不做 macOS/Windows 身份代码签名与公证。未签名发行候选可继续准备；必须在官网和安装说明中如实提示系统安全警告。不得把签名/公证列为本阶段完成门槛。
+- **仓库与合并：**当前主线已包含 PR #4（merge `40cb4dfe82e6917fe0d404b5d5a9eb8be8a7f005`）及 PR #7（merge `9281242accbb6e66db51fa36ff96594109d93f1d`）。PR #4 的更新检查 TLS CA bundle 修复和 PWA/Firebase 实现已进入 main；PR #7 将首页状态改为 HTTPS PWA 已上线。工作分支 `codex/pwa-live-status` 的文档提交 `6eccc2f` 已合入 PR #7。
+- **线上站点：**2026-10-20 本机 `curl` 检查规范 Pages `/pocket/` 与 `/download/` 均返回 HTTP 200；Pages 部署 run `39307408371` success。PWA 线上可访问，不等于 Firebase 真实登录、iPhone 主屏幕安装或离线恢复已验收。
+- **浏览器回读：**Codex 浏览器实际打开线上 `/pocket/`，页面标题为“影序 Pocket — 手机协作台”，出现登录/注册、用户名、附近电脑入口和“离线页面缓存已启用”说明；该提示不等于断网启动实测。线上 `/update/` 实际渲染了检查更新、SHA-256 校验、安装和旧版本/数据回退步骤；未执行真实版本升级或回退。
+- **公开版本：**GitHub Latest Release 当前实查仍为 `v1.0.34`，仅有 Windows EXE 和 `SHA256SUMS.txt`；下载页也仍展示 Windows v1.0.34。v1.0.40 仍是候选，不能描述为已公开发行。
+- **v1.0.40 候选重核：**macOS artifact `12212088920`（metadata 21,081,542 bytes，SHA-256 `c6927a1b5b4755fbba5a62e88b8ffcda0291401a7117dea44e0914315d40ccff`）；内含 DMG SHA-256 `01249b61e141e142b3c4c4be5b9befea84b831c34bab1ea605a007b5c67e34a7`，清单匹配、`hdiutil verify` 为 VALID，arm64 app `codesign --verify --deep --strict` 通过且签名为 ad-hoc、无 Team ID。Windows artifact `12211509463`（metadata 27,876,758 bytes，SHA-256 `adcfb123859b7e5049ae9d241dd72b54de8be5538ac3ae06741930e7d47e29d9`）；EXE SHA-256 `40dfe06ec15f7e635d633bd3bceee79b912c7b14c4c7fb66a15e928fe1e77a72` 与随包清单匹配，文件为 PE32+ x86-64。两者来自产品代码提交 `f60055b` 的候选构建，未做 Windows 真机验收，也不是公开 Release。
+- **当前 CI：**主线合并后的 Reliability run `39307408377` success。Pocket run `39306460382` 后续终态为 success（`updated_at=2026-10-19T19:18:16Z`）；Pocket JS/CNG job 与 Android debug job 均 success。Android artifact `12214489435` metadata 为 94,609,048 bytes、SHA-256 `bb967626196499f628714b5bd03eafa3d17020ef04dd03954cc5182902680958`；本机下载 ZIP 摘要相符。内含 APK 269,595,675 bytes，SHA-256 `93619fd0db5fe982997adc714dce5dcff4a80abef53353736c1f9314e9b44221`，ZIP 完整，包含 arm64-v8a、armeabi-v7a、x86、x86_64。它是 debug APK，不是 Android 真机验收或公开安装包。run 只观察至终态，未重启。
+- **Firebase 安全诊断：**当前桌面 `/api/firebase/settings` 返回 `configured=true`、`signed_in=false`。使用仓库公开 Web 配置发起的无副作用 Auth 登录探针：格式无效邮箱返回 `HTTP 400 INVALID_EMAIL`；格式有效的虚构邮箱返回 `HTTP 400 INVALID_LOGIN_CREDENTIALS`。RTDB 匿名根读取返回 `HTTP 401`。这证明 Auth endpoint/API key 可响应、匿名数据库访问被拒绝；不证明用户账号密码、注册、云同步或 Safari 的真实登录成功。
+- **本轮代码进展：**桌面 Firebase 登录此前对未分类的本机异常返回通用提示；现在响应中只显示安全的异常类型，不返回底层异常详情、密码或请求 URL。Firebase server 定向测试 8/8 通过，`git diff --check` 通过；当前改动尚未提交、尚未进入 CI 或公开应用包。
+- **仍待证实：**由用户在本机输入凭据后验证 Firebase 注册/登录、用户名、桌面与 PWA 实时进度及云历史、UID 隔离、断网恢复；iPhone Safari 主屏幕安装、PWA 离线缓存/恢复和网络重连；Windows 真机安装及核心备份、失败恢复、升级回退；之后更新正式 Release、下载页与回滚说明并从公开链接回读验证。
+- **有限结束条件：**范围内每项交付都要有源码/CI/线上或设备证据；正式 Release 与下载说明一致，安装包及校验文件可回读，升级/回退路径有证据。若只剩用户凭据输入或设备操作，完成可独立工作后提供一条明确步骤并保持目标未完成。明确排除的签名/公证、原生 iOS、Android 真机、小程序、异地原片传输不作为阻塞项。
+
+## 2026-10-20 PR #8 终态与未完成验收
+
+- 当前 PR #8 head `4478ff024fe37565c1c5adb8882da566068c8c56` 的 Reliability push/PR、macOS、Windows 和 Pocket workflows 均 success；Pocket Android debug artifact `12219107452` 已下载并核对 metadata、ZIP 与 APK SHA-256、ZIP 完整性和四种 ABI。此证据只到构建包，不代表 Android 实机验收。
+- 规范 GitHub Pages 首页、下载、隐私、PWA 与更新说明路由当前均 HTTP 200。PWA 离线 shell 与 standalone manifest 在线可读；iPhone 主屏幕安装、离线启动和恢复仍需真机验证。
+- Codex in-app browser 的 Firebase 登录请求只得到浏览器 `TypeError`/网络错误，没有 Auth 错误码；无凭据 CORS preflight 从主机端返回 200。真实登录、用户名、多端历史/进度、UID 隔离及离线恢复仍未验证。
+- 本机旧桌面服务的 `/api/updates/latest` 仍返回 502；PR #8 更新诊断代码的定向测试通过，但新包尚未替换运行实例。GitHub Latest Release 与下载页仍为 Windows v1.0.34；新正式版、公开下载、升级和回退仍未完成。
+- 下一步先继续完成候选/PR 收尾和更新包验证，再在用户设备上完成 Firebase 登录与 iPhone PWA、Windows 真机流程。遇到需要 iPhone/Safari 或 Windows 设备的门槛时，先完成其他独立工作，再给用户单一步骤。签名/公证不属于结束条件。
+
+以下内容是 2026-10-19 及更早的历史证据快照；其中未完成事项和平台范围可能已被本节后续决定取代。
 
 ## 2026-10-19 当前 head 候选交付
 
@@ -190,10 +215,10 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 
 ### Scope decision and remaining work
 
-- **Active product:** desktop app, iOS Safari PWA, Android native app preview, LAN collaboration and Firebase metadata sync. The user has now chosen PWA as the iOS deliverable; native iOS packaging, Apple Developer enrollment and App Store distribution are out of scope. Android real-device acceptance is deferred until a test device is available.
+- **Active product:** desktop app, iPhone Safari PWA, Android CI/debug candidate, LAN collaboration and Firebase account-scoped metadata sync. Native iOS is out of scope; Android device acceptance is deferred because no Android phone is available.
 - **Web:** maintain the static product/download/privacy site only. Browser online backup and remote original-file transfer are out of this phase.
 - **Needs device or account owner:** verify the iOS Safari PWA on the user's iPhone (home-screen launch, page refresh, LAN disconnect/reconnect, background/lock recovery); verify live Firebase sign-in and account-scoped sync on the already configured owner account; exercise Windows desktop on a physical PC. Android device acceptance is explicitly deferred; no Android phone is available.
-- **Needs distribution setup:** Android production signing/Google Play submission remains open only if Android public distribution is still desired. Configure Windows signing and macOS Developer ID/notarization if those platforms are to be publicly distributed; then publish a formal version, update the download page, and verify install/update/rollback. Do not publish the internal preview APK as a release. iOS uses the PWA route, not the native store route.
+- **Needs distribution setup:** publish a formal desktop release, update the download page, and verify install/update/rollback. The user has explicitly excluded Windows/macOS signing and notarization. Do not publish the internal Android preview APK as a release. iOS uses the PWA route, not the native store route.
 - **Code-side finish line for this phase:** source gaps identified in the audit are implemented, targeted automated checks and current-head candidate builds pass, active CI remains free of Mini Program gates, and this document matches current evidence. Stop and hand over the exact device/account/release actions when no independent code work remains; do not claim full product closure.
 
 ### Source follow-up: preserve local backup progress when the desktop is offline

@@ -866,6 +866,7 @@ def api_status():
 def api_latest_update():
     """Check the newest public GitHub release and provide this OS download."""
     import re
+    import urllib.error
     import ssl
     import urllib.request
     import certifi
@@ -880,8 +881,28 @@ def api_latest_update():
         tls_context = ssl.create_default_context(cafile=certifi.where())
         with urllib.request.urlopen(request, timeout=12, context=tls_context) as response:
             release = json.loads(response.read().decode("utf-8"))
-    except Exception:
-        return jsonify({"error": "暂时无法连接影序更新服务，请检查网络后重试。"}), 502
+    except Exception as error:
+        if isinstance(error, urllib.error.HTTPError):
+            diagnostic_code = f"HTTP_{int(error.code)}"
+        elif isinstance(error, urllib.error.URLError):
+            reason = error.reason
+            if isinstance(reason, ssl.SSLError):
+                diagnostic_code = "TLS_ERROR"
+            elif isinstance(reason, TimeoutError):
+                diagnostic_code = "TIMEOUT"
+            else:
+                diagnostic_code = "NETWORK_ERROR"
+        elif isinstance(error, ssl.SSLError):
+            diagnostic_code = "TLS_ERROR"
+        elif isinstance(error, TimeoutError):
+            diagnostic_code = "TIMEOUT"
+        else:
+            diagnostic_code = "UPDATE_CHECK_FAILED"
+        app.logger.warning("Latest release lookup failed (%s)", diagnostic_code)
+        return jsonify({
+            "error": f"更新服务暂时无法访问（诊断码 {diagnostic_code}）。请检查网络后重试。",
+            "diagnostic_code": diagnostic_code,
+        }), 502
 
     def version_key(value):
         numbers = re.findall(r"\d+", str(value or ""))
@@ -1596,7 +1617,12 @@ def _firebase_authenticate(create_account: bool):
                 "CONFIGURATION_NOT_FOUND": "Firebase Authentication 尚未完成项目配置。",
             }
             return jsonify({"error": messages.get(str(error), "Firebase 账号验证失败。")}), 400
-        return jsonify({"error": "Firebase 登录失败，请检查项目配置、系统凭据库和网络。"}), 400
+        # Surface a safe exception class so the user can distinguish an unexpected
+        # local failure without exposing exception text, tokens, or request URLs.
+        error_type = type(error).__name__
+        return jsonify({
+            "error": f"Firebase 登录未完成（本机错误类型：{error_type}）。请将错误类型提供给支持人员；不要发送密码。"
+        }), 400
     config.firebase_email = account["email"]
     config.firebase_uid = account["uid"]
     config.firebase_display_name = account.get("display_name") or display_name or email.split("@", 1)[0]

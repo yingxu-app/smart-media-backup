@@ -1,5 +1,6 @@
 import json
 import ssl
+import urllib.error
 import unittest
 from unittest import mock
 
@@ -50,7 +51,18 @@ class UpdateCheckerTests(unittest.TestCase):
             response = self.client.get("/api/updates/latest")
 
         self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.get_json()["diagnostic_code"], "TIMEOUT")
         self.assertIn("更新服务", response.get_json()["error"])
+        self.assertNotIn("offline", response.get_json()["error"])
+
+    def test_tls_failure_uses_safe_diagnostic_without_exposing_reason(self):
+        failure = urllib.error.URLError(ssl.SSLError("private certificate detail"))
+        with mock.patch("urllib.request.urlopen", side_effect=failure):
+            response = self.client.get("/api/updates/latest")
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.get_json()["diagnostic_code"], "TLS_ERROR")
+        self.assertNotIn("private certificate detail", response.get_json()["error"])
 
     def test_uses_certifi_trust_roots_without_disabling_tls_verification(self):
         context = ssl.create_default_context()
