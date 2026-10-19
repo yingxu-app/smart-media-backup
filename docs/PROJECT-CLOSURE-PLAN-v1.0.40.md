@@ -205,3 +205,11 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 
 - Desktop and Pocket authentication now parse the Firebase error-code prefix even when Firebase appends policy details. They distinguish weak passwords, disabled email/password sign-in, invalid Web API keys, and incomplete Authentication setup.
 - Local simulated-response checks pass: Pocket 27/27, desktop Firebase sync 7/7, Firebase server routes 6/6; Expo lint and TypeScript no-emit pass. This does not prove a live account can sign in or sync across devices.
+
+## 2026-10-19 EAS Android preview build checkpoint
+
+- EAS project `@nanyu-lu/yingxu-pocket` (ID `e83a97a0-f588-4068-a66d-f3e38782bcc1`) is linked in `mobile/app.json`. Android preview build `2926409f-7f75-454f-91a8-37ebf4dc2a66` reached `FINISHED`; build details are available at Expo's project build page. It used profile `preview`, app version `1.0.0` / build `1`, package `com.yingxuapp.pocket`, and source commit `2b1c89b`.
+- The downloaded APK at `/Users/nanyu/Downloads/影序Pocket-Android-preview-1.0.0-build1.apk` is 92,264,537 bytes. Local SHA-256 is `9783f71f24c0105d8d22457e8f7715fbe2d61d6599d63ba578730f3e7b1cba64`; ZIP integrity passed. Package name was found in the binary Android manifest, and the APK contains `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`. This SHA is locally calculated; no independent Expo checksum was available. The preview has not been installed on a physical Android device.
+- GitHub Actions for source commit `2b1c89b`: Reliability `39205982870`, macOS candidate `39205982844`, Windows preview `39205982843`, and Pocket `39205982845` all succeeded. Pocket JS/CNG/check, Android debug, and iOS Simulator jobs passed. The workflow uploaded only an Android debug artifact; it produced no iOS Simulator app artifact or IPA.
+- iPhone distribution remains blocked on the owner setting up Apple Developer Program membership, App Store Connect app record, and signing. This EAS checkpoint closes the Android preview build/download validation only; it does not close phone-device acceptance, iOS packaging, store release, or the broader product goal.
+- Pre-edit document snapshots are preserved under `docs/snapshots/2026-10-19-eas-preview-build/`.

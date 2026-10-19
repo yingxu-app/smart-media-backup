@@ -12,17 +12,16 @@ iOS 按正式发行路线交付：使用 EAS 云端构建并签名，再上传 A
 
 用户电脑不需要安装 Xcode；EAS 在云端执行原生构建。TestFlight 分发依赖 Apple Developer Program 与 App Store Connect，不需要逐台登记测试设备。
 
-提交档案目前只指定 Google Play 内部测试轨道。iOS App Store Connect 应用记录、Apple Developer Program 团队与签名凭据、Google Play 服务账号、EAS 项目 ID 均未配置；不得把当前 CI debug APK 或模拟器 App 当作商店包。正式 iOS 发行须由项目所有者先完成 Apple Developer Program 注册与协议；我们不代持或索取账号密码、验证码、私钥。
+提交档案目前只指定 Google Play 内部测试轨道。EAS 项目已绑定到 Expo 账号 `nanyu-lu`；iOS App Store Connect 应用记录、Apple Developer Program 团队与签名凭据、Google Play 服务账号仍未配置。不得把当前 CI debug APK 或 EAS preview APK 当作商店包。正式 iOS 发行须由项目所有者先完成 Apple Developer Program 注册与协议；我们不代持或索取账号密码、验证码、私钥。
 
-## 账号绑定后执行
+## EAS 项目已绑定；后续构建与发行
 
-在项目所有者控制的终端登录 Expo 并绑定 EAS 项目，使用官方 CLI 将项目 ID 写入 `mobile/app.json` 的 `expo.extra.eas.projectId`。本仓库使用 pnpm；本机 npm 启动器有依赖加载错误，因此操作命令统一使用 `pnpm dlx`：
+EAS 项目为 [`@nanyu-lu/yingxu-pocket`](https://expo.dev/accounts/nanyu-lu/projects/yingxu-pocket)，ID `e83a97a0-f588-4068-a66d-f3e38782bcc1`，已写入 `mobile/app.json`。本仓库使用 pnpm；构建命令统一使用 `pnpm dlx`：
 
 ```sh
 cd mobile
 pnpm dlx eas-cli@latest account:login
 pnpm dlx eas-cli@latest account:view
-pnpm dlx eas-cli@latest project:init
 pnpm dlx eas-cli@latest build --profile development --platform all
 pnpm dlx eas-cli@latest build --profile preview --platform android
 pnpm dlx eas-cli@latest build --profile production --platform all
@@ -40,6 +39,13 @@ pnpm dlx eas-cli@latest submit --profile production --platform android
 
 - EAS 配置文件不等于已绑定 Expo 项目、构建成功、签名成功或商店上架。
 - 正式 iOS 路线没有 7 天免费签名刷新；它依赖付费 Apple Developer Program 会员。当前账号/团队未配置，因此暂不能产出可供 TestFlight 安装的签名包。
-- 本机曾用已缓存的 `pnpm dlx eas-cli@latest whoami` 做只读查询，返回 `Not logged in`。该查询不创建 EAS 项目；项目所有者登录后再执行 `project:init`。
+- 历史上曾有一次 Expo CLI `whoami` 返回 `Not logged in`；该状态已由后续项目所有者 OAuth 登录解决。EAS 项目和构建已实证成功，见下方记录。
 - 生产构建前仍须完成 iPhone/Android 真机安装、局域网配对、权限、后台/切网恢复验收。
 - 商店提交必须核对应用版本、隐私说明、截图、支持网址、分级与审核资料；公开发布后再从商店链接安装回读。
+
+## 2026-10-19 EAS Android preview 构建记录
+
+- EAS Android preview build `2926409f-7f75-454f-91a8-37ebf4dc2a66` 已完成（`FINISHED`）；构建详情：[Expo build](https://expo.dev/accounts/nanyu-lu/projects/yingxu-pocket/builds/2926409f-7f75-454f-91a8-37ebf4dc2a66)。profile `preview`，app version `1.0.0` / build `1`，包名 `com.yingxuapp.pocket`，来源提交 `2b1c89b`。
+- APK 已下载到本机并完成 SHA-256 与 ZIP 完整性核验：`/Users/nanyu/Downloads/影序Pocket-Android-preview-1.0.0-build1.apk`，92,264,537 bytes，SHA-256 `9783f71f24c0105d8d22457e8f7715fbe2d61d6599d63ba578730f3e7b1cba64`；APK ZIP 测试通过，包含 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64`，二进制 Manifest 中可见包名。此为内部 preview 构建，尚无 Android 真机安装验收；本地计算的 SHA-256 不是 Expo 发布的独立校验和。
+- 同提交 GitHub Actions Pocket run `39205982845` 成功，JS/CNG/check、Android debug 和 iOS Simulator jobs 均成功；Actions 仅提供 Android debug artifact，没有 iOS Simulator app artifact 或 IPA。
+- iPhone 真机分发仍需 Apple Developer Program 账户、App Store Connect 应用记录及签名配置。Simulator build 和 Android APK 均不构成 iPhone 可安装包。
