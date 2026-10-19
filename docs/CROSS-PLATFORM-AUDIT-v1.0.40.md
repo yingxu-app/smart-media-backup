@@ -277,3 +277,27 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - Local regression on this checkout: desktop unittest 82 passed / 2 Windows-only skipped; Mini Program 7/7; Pocket protocol 5/5; mobile lint and TypeScript checks passed. The canonical Pages home, `/download/`, and `/privacy.html` returned HTTP 200; Latest Release remains `v1.0.34`.
 - **iPhone PWA LAN acceptance:** a user-provided iPhone Safari screenshot shows the Pocket page with “桌面端已连接” and “已安全配对”, and historical records visible. At the same time, the installed Mac returned HTTP 200 with `paired:true`, `status:idle` from `/api/pocket/status`; `/api/status` reports v1.0.40/idle. This confirms actual iPhone Safari LAN page loading and secure pairing.
 - **Still open:** refresh/status behavior, capture information/note read-write, home-screen installation, background/lock recovery, offline and network-switch/reconnect behavior, permission revocation; LAN HTTP does not support Service Worker offline cache. Android real-device acceptance remains open. Native iOS/Android store packages, Windows real-device acceptance, Mini Program real AppID/DevTools/review, EAS owner/project, production signing/notarization/store submission, formal release and browser online-backup scope remain open.
+
+## 2026-10-19 native-app development checkpoint — PR head `52ee1cd`
+
+- Current branch is `codex/v1.0.39-miniprogram-lan-tcp`, HEAD `52ee1cd50e7f5c631d16a89ec31985b6cd496922`. PR #4 is OPEN/DRAFT and mergeable.
+- Reliability PR `39185713579`, Reliability push `39185709858`, macOS candidate `39185713548`, Windows preview `39185713515`, and Pocket run `39185713562` all succeeded. Pocket JS/CNG/check, Android debug, and iOS Simulator jobs succeeded.
+- Android artifact `12158133353` metadata size is 94,608,827 bytes. Actions API downloads returned EOF in this session, so no local ZIP/APK integrity or digest claim is made. Android is a debug build; iOS Simulator success did not provide an IPA.
+- The head includes account profile initials/registration name, cloud history inside Archive Records, and manual version-check controls in Preferences. Latest public Release remains `v1.0.34` with Windows EXE and checksum only; the new update controls have no published mobile release asset to offer.
+- `docs/NATIVE-MOBILE-BACKUP.md` is the detailed implementation and owner-acceptance inventory. Code paths for local folder-based backup, hashing, interruption recovery, LAN desktop transfer, Firebase metadata/outbox, and account/history UI exist; automated and CI evidence does not establish physical-device acceptance or authenticated multi-device behavior.
+
+### Current product scope
+
+- **In scope:** native iOS/Android backup app, desktop collaboration over the same LAN, Firebase account-scoped progress/history metadata, and a static product/download/privacy website.
+- **Discontinued:** Mini Program development. Preserve its source for reference; do not treat Mini Program AppID, DevTools, review, or release as an open product gate. Current `.github/workflows` definitions have no Mini Program checks.
+- **Deferred:** browser-based online backup and remote original-file transfer.
+
+### Remaining acceptance and release gates
+
+1. **Native phone devices:** install and test on iPhone and Android; validate local/external storage access and revocation, copy/hash outcomes, duplicate handling, low-space/errors, app background/lock recovery, task resume, LAN upload/download and Wi-Fi reconnect.
+2. **Firebase live sync:** use the same owner-controlled account on desktop and phone; verify active progress and complete metadata history in both directions, different-UID isolation, token refresh, and offline queue recovery. No password or token belongs in source, chat, or evidence artifacts.
+3. **Windows device:** install the current preview on a real Windows PC and exercise source/target selection, phone-to-PC and PC-to-phone transfer, pause/resume/cancel, disk/network failures, and recovery.
+4. **Distribution:** configure owner-controlled EAS project and signing/distribution; complete Apple TestFlight/App Store and Android signing/store choice; arrange Windows signing and macOS Developer ID/notarization for public desktop distribution as required. Current debug/candidate artifacts are not formal releases.
+5. **Formal update and rollback:** publish the signed release assets, update the public download page, then verify new-user install, in-app version discovery, upgrade, and rollback. Latest Release is still `v1.0.34`; there is no published mobile APK/IPA.
+
+The finite code-side phase ends after identified source gaps are closed, targeted automation and latest candidate CI pass, Mini Program gates remain absent, and this evidence stays current. Stop at device/account/store-owner prerequisites with a precise handoff; do not infer release or full cross-platform closure from green CI.
