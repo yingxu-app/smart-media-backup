@@ -4,8 +4,9 @@
 
 ## 2026-10-19 当前 head 候选交付
 
-- PR #4 OPEN/DRAFT、mergeable，工作树 clean；当前 head `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。
+- 产品代码候选 head 是 `9d04a5e2354988ded5dab3ce1aa69c9d3dcd2851`。只更新证据与快照的后继 head `a86b28afe50fb26f86fa6f1e7e612d4d0550c44d` 当前位于 PR #4；PR OPEN/DRAFT、mergeable，工作树 clean，后继提交未改产品源码。
 - Reliability PR `39188941105`、push `39188938449`、macOS `39188941117`、Windows `39188941135`、Pocket `39188941122` 均 success；Pocket JS/CNG、Android debug、iOS Simulator 全通过。iOS Simulator job 不产出 IPA。
+- 文档后继 head `a86b28a` 的 PR Reliability `39197816737`、push Reliability `39197812330`、macOS `39197816836`、Windows `39197816796`、Pocket `39197816810` 均 success。下面的本机包体逐项校验仍指向产品代码候选 `9d04a5e` 的下载 artifact，不等同于核验 `a86b28a` 新生成的包体。
 - macOS artifact `12159535671`（21,078,353 bytes；metadata SHA-256 `17f5e0804e2a34135e20085325ed8db24fa9f5f4745ba3ae7c61ec831dd1f221`）。内含 DMG SHA-256 `89eef56bebafa483d65c5a4e54c7d93ed1e6a04337798e9273c0a57f45f1caf7`，清单一致、hdiutil VALID；arm64 app deep/strict code verification 通过，但 ad-hoc、无 Team ID、未公证。
 - Windows artifact `12159231755`（27,874,165 bytes；metadata SHA-256 `b12d22207311defe362acbf917bba43005a0f36ec793516994a5cc0a3dc590e6`）。内含 x86-64 PE EXE SHA-256 `79bce8d91a9a06c8d04dc763f58cda592dabaac9d30b5a736dabd83ea5e5a061`，与清单一致；未做 Windows 实机运行验收。
 - Android artifact `12159314027`（94,608,820 bytes；ZIP SHA-256 `0ebeca6aef5b874e4e34e748018b12a1447eab17e6c52f6a85b8e84271c94fdd` 与 metadata 一致）。APK SHA-256 `a6aaa85668cd927b069b7e340083b7cd58167f94ec3746705a35077168609518`，269,595,547 bytes、四 ABI；属于 debug 包，未在实体手机安装。
