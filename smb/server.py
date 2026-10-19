@@ -74,7 +74,11 @@ def _get_firebase_sync_client():
 def _restore_firebase_session():
     try:
         client = _get_firebase_sync_client()
-        restored = client.restore_session(client.uid or _firebase_uid_for_email(config.firebase_email), config.firebase_email)
+        restored = client.restore_session(
+            client.uid or _firebase_uid_for_email(config.firebase_email),
+            config.firebase_email,
+            config.firebase_display_name,
+        )
         if restored:
             try:
                 client.flush_outbox()
@@ -113,7 +117,11 @@ def _publish_desktop_progress(data: dict):
     try:
         client = _get_firebase_sync_client()
         if not client.uid:
-            client.restore_session(_firebase_uid_for_email(config.firebase_email), config.firebase_email)
+            client.restore_session(
+                _firebase_uid_for_email(config.firebase_email),
+                config.firebase_email,
+                config.firebase_display_name,
+            )
         if not client.uid:
             return
         record = {
@@ -854,6 +862,54 @@ def api_status():
     })
 
 
+@app.route("/api/updates/latest")
+def api_latest_update():
+    """Check the newest public GitHub release and provide this OS download."""
+    import re
+    import urllib.request
+    from . import __version__
+
+    release_url = "https://api.github.com/repos/yingxu-app/smart-media-backup/releases/latest"
+    try:
+        request = urllib.request.Request(
+            release_url,
+            headers={"Accept": "application/vnd.github+json", "User-Agent": "YINGXU-Update-Checker"},
+        )
+        with urllib.request.urlopen(request, timeout=12) as response:
+            release = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "暂时无法连接影序更新服务，请检查网络后重试。"}), 502
+
+    def version_key(value):
+        numbers = re.findall(r"\d+", str(value or ""))
+        return tuple(int(number) for number in numbers[:4]) or (0,)
+
+    latest = str(release.get("tag_name") or "").strip().lstrip("vV")
+    assets = release.get("assets") if isinstance(release.get("assets"), list) else []
+    if sys.platform == "darwin":
+        platform_name, suffixes = "macOS", (".dmg",)
+    elif sys.platform.startswith("win"):
+        platform_name, suffixes = "Windows", (".exe", ".msi")
+    else:
+        platform_name, suffixes = "Linux", (".appimage", ".deb", ".rpm")
+    platform_assets = [
+        {"name": str(asset.get("name") or ""), "url": str(asset.get("browser_download_url") or ""), "size": int(asset.get("size") or 0)}
+        for asset in assets
+        if str(asset.get("name") or "").lower().endswith(suffixes)
+        and asset.get("browser_download_url")
+    ]
+    current = __version__
+    return jsonify({
+        "current_version": current,
+        "latest_version": latest,
+        "update_available": bool(latest) and version_key(latest) > version_key(current),
+        "platform": platform_name,
+        "assets": platform_assets,
+        "release_url": str(release.get("html_url") or "https://github.com/yingxu-app/smart-media-backup/releases/latest"),
+        "published_at": str(release.get("published_at") or ""),
+    })
+
+
 @app.route("/api/volumes")
 def api_volumes():
     """列出所有可用卷（用于目标磁盘选择）"""
@@ -1471,12 +1527,14 @@ def api_settings():
 def api_firebase_settings():
     global _firebase_sync_client
     if request.method == "GET":
+        signed_in = bool(_firebase_sync_client and _firebase_sync_client.uid)
+        if not signed_in and config.firebase_uid:
+            signed_in = _restore_firebase_session()
         return jsonify({
-            "api_key": config.firebase_api_key,
-            "database_url": config.firebase_database_url,
             "email": config.firebase_email,
+            "display_name": config.firebase_display_name,
             "configured": bool(config.firebase_api_key and config.firebase_database_url),
-            "signed_in": bool(_firebase_sync_client and _firebase_sync_client.uid),
+            "signed_in": signed_in,
         })
     data = request.get_json(silent=True) or {}
     api_key = str(data.get("api_key", config.firebase_api_key)).strip()
@@ -1498,15 +1556,23 @@ def _firebase_authenticate(create_account: bool):
     data = request.get_json(silent=True) or {}
     email = str(data.get("email", config.firebase_email)).strip()
     password = str(data.get("password", ""))
+    display_name = str(data.get("display_name", "")).strip()
     if not email or not password:
         return jsonify({"error": "请输入 Firebase 邮箱和密码。"}), 400
+    if create_account and not 1 <= len(display_name) <= 40:
+        return jsonify({"error": "注册时请填写 1 到 40 个字符的用户名。"}), 400
     if data.get("api_key") is not None or data.get("database_url") is not None:
         saved = api_firebase_settings()
         if isinstance(saved, tuple):
             return saved
     try:
         client = _get_firebase_sync_client()
-        account = client.sign_in(email, password, create_account=create_account)
+        if create_account:
+            account = client.sign_in(
+                email, password, create_account=True, display_name=display_name,
+            )
+        else:
+            account = client.sign_in(email, password, create_account=False)
     except Exception as error:
         if isinstance(error, ValueError):
             messages = {
@@ -1523,10 +1589,15 @@ def _firebase_authenticate(create_account: bool):
         return jsonify({"error": "Firebase 登录失败，请检查项目配置、系统凭据库和网络。"}), 400
     config.firebase_email = account["email"]
     config.firebase_uid = account["uid"]
+    config.firebase_display_name = account.get("display_name") or display_name or email.split("@", 1)[0]
     config.save()
     client.start_live_watch()
     threading.Thread(target=_sync_latest_desktop_history, daemon=True, name="yingxu-firebase-history").start()
-    return jsonify({"status": "signed_in", "email": account["email"]})
+    return jsonify({
+        "status": "signed_in",
+        "email": account["email"],
+        "display_name": config.firebase_display_name,
+    })
 
 
 @app.route("/api/firebase/login", methods=["POST"])
@@ -1551,6 +1622,7 @@ def api_firebase_logout():
     except Exception:
         return jsonify({"error": "无法清除系统凭据库中的 Firebase 会话。"}), 500
     config.firebase_uid = ""
+    config.firebase_display_name = ""
     config.save()
     _firebase_sync_client = None
     return jsonify({"status": "signed_out"})
@@ -1560,7 +1632,9 @@ def api_firebase_logout():
 def api_firebase_history():
     try:
         client = _get_firebase_sync_client()
-        if not client.uid and not client.restore_session(config.firebase_uid, config.firebase_email):
+        if not client.uid and not client.restore_session(
+            config.firebase_uid, config.firebase_email, config.firebase_display_name
+        ):
             return jsonify({"error": "请先登录影序云同步账号。"}), 401
         client.start_live_watch()
         values = client.get("history") or {}
@@ -1574,7 +1648,9 @@ def api_firebase_history():
 def api_firebase_live():
     try:
         client = _get_firebase_sync_client()
-        if not client.uid and not client.restore_session(config.firebase_uid, config.firebase_email):
+        if not client.uid and not client.restore_session(
+            config.firebase_uid, config.firebase_email, config.firebase_display_name
+        ):
             return jsonify({"error": "请先登录影序云同步账号。"}), 401
         client.start_live_watch()
         return jsonify(client.live_snapshot())

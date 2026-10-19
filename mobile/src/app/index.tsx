@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import TcpSocket from "react-native-tcp-socket";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -6,6 +7,7 @@ import {
   Alert,
   AppState,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -28,6 +30,10 @@ const PORT = 18080;
 const ADDRESS_KEY = "yingxuPocketAddress";
 const NOTES_KEY = "yingxuPocketLocalNotesV1";
 const DEVICE_KEY = "yingxuFirebaseDeviceIdV1";
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA0NzN1SVbyNT2xi1HoDNn9hZQouknk-qA",
+  databaseUrl: "https://yingxu-73c7b-default-rtdb.asia-southeast1.firebasedatabase.app",
+};
 const STATUS_LABELS: Record<string, string> = {
   idle: "空闲",
   scanning: "正在扫描",
@@ -46,7 +52,6 @@ const STATUS_LABELS: Record<string, string> = {
 
 type Notes = { event: string; location: string; device: string; notes: string };
 const EMPTY_NOTES: Notes = { event: "", location: "", device: "", notes: "" };
-const CONFIG_KEY = "yingxuFirebaseConfigV1";
 const mobileStore = createMobileStore(AsyncStorage);
 const DEFAULT_PREFERENCES = { sortByCaptureTime: true, includeDateFolder: true, includeVideos: true, preserveSourceStructure: false };
 
@@ -104,14 +109,17 @@ export default function PocketHome() {
   const [localHistory, setLocalHistory] = useState<Record<string, any>[]>([]);
   const [eventName, setEventName] = useState("");
   const [mobileBusy, setMobileBusy] = useState(false);
-  const [firebaseConfig, setFirebaseConfig] = useState({ apiKey: "", databaseUrl: "" });
   const [firebaseEmail, setFirebaseEmail] = useState("");
+  const [firebaseDisplayName, setFirebaseDisplayName] = useState("");
   const [firebasePassword, setFirebasePassword] = useState("");
   const [firebaseUser, setFirebaseUser] = useState("");
   const [cloudMessage, setCloudMessage] = useState("");
   const [cloudHistory, setCloudHistory] = useState<Record<string, any>[]>([]);
   const [expandedCloudRecordId, setExpandedCloudRecordId] = useState("");
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
+  const [updateMessage, setUpdateMessage] = useState("");
+  const [updateUrl, setUpdateUrl] = useState("");
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const mobileEngineRef = useRef<any>(null);
   const desktopDownloadRef = useRef<any>(null);
   const computerImportTaskRef = useRef<Record<string, any> | null>(null);
@@ -123,15 +131,13 @@ export default function PocketHome() {
     Promise.all([
       AsyncStorage.getItem(ADDRESS_KEY),
       AsyncStorage.getItem(NOTES_KEY),
-      AsyncStorage.getItem(CONFIG_KEY),
       mobileStore.getHistory(),
       mobileStore.getActiveTask(),
       mobileStore.getFolders(),
       mobileStore.getPreferences(),
-    ]).then(async ([savedAddress, savedNotes, savedConfig, savedHistory, savedTask, savedFolders, savedPreferences]) => {
+    ]).then(async ([savedAddress, savedNotes, savedHistory, savedTask, savedFolders, savedPreferences]) => {
       if (savedAddress) setAddress(savedAddress);
       if (savedNotes) setNotes({ ...EMPTY_NOTES, ...JSON.parse(savedNotes) });
-      if (savedConfig) setFirebaseConfig(JSON.parse(savedConfig));
       setLocalHistory(savedHistory as Record<string, any>[]);
       if (savedTask?.direction === "desktop-to-phone") {
         const restored = ["scanning", "copying", "paused"].includes(savedTask.status)
@@ -158,18 +164,15 @@ export default function PocketHome() {
       }).catch(() => {});
       if (Array.isArray(savedFolders.targets)) setExtraTargetFolders(savedFolders.targets as { uri: string; name: string }[]);
       setPreferences(savedPreferences as typeof DEFAULT_PREFERENCES);
-      if (savedConfig) {
-        const restoredConfig = JSON.parse(savedConfig);
-        const cloud = makeFirebaseClient(restoredConfig, await getDeviceId());
-        cloudClientRef.current = cloud;
-        cloud.restoreSession().then(async (restored: boolean) => {
-          if (!restored) return;
-          setFirebaseUser(cloud.session?.email || "已登录");
-          await refreshCloudHistory(cloud).catch(() => {});
-          startCloudWatches(cloud);
-          await flushCloudOutbox(cloud);
-        }).catch(() => {});
-      }
+      const cloud = makeFirebaseClient(FIREBASE_CONFIG, await getDeviceId());
+      cloudClientRef.current = cloud;
+      cloud.restoreSession().then(async (restored: boolean) => {
+        if (!restored) return;
+        setFirebaseUser(cloud.session?.displayName || cloud.session?.email || "已登录");
+        await refreshCloudHistory(cloud).catch(() => {});
+        startCloudWatches(cloud);
+        await flushCloudOutbox(cloud);
+      }).catch(() => {});
     }).catch(() => {});
     mobileStore.getActiveTask().then((task) => {
       if (task?.direction !== "desktop-to-phone" && task && ["scanning", "copying", "paused"].includes(task.status)) {
@@ -536,6 +539,53 @@ export default function PocketHome() {
     await mobileStore.savePreferences(next);
   }
 
+  async function checkForUpdates() {
+    setCheckingUpdate(true);
+    setUpdateMessage("正在检查影序正式版本…");
+    setUpdateUrl("");
+    try {
+      const response = await fetch("https://api.github.com/repos/yingxu-app/smart-media-backup/releases/latest", {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+      if (!response.ok) throw new Error("暂时无法连接更新服务，请检查网络后重试。");
+      const release = await response.json();
+      const latest = String(release.tag_name || "").replace(/^v/i, "");
+      const current = String(Constants.expoConfig?.version || "未知");
+      const versionKey = (version: string) => (version.match(/\d+/g) || ["0"]).slice(0, 4).map(Number);
+      const latestKey = versionKey(latest);
+      const currentKey = versionKey(current);
+      let newer = false;
+      for (let index = 0; index < Math.max(latestKey.length, currentKey.length); index += 1) {
+        const latestPart = latestKey[index] || 0;
+        const currentPart = currentKey[index] || 0;
+        if (latestPart !== currentPart) { newer = latestPart > currentPart; break; }
+      }
+      const assets = Array.isArray(release.assets) ? release.assets : [];
+      const asset = Platform.OS === "android"
+        ? assets.find((item: any) => String(item.name || "").toLowerCase().endsWith(".apk"))
+        : assets.find((item: any) => String(item.name || "").toLowerCase().endsWith(".ipa"));
+      const releaseUrl = String(release.html_url || "https://github.com/yingxu-app/smart-media-backup/releases/latest");
+      if (newer && asset?.browser_download_url && Platform.OS === "android") {
+        setUpdateUrl(String(asset.browser_download_url));
+        setUpdateMessage(`发现 v${latest} 手机端更新。点击下方按钮下载；安装时请按 Android 系统提示确认。`);
+      } else if (newer && asset && Platform.OS === "ios") {
+        setUpdateUrl(releaseUrl);
+        setUpdateMessage(`发现 v${latest} 版本。iPhone 需通过 TestFlight 或 App Store 安装，打开官方发行页查看说明。`);
+      } else if (newer) {
+        setUpdateUrl(releaseUrl);
+        setUpdateMessage(`发现 v${latest}，但目前没有适用于此手机平台的正式安装包。`);
+      } else if (latest && latest !== current) {
+        setUpdateMessage(`当前 App v${current}；公开正式版为 v${latest}，暂没有较新的手机端版本。`);
+      } else {
+        setUpdateMessage(`当前已是最新正式版本 v${current}。`);
+      }
+    } catch (cause) {
+      setUpdateMessage(cause instanceof Error ? cause.message : "检查更新失败，请稍后重试。");
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
+
   async function exportMobileReport(record: Record<string, any>) {
     const lines = [
       "影序 Pocket 备份报告",
@@ -556,11 +606,14 @@ export default function PocketHome() {
   async function signInFirebase(createAccount = false) {
     setCloudMessage("");
     try {
-      await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(firebaseConfig));
-      const client = makeFirebaseClient(firebaseConfig, await getDeviceId());
+      if (createAccount && !firebaseDisplayName.trim()) {
+        setCloudMessage("注册时请填写用户名。");
+        return;
+      }
+      const client = makeFirebaseClient(FIREBASE_CONFIG, await getDeviceId());
       cloudClientRef.current = client;
-      const account = await client.signIn(firebaseEmail, firebasePassword, createAccount);
-      setFirebaseUser(account.email);
+      const account = await client.signIn(firebaseEmail, firebasePassword, createAccount, createAccount ? firebaseDisplayName.trim() : "");
+      setFirebaseUser(account.displayName || account.email);
       setFirebasePassword("");
       await refreshCloudHistory(client);
       startCloudWatches(client);
@@ -774,20 +827,31 @@ export default function PocketHome() {
             <Text style={styles.smallHint}>关闭视频备份后，扫描预览和新任务都会跳过视频文件。相机 RAW 文件仍按照片处理；旧归档可选择保留原有子目录。</Text>
           </View>
 
+          <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>软件更新</Text><Text style={styles.sectionMeta}>当前 v{Constants.expoConfig?.version || "未知"}</Text></View>
+          <View style={styles.card}>
+            <Text style={styles.bodyText}>检查影序正式发行版。手机更新包发布后，可从这里获取；iPhone 更新需通过 TestFlight 或 App Store。</Text>
+            <View style={styles.actionRow}>
+              <Pressable onPress={checkForUpdates} disabled={checkingUpdate} style={[styles.primaryButton, checkingUpdate && styles.disabled]}>
+                <Text style={styles.primaryButtonText}>{checkingUpdate ? "正在检查…" : "检查更新"}</Text>
+              </Pressable>
+              {!!updateUrl && <Pressable onPress={() => Linking.openURL(updateUrl).catch(() => setUpdateMessage("无法打开更新页面，请检查设备网络。"))} style={styles.secondaryButton}>
+                <Text style={styles.secondaryButtonText}>{Platform.OS === "android" ? "下载更新" : "查看更新"}</Text>
+              </Pressable>}
+            </View>
+            {!!updateMessage && <Text style={styles.smallHint}>{updateMessage}</Text>}
+          </View>
+
           <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>异地进度与历史</Text><Text style={styles.sectionMeta}>{firebaseUser || "未登录"}</Text></View>
           <View style={styles.card}>
             <Text style={styles.bodyText}>Firebase 账号仅同步备份元数据；照片、视频、电脑路径和凭据不会进入云端。Firebase Spark 免费额度不是服务稳定性承诺。</Text>
-            <Text style={styles.fieldLabel}>Firebase Web API Key</Text>
-            <TextInput autoCapitalize="none" autoCorrect={false} value={firebaseConfig.apiKey} onChangeText={(apiKey) => setFirebaseConfig({ ...firebaseConfig, apiKey })} placeholder="AIza…" placeholderTextColor="#99958E" style={styles.input} />
-            <Text style={styles.fieldLabel}>Realtime Database URL</Text>
-            <TextInput autoCapitalize="none" autoCorrect={false} value={firebaseConfig.databaseUrl} onChangeText={(databaseUrl) => setFirebaseConfig({ ...firebaseConfig, databaseUrl })} placeholder="https://…firebasedatabase.app" placeholderTextColor="#99958E" style={styles.input} />
             <TextInput autoCapitalize="none" keyboardType="email-address" value={firebaseEmail} onChangeText={setFirebaseEmail} placeholder="邮箱" placeholderTextColor="#99958E" style={[styles.input, styles.cloudInput]} />
+            <TextInput value={firebaseDisplayName} onChangeText={setFirebaseDisplayName} maxLength={40} placeholder="用户名（注册时填写，登录可留空）" placeholderTextColor="#99958E" style={[styles.input, styles.cloudInput]} />
             <TextInput secureTextEntry value={firebasePassword} onChangeText={setFirebasePassword} placeholder="密码（只用于登录，不保存）" placeholderTextColor="#99958E" style={[styles.input, styles.cloudInput]} />
             <View style={styles.actionRow}>
               <Pressable onPress={() => signInFirebase(false)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>登录</Text></Pressable>
               <Pressable onPress={() => signInFirebase(true)} style={[styles.primaryButton, styles.rowButton]}><Text style={styles.primaryButtonText}>注册账号</Text></Pressable>
             </View>
-            {firebaseUser ? <Pressable onPress={async () => { cloudWatchStopsRef.current.splice(0).forEach((stop) => stop()); await cloudClientRef.current?.signOut(); setFirebaseUser(""); setCloudHistory([]); }}><Text style={styles.smallHint}>退出账号</Text></Pressable> : null}
+            {firebaseUser ? <Pressable onPress={async () => { cloudWatchStopsRef.current.splice(0).forEach((stop) => stop()); await cloudClientRef.current?.signOut(); setFirebaseUser(""); setFirebaseDisplayName(""); setCloudHistory([]); }}><Text style={styles.smallHint}>退出账号</Text></Pressable> : null}
             {!!cloudMessage && <Text style={styles.smallHint}>{cloudMessage}</Text>}
             {cloudHistory.slice(0, 100).map((item: any, index) => {
               const recordId = String(item.id || `${item.deviceId || "cloud"}-${index}`);

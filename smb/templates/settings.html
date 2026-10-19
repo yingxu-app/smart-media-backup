@@ -37,21 +37,28 @@
     <div id="saveMsg" class="save-msg" style="display:none;"></div>
 </div>
 
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>⬆️ 软件更新</h3></div>
+    <p class="pocket-copy">检查影序 GitHub 正式发行版。发现适用于这台电脑的新版本后，可打开官方发行页下载并安装。</p>
+    <div class="form-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn-primary" id="checkUpdateButton" onclick="checkForUpdates()">检查更新</button>
+        <a class="btn-secondary" id="updateReleaseLink" href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer" style="display:none;text-decoration:none;">打开官方发行页</a>
+    </div>
+    <div id="updateCheckMessage" class="save-msg" style="display:none;" aria-live="polite"></div>
+</div>
+
 <!-- Cross-device metadata sync -->
 <div class="card settings-form" style="margin-top:16px;">
-    <div class="card-header"><h3>🔄 手机与电脑进度同步</h3></div>
-    <p class="pocket-copy">使用 Firebase 邮箱账号同步备份进度和历史元数据。活动任务会实时订阅，历史记录可手动刷新。照片、视频、电脑路径和密码不会上传；刷新令牌保存在本机系统凭据库。需要先配置自己的 Firebase 项目。</p>
-    <div class="form-row">
-        <label for="firebaseApiKey">Firebase Web API Key</label>
-        <input type="text" id="firebaseApiKey" autocomplete="off" placeholder="AIza…" style="flex:1;">
-    </div>
-    <div class="form-row">
-        <label for="firebaseDatabaseUrl">Realtime Database URL</label>
-        <input type="url" id="firebaseDatabaseUrl" autocomplete="off" placeholder="https://项目-default-rtdb.firebaseio.com" style="flex:1;">
-    </div>
+    <div class="card-header"><h3>🔄 影序账号与设备同步</h3></div>
+    <p class="pocket-copy">登录后同步备份进度和归档信息。原始照片、视频与电脑本地路径不会上传。</p>
     <div class="form-row">
         <label for="firebaseEmail">邮箱</label>
         <input type="email" id="firebaseEmail" autocomplete="username" placeholder="name@example.com" style="flex:1;">
+    </div>
+    <div class="form-row">
+        <label for="firebaseDisplayName">用户名（注册时填写）</label>
+        <input type="text" id="firebaseDisplayName" autocomplete="nickname" maxlength="40" placeholder="例如：影序用户" style="flex:1;">
+        <small class="setting-help">已有账号登录时可以留空。</small>
     </div>
     <div class="form-row">
         <label for="firebasePassword">密码</label>
@@ -61,11 +68,9 @@
         <button class="btn-primary" onclick="firebaseLogin(false)">登录并同步</button>
         <button class="btn-secondary" onclick="firebaseLogin(true)">注册账号并同步</button>
         <button class="btn-secondary" onclick="firebaseLogout()">退出同步账号</button>
-        <button class="btn-secondary" onclick="loadFirebaseHistory()">刷新云端历史</button>
     </div>
     <div id="firebaseSyncMsg" class="save-msg" style="display:none;"></div>
     <div id="firebaseLive" class="history-list" style="margin-top:12px;" aria-live="polite"></div>
-    <div id="firebaseHistory" style="margin-top:12px;"></div>
 </div>
 
 <!-- 百度网盘设置 -->
@@ -308,6 +313,45 @@ function resetSettings() {
     setTimeout(() => document.getElementById("saveMsg").style.display = "none", 3000);
 }
 
+async function checkForUpdates() {
+    const button = document.getElementById("checkUpdateButton");
+    const message = document.getElementById("updateCheckMessage");
+    const releaseLink = document.getElementById("updateReleaseLink");
+    button.disabled = true;
+    button.textContent = "正在检查…";
+    message.style.display = "block";
+    message.style.color = "var(--text-dim)";
+    message.textContent = "正在查询影序正式发行版本…";
+    releaseLink.style.display = "none";
+    try {
+        const response = await fetch("/api/updates/latest", {cache:"no-store"});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "暂时无法检查更新，请稍后重试。");
+        releaseLink.href = result.release_url;
+        if (result.update_available && result.assets.length) {
+            message.textContent = `发现 ${result.platform} 新版本 v${result.latest_version}（当前 v${result.current_version}）。点击“打开官方发行页”下载并安装。`;
+            message.style.color = "#4ade80";
+            releaseLink.style.display = "inline-flex";
+        } else if (result.update_available) {
+            message.textContent = `发现 v${result.latest_version}，但该版本暂未提供 ${result.platform} 安装包。`;
+            message.style.color = "#fbbf24";
+            releaseLink.style.display = "inline-flex";
+        } else if (result.latest_version && result.current_version && result.latest_version !== result.current_version) {
+            message.textContent = `当前 v${result.current_version}，高于公开发行版 v${result.latest_version}；目前没有可更新的正式版本。`;
+            message.style.color = "#fbbf24";
+        } else {
+            message.textContent = `当前已是最新正式版本 v${result.current_version}。`;
+            message.style.color = "#4ade80";
+        }
+    } catch (error) {
+        message.textContent = error.message || "暂时无法检查更新，请检查网络后重试。";
+        message.style.color = "#e74c3c";
+    } finally {
+        button.disabled = false;
+        button.textContent = "检查更新";
+    }
+}
+
 function firebaseMessage(text, failed = false) {
     const msg = document.getElementById("firebaseSyncMsg");
     msg.style.display = "block";
@@ -317,28 +361,26 @@ function firebaseMessage(text, failed = false) {
 
 function loadFirebaseSettings() {
     fetch("/api/firebase/settings").then(r => r.json()).then(data => {
-        document.getElementById("firebaseApiKey").value = data.api_key || "";
-        document.getElementById("firebaseDatabaseUrl").value = data.database_url || "";
         document.getElementById("firebaseEmail").value = data.email || "";
-        if (data.signed_in) firebaseMessage(`已登录：${data.email || "影序账号"}`);
+        document.getElementById("firebaseDisplayName").value = data.display_name || "";
+        if (data.signed_in) firebaseMessage(`已登录：${data.display_name || data.email || "影序账号"}`);
     }).catch(() => firebaseMessage("无法读取同步设置。", true));
 }
 
 async function firebaseLogin(createAccount = false) {
-    const apiKey = document.getElementById("firebaseApiKey").value.trim();
-    const databaseUrl = document.getElementById("firebaseDatabaseUrl").value.trim();
     const email = document.getElementById("firebaseEmail").value.trim();
+    const displayName = document.getElementById("firebaseDisplayName").value.trim();
     const passwordInput = document.getElementById("firebasePassword");
     const password = passwordInput.value;
     try {
-        const saved = await fetch("/api/firebase/settings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({api_key:apiKey, database_url:databaseUrl, email})}).then(r => r.json());
-        if (saved.error) throw new Error(saved.error);
+        if (createAccount && !displayName) throw new Error("注册时请填写用户名。");
         const endpoint = createAccount ? "register" : "login";
-        const result = await fetch(`/api/firebase/${endpoint}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, password})}).then(r => r.json());
+        const result = await fetch(`/api/firebase/${endpoint}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, password, display_name:displayName})}).then(r => r.json());
         passwordInput.value = "";
         if (result.error) throw new Error(result.error);
-        firebaseMessage(`${createAccount ? "账号已创建并登录" : "已登录"}：${result.email}；正在同步本机历史。`);
-        await loadFirebaseHistory();
+        const account = {signed_in:true, email:result.email, display_name:result.display_name};
+        refreshFirebaseAccountBadge(account);
+        firebaseMessage(`${createAccount ? "账号已创建并登录" : "已登录"}：${result.display_name || result.email}；正在同步本机历史。`);
         await loadFirebaseLive();
     } catch (error) { passwordInput.value = ""; firebaseMessage(error.message || "Firebase 登录失败。", true); }
 }
@@ -347,8 +389,8 @@ async function firebaseLogout() {
     try {
         const result = await fetch("/api/firebase/logout", {method:"POST"}).then(r => r.json());
         if (result.error) throw new Error(result.error);
-        document.getElementById("firebaseHistory").replaceChildren();
         document.getElementById("firebaseLive").replaceChildren();
+        refreshFirebaseAccountBadge({signed_in:false});
         firebaseMessage("已退出同步账号；本机备份和历史不受影响。");
     } catch (error) { firebaseMessage(error.message || "退出登录失败。", true); }
 }
@@ -388,60 +430,6 @@ async function loadFirebaseLive() {
     } finally {
         firebaseLiveLoading = false;
     }
-}
-
-async function loadFirebaseHistory() {
-    try {
-        const result = await fetch("/api/firebase/history").then(r => r.json());
-        if (result.error) throw new Error(result.error);
-        const host = document.getElementById("firebaseHistory");
-        host.replaceChildren();
-        (result.items || []).slice(0, 100).forEach(item => {
-            const entry = document.createElement("details");
-            entry.className = "firebase-history-entry";
-            const summary = document.createElement("summary");
-            const title = document.createElement("strong");
-            title.textContent = item.eventName || item.deviceName || "影序同步记录";
-            const summaryDetail = document.createElement("small");
-            summaryDetail.textContent = `${item.deviceName || "设备"} · ${item.targetName || "目标未知"} · ${item.status || "状态未知"} · ${item.processedFiles || 0}/${item.totalFiles || 0}`;
-            summary.append(title, summaryDetail);
-            entry.append(summary);
-            const detail = document.createElement("div");
-            detail.className = "firebase-history-detail";
-            [
-                `开始：${item.startedAt || "未知"}；结束：${item.finishedAt || "进行中"}`,
-                `文件：${item.totalFiles || 0}；总大小：${item.totalBytes || 0} bytes；已复制：${item.copiedFiles || 0}；已跳过：${item.skippedFiles || 0}；已校验：${item.verifiedFiles || 0}；失败：${item.failedFiles || 0}`,
-                item.location ? `地点：${item.location}` : "",
-                item.cameraDevice ? `拍摄设备：${item.cameraDevice}` : "",
-                item.notes ? `备注：${item.notes}` : "",
-                item.currentFile ? `当前文件：${item.currentFile}` : "",
-            ].filter(Boolean).forEach(text => {
-                const line = document.createElement("div");
-                line.textContent = text;
-                detail.append(line);
-            });
-            if (Array.isArray(item.files) && item.files.length) {
-                const files = document.createElement("details");
-                const filesSummary = document.createElement("summary");
-                filesSummary.textContent = `文件明细（${item.files.length} 项）`;
-                const list = document.createElement("ul");
-                files.addEventListener("toggle", () => {
-                    if (!files.open || files.dataset.loaded) return;
-                    item.files.forEach(file => {
-                        const li = document.createElement("li");
-                        li.textContent = `${file.name || "未命名文件"} · ${file.status || "未知"} · ${file.size || 0} bytes`;
-                        list.append(li);
-                    });
-                    files.dataset.loaded = "true";
-                });
-                files.append(filesSummary, list);
-                detail.append(files);
-            }
-            entry.append(detail);
-            host.append(entry);
-        });
-        firebaseMessage(`已读取 ${result.items?.length || 0} 条云端历史。`);
-    } catch (error) { firebaseMessage(error.message || "读取云端历史失败。", true); }
 }
 
 function loadStorageChart() {

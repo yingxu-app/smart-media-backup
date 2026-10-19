@@ -10,7 +10,14 @@ CONFIG_DIR = Path(os.environ.get("SMB_CONFIG_DIR", "~/.config/smb")).expanduser(
 CONFIG_FILE = CONFIG_DIR / "config.json"
 CONFIG_SCHEMA_FILE = CONFIG_DIR / "config.schema.json"
 DB_PATH = CONFIG_DIR / "backup_history.db"
-CONFIG_SCHEMA_VERSION = 3
+CONFIG_SCHEMA_VERSION = 4
+FIREBASE_PUBLIC_API_KEY = os.environ.get(
+    "YINGXU_FIREBASE_API_KEY", "AIzaSyA0NzN1SVbyNT2xi1HoDNn9hZQouknk-qA"
+)
+FIREBASE_DATABASE_URL = os.environ.get(
+    "YINGXU_FIREBASE_DATABASE_URL",
+    "https://yingxu-73c7b-default-rtdb.asia-southeast1.firebasedatabase.app",
+)
 
 
 def _migrate_config_v1_to_v2(data: dict) -> dict:
@@ -25,16 +32,28 @@ def _migrate_config_v1_to_v2(data: dict) -> dict:
 def _migrate_config_v2_to_v3(data: dict) -> dict:
     """Add public Firebase project settings; refresh tokens remain in OS keychain."""
     migrated = dict(data)
-    migrated.setdefault("firebase_api_key", "")
-    migrated.setdefault("firebase_database_url", "")
+    migrated.setdefault("firebase_api_key", FIREBASE_PUBLIC_API_KEY)
+    migrated.setdefault("firebase_database_url", FIREBASE_DATABASE_URL)
     migrated.setdefault("firebase_email", "")
     migrated.setdefault("firebase_uid", "")
+    return migrated
+
+
+def _migrate_config_v3_to_v4(data: dict) -> dict:
+    """Persist the Firebase account display name for the signed-in badge."""
+    migrated = dict(data)
+    if not migrated.get("firebase_api_key"):
+        migrated["firebase_api_key"] = FIREBASE_PUBLIC_API_KEY
+    if not migrated.get("firebase_database_url"):
+        migrated["firebase_database_url"] = FIREBASE_DATABASE_URL
+    migrated.setdefault("firebase_display_name", "")
     return migrated
 
 
 _CONFIG_MIGRATIONS = {
     1: _migrate_config_v1_to_v2,
     2: _migrate_config_v2_to_v3,
+    3: _migrate_config_v3_to_v4,
 }
 
 
@@ -97,10 +116,11 @@ class AppConfig:
 
     # Firebase API key and database URL identify the public project only. Session
     # refresh tokens are stored separately in the operating-system credential vault.
-    firebase_api_key: str = ""
-    firebase_database_url: str = ""
+    firebase_api_key: str = FIREBASE_PUBLIC_API_KEY
+    firebase_database_url: str = FIREBASE_DATABASE_URL
     firebase_email: str = ""
     firebase_uid: str = ""
+    firebase_display_name: str = ""
     firebase_device_id: str = field(default_factory=lambda: f"desktop-{uuid.uuid4().hex[:16]}")
 
     # === 扫描目录（平台自动探测） ===
@@ -109,7 +129,12 @@ class AppConfig:
     ])
 
     def __post_init__(self):
-        pass
+        # Firebase's web client settings are public app configuration, not a
+        # per-user credential. Keep them out of ordinary settings screens.
+        if not self.firebase_api_key:
+            self.firebase_api_key = FIREBASE_PUBLIC_API_KEY
+        if not self.firebase_database_url:
+            self.firebase_database_url = FIREBASE_DATABASE_URL
 
     @property
     def all_media_extensions(self) -> list:

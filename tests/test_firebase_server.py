@@ -10,12 +10,13 @@ class FirebaseServerTests(unittest.TestCase):
         self.client = server.app.test_client()
         self.old_values = {
             key: getattr(server.config, key)
-            for key in ("firebase_api_key", "firebase_database_url", "firebase_email", "firebase_uid")
+            for key in ("firebase_api_key", "firebase_database_url", "firebase_email", "firebase_uid", "firebase_display_name")
         }
         server.config.firebase_api_key = ""
         server.config.firebase_database_url = ""
         server.config.firebase_email = ""
         server.config.firebase_uid = ""
+        server.config.firebase_display_name = ""
         self.old_sync_client = server._firebase_sync_client
 
     def tearDown(self):
@@ -50,18 +51,19 @@ class FirebaseServerTests(unittest.TestCase):
 
     def test_firebase_registration_creates_account_and_starts_sync(self):
         fake = SimpleNamespace(
-            sign_in=mock.Mock(return_value={"uid": "uid-new", "email": "new@example.com"}),
+            sign_in=mock.Mock(return_value={"uid": "uid-new", "email": "new@example.com", "display_name": "小影"}),
             start_live_watch=mock.Mock(),
         )
         with mock.patch.object(server, "_get_firebase_sync_client", return_value=fake), \
              mock.patch.object(server, "_sync_latest_desktop_history"), \
              mock.patch.object(server.config, "save"):
             response = self.client.post("/api/firebase/register", json={
-                "email": "new@example.com", "password": "not-persisted",
+                "email": "new@example.com", "password": "not-persisted", "display_name": "小影",
             })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(server.config.firebase_uid, "uid-new")
-        fake.sign_in.assert_called_once_with("new@example.com", "not-persisted", create_account=True)
+        self.assertEqual(server.config.firebase_display_name, "小影")
+        fake.sign_in.assert_called_once_with("new@example.com", "not-persisted", create_account=True, display_name="小影")
         fake.start_live_watch.assert_called_once_with()
         self.assertNotIn("not-persisted", repr(server.config))
 

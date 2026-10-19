@@ -69,20 +69,23 @@ class FirebaseSyncClient {
     return data;
   }
 
-  async signIn(email, password, createAccount = false) {
+  async signIn(email, password, createAccount = false, displayName = "") {
     const endpoint = createAccount ? "accounts:signUp" : "accounts:signInWithPassword";
-    const data = await this._authRequest(endpoint, { email: email.trim(), password });
+    const request = { email: email.trim(), password };
+    if (createAccount) request.displayName = String(displayName || "").trim().slice(0, 40);
+    const data = await this._authRequest(endpoint, request);
     this.session = {
       idToken: data.idToken,
       refreshToken: data.refreshToken,
       expiresAt: Date.now() + Math.max(60, Number(data.expiresIn) || 3600) * 1000,
       email: data.email || email.trim(),
+      displayName: String(data.displayName || (createAccount ? displayName : "") || "").trim().slice(0, 40),
     };
     this.uid = data.localId;
     await this.secureStore.set("firebase.session", JSON.stringify({
-      refreshToken: data.refreshToken, uid: data.localId, email: data.email || email.trim(),
+      refreshToken: data.refreshToken, uid: data.localId, email: data.email || email.trim(), displayName: this.session.displayName,
     }));
-    return { uid: this.uid, email: data.email || email.trim() };
+    return { uid: this.uid, email: data.email || email.trim(), displayName: this.session.displayName };
   }
 
   async restoreSession() {
@@ -107,9 +110,10 @@ class FirebaseSyncClient {
       refreshToken: data.refresh_token,
       expiresAt: Date.now() + Math.max(60, Number(data.expires_in) || 3600) * 1000,
       email: parsed.email || "",
+      displayName: String(parsed.displayName || "").trim().slice(0, 40),
     };
     this.uid = data.user_id || parsed.uid;
-    await this.secureStore.set("firebase.session", JSON.stringify({ refreshToken: data.refresh_token, uid: this.uid, email: this.session.email }));
+    await this.secureStore.set("firebase.session", JSON.stringify({ refreshToken: data.refresh_token, uid: this.uid, email: this.session.email, displayName: this.session.displayName }));
     return true;
   }
 
@@ -131,8 +135,15 @@ class FirebaseSyncClient {
       idToken: data.id_token,
       refreshToken: data.refresh_token,
       expiresAt: Date.now() + Math.max(60, Number(data.expires_in) || 3600) * 1000,
+      email: this.session.email || "",
+      displayName: this.session.displayName || "",
     };
-    await this.secureStore.set("firebase.session", JSON.stringify({ refreshToken: data.refresh_token, uid: this.uid, email: this.session.email }));
+    await this.secureStore.set("firebase.session", JSON.stringify({
+      refreshToken: data.refresh_token,
+      uid: this.uid,
+      email: this.session.email,
+      displayName: this.session.displayName,
+    }));
     return data.id_token;
   }
 

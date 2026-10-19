@@ -108,6 +108,21 @@ body {
     gap: 6px;
     padding: 16px 20px 0;
 }
+.account-badge {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(74, 222, 128, .55);
+    border-radius: 50%;
+    background: rgba(74, 222, 128, .12);
+    color: var(--accent);
+    font-size: .78em;
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+.account-badge[hidden] { display: none; }
 .status-dot {
     width: 10px; height: 10px;
     border-radius: 50%;
@@ -119,6 +134,20 @@ body {
 .status-dot.error { background: var(--red); }
 .status-text { font-size: 0.6em; color: var(--text-dim); }
 .status-text.active { color: var(--accent); font-weight: 700; }
+.history-source-switch { display:flex; gap:8px; margin:0 0 16px; border-bottom:1px solid var(--border); }
+.history-source-tab { border:0; border-bottom:2px solid transparent; background:transparent; color:var(--text-dim); padding:10px 14px; font:inherit; font-weight:650; cursor:pointer; }
+.history-source-tab:hover { color:var(--text); }
+.history-source-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.local-history-actions { display:flex; justify-content:flex-end; margin:0 0 12px; }
+.cloud-history-panel { min-height:180px; }
+.cloud-history-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:14px; }
+.cloud-history-heading h3 { margin:0 0 4px; }
+.firebase-history-entry { padding:10px 0; border-bottom:1px solid var(--border); }
+.firebase-history-entry > summary { display:flex; flex-direction:column; gap:5px; cursor:pointer; }
+.firebase-history-entry > summary small { color:var(--text-dim); }
+.firebase-history-detail { padding:10px 0 0 16px; color:var(--text-dim); font-size:.88em; line-height:1.7; overflow-wrap:anywhere; }
+.firebase-history-detail ul { max-height:320px; overflow:auto; padding-left:20px; }
+.firebase-history-detail details { margin-top:8px; }
 
 @keyframes pulse {
     0%, 100% { opacity: 1; }
@@ -486,4 +515,5 @@ body {
     .progress-details { grid-template-columns: 1fr; }
     .scan-summary { flex-wrap: wrap; gap: 8px; }
     .done-actions { flex-direction: column; }
+    .cloud-history-heading { flex-direction: column; }
 }

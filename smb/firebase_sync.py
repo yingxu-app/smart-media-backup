@@ -95,6 +95,7 @@ class FirebaseSyncClient:
         self.timeout = timeout
         self.uid = ""
         self.email = ""
+        self.display_name = ""
         self._id_token = ""
         self._expires_at = 0.0
         self._lock = threading.RLock()
@@ -127,13 +128,17 @@ class FirebaseSyncClient:
             raise ConnectionError("Firebase 请求失败；请检查网络、项目配置或数据库规则")
         return payload
 
-    def sign_in(self, email: str, password: str, *, create_account: bool = False) -> dict:
+    def sign_in(self, email: str, password: str, *, create_account: bool = False,
+                display_name: str = "") -> dict:
         if not self.configured:
             raise RuntimeError("尚未配置 Firebase 项目")
         endpoint = "accounts:signUp" if create_account else "accounts:signInWithPassword"
+        body = {"email": email.strip(), "password": password, "returnSecureToken": True}
+        if create_account:
+            body["displayName"] = str(display_name or "").strip()[:40]
         payload = self._json_request(
             "POST", f"https://identitytoolkit.googleapis.com/v1/{endpoint}?key={quote(self.api_key, safe='')}",
-            body={"email": email.strip(), "password": password, "returnSecureToken": True},
+            body=body,
         )
         uid = str(payload.get("localId") or "")
         refresh = str(payload.get("refreshToken") or "")
@@ -142,12 +147,13 @@ class FirebaseSyncClient:
         with self._lock:
             self.uid = uid
             self.email = str(payload.get("email") or email.strip())
+            self.display_name = str(payload.get("displayName") or display_name or "").strip()[:40]
             self._id_token = str(payload.get("idToken") or "")
             self._expires_at = time.time() + max(60, int(payload.get("expiresIn") or 3600))
             self.token_store.set(uid, refresh)
-        return {"uid": uid, "email": self.email}
+        return {"uid": uid, "email": self.email, "display_name": self.display_name}
 
-    def restore_session(self, uid: str, email: str = "") -> bool:
+    def restore_session(self, uid: str, email: str = "", display_name: str = "") -> bool:
         if not self.configured:
             return False
         refresh = self.token_store.get(uid)
@@ -160,6 +166,7 @@ class FirebaseSyncClient:
         with self._lock:
             self.uid = str(payload.get("user_id") or uid)
             self.email = email
+            self.display_name = str(display_name or "").strip()[:40]
             self._id_token = str(payload.get("id_token") or "")
             self._expires_at = time.time() + max(60, int(payload.get("expires_in") or 3600))
             replacement = str(payload.get("refresh_token") or refresh)
@@ -170,7 +177,7 @@ class FirebaseSyncClient:
         self.stop_live_watch()
         with self._lock:
             uid = self.uid
-            self.uid = self.email = self._id_token = ""
+            self.uid = self.email = self.display_name = self._id_token = ""
             self._expires_at = 0
         if uid:
             self.token_store.remove(uid)
