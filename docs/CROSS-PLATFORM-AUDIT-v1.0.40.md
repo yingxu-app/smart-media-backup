@@ -312,17 +312,18 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 
 ### Current product scope
 
-- **In scope:** native iOS/Android backup app, desktop collaboration over the same LAN, Firebase account-scoped progress/history metadata, and a static product/download/privacy website.
+- **In scope:** desktop backup app, iPhone Safari PWA, desktop collaboration over the same LAN, Firebase account-scoped progress/history metadata, and the product/download/privacy website.
 - **Discontinued:** Mini Program development. Preserve its source for reference; do not treat Mini Program AppID, DevTools, review, or release as an open product gate. Current `.github/workflows` definitions have no Mini Program checks.
 - **Deferred:** browser-based online backup and remote original-file transfer.
 
 ### Remaining acceptance and release gates
 
-1. **Native phone devices:** install and test on iPhone and Android; validate local/external storage access and revocation, copy/hash outcomes, duplicate handling, low-space/errors, app background/lock recovery, task resume, LAN upload/download and Wi-Fi reconnect.
-2. **Firebase live sync:** use the same owner-controlled account on desktop and phone; verify active progress and complete metadata history in both directions, different-UID isolation, token refresh, and offline queue recovery. No password or token belongs in source, chat, or evidence artifacts.
-3. **Windows device:** install the current preview on a real Windows PC and exercise source/target selection, phone-to-PC and PC-to-phone transfer, pause/resume/cancel, disk/network failures, and recovery.
-4. **Distribution:** configure owner-controlled EAS project and signing/distribution; complete Apple TestFlight/App Store and Android signing/store choice; arrange Windows signing and macOS Developer ID/notarization for public desktop distribution as required. Current debug/candidate artifacts are not formal releases.
-5. **Formal update and rollback:** publish the signed release assets, update the public download page, then verify new-user install, in-app version discovery, upgrade, and rollback. Latest Release is still `v1.0.34`; there is no published mobile APK/IPA.
+1. **iPhone PWA device acceptance:** install from the public HTTPS site using Safari's Add to Home Screen flow; verify standalone launch, offline shell and cached history, wake/reconnect recovery, and account status. LAN Pocket pairing was proven earlier but does not prove these PWA behaviors.
+2. **Firebase live sync:** use the same owner-controlled account on desktop and PWA; verify registration/login and username, active progress and complete metadata history, different-UID isolation, token refresh, and offline recovery. No password or token belongs in source, chat, or evidence artifacts.
+3. **Windows device:** install the current preview on a real Windows PC and exercise source/target selection, backup, pause/resume/cancel, disk/network failures, and recovery.
+4. **Formal update and rollback:** publish the approved unsigned desktop release assets, update the public download page, then verify new-user install, in-app version discovery, upgrade, and rollback. The last confirmed public Release is `v1.0.34`; the current API refresh failed with TLS EOF, so the live version still needs confirmation.
+
+Out of scope by user decision: formal code signing/notarization, native iOS, Android real-device acceptance (no device available), Mini Program, EAS/store distribution, browser online backup, and remote original-media transfer.
 
 The finite code-side phase ends after identified source gaps are closed, targeted automation and latest candidate CI pass, Mini Program gates remain absent, and this evidence stays current. Stop at device/account/store-owner prerequisites with a precise handoff; do not infer release or full cross-platform closure from green CI.
 
@@ -335,3 +336,10 @@ The finite code-side phase ends after identified source gaps are closed, targete
 
 - Desktop and Pocket clients now extract Firebase error-code prefixes when API messages include detail suffixes and display specific help for weak passwords, disabled email/password sign-in, invalid Web API keys, and incomplete Authentication configuration.
 - Simulated local checks pass: Pocket Node 27/27, desktop Firebase sync 7/7, Firebase server route 6/6, Expo lint, TypeScript no-emit, and `git diff --check`. Live owner-account login and cross-device sync remain unverified.
+
+## 2026-10-20 PR #8 Pocket CI terminal evidence
+
+- PR #8 head `cde86f9f3da2945270cfe972e83c5171ce694160` is OPEN/DRAFT and CLEAN. Reliability push `39310220046`, Reliability PR `39310316477`, macOS candidate `39310316390`, Windows preview `39310316494`, and Pocket `39310316189` all pass.
+- Pocket run `39310316189` reached terminal success. Artifact `12216379161` is 94,609,017 bytes; the downloaded raw ZIP SHA-256 `5c0ee4205ce7ea39a2e41b607f9e97311f953b0fd2e06196fef929d4164039a8` matches GitHub artifact metadata and ZIP integrity passes. It contains one APK, 269,595,675 bytes, SHA-256 `0034aefa422f53c7e6f2bb0b09fe55a638452e945490772016d8d0d0d741be9b`; APK ZIP integrity passes and ABIs are arm64-v8a, armeabi-v7a, x86, and x86_64. It remains a debug artifact, not Android device acceptance or a public release.
+- Current Pages check: `/download/`, `/pocket/`, `/update/`, and `/privacy.html` returned HTTP 200; the root request hit TLS EOF. GitHub Latest Release API also hit TLS EOF; the most recent confirmed version remains v1.0.34.
+- Remaining in-scope: real Firebase account/sync verification, iPhone PWA install/offline/recovery, Windows device acceptance, formal release/download-page update, and upgrade/rollback verification. Signing/notarization, native iOS, Android device acceptance, Mini Program and remote original media are excluded by the user's decisions.

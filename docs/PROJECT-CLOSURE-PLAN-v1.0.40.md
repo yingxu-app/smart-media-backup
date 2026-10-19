@@ -207,10 +207,10 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 
 ### Scope decision and remaining work
 
-- **Active product:** desktop app, iOS Safari PWA, Android native app preview, LAN collaboration and Firebase metadata sync. The user has now chosen PWA as the iOS deliverable; native iOS packaging, Apple Developer enrollment and App Store distribution are out of scope. Android real-device acceptance is deferred until a test device is available.
+- **Active product:** desktop app, iPhone Safari PWA, LAN collaboration and Firebase account-scoped metadata sync. Native iOS is out of scope; Android device acceptance is deferred because no Android phone is available.
 - **Web:** maintain the static product/download/privacy site only. Browser online backup and remote original-file transfer are out of this phase.
 - **Needs device or account owner:** verify the iOS Safari PWA on the user's iPhone (home-screen launch, page refresh, LAN disconnect/reconnect, background/lock recovery); verify live Firebase sign-in and account-scoped sync on the already configured owner account; exercise Windows desktop on a physical PC. Android device acceptance is explicitly deferred; no Android phone is available.
-- **Needs distribution setup:** Android production signing/Google Play submission remains open only if Android public distribution is still desired. Configure Windows signing and macOS Developer ID/notarization if those platforms are to be publicly distributed; then publish a formal version, update the download page, and verify install/update/rollback. Do not publish the internal preview APK as a release. iOS uses the PWA route, not the native store route.
+- **Needs distribution setup:** publish a formal desktop release, update the download page, and verify install/update/rollback. The user has explicitly excluded Windows/macOS signing and notarization. Do not publish the internal Android preview APK as a release. iOS uses the PWA route, not the native store route.
 - **Code-side finish line for this phase:** source gaps identified in the audit are implemented, targeted automated checks and current-head candidate builds pass, active CI remains free of Mini Program gates, and this document matches current evidence. Stop and hand over the exact device/account/release actions when no independent code work remains; do not claim full product closure.
 
 ### Source follow-up: preserve local backup progress when the desktop is offline
