@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""影序 YINGXU — Windows 端到端真实备份验收（模拟来源卡，隔离配置目录）。
+"""影序 YINGXU — Windows runner 端到端备份检查（模拟来源卡，隔离配置目录）。
 
-不触碰用户真实配置：SMB_CONFIG_DIR 指向临时目录。
-产物全部落在临时目录，验证完可整体删除。
+这是在 Windows CI runner 上使用模拟来源卡的功能检查，不代表实体 Windows 电脑/读卡器验收。
+不触碰用户真实配置：SMB_CONFIG_DIR 和所有测试产物都指向临时目录。
 """
 import json
 import os
@@ -15,11 +15,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROJ = os.path.join(ROOT, "smart-media-backup")
-sys.path.insert(0, PROJ)
+ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, ROOT)
 
-WORK = tempfile.mkdtemp(prefix="yingxu-e2e-")
+RUNNER_TEMP = os.environ.get("RUNNER_TEMP") or None
+WORK = tempfile.mkdtemp(prefix="yingxu-e2e-", dir=RUNNER_TEMP)
 CONFIG_DIR = os.path.join(WORK, "config")
 SOURCE = os.path.join(WORK, "FAKE_SD")
 TARGET = os.path.join(WORK, "backup-target")
@@ -102,7 +102,7 @@ def tree(root):
 
 def main():
     print("=" * 78)
-    print("影序 YINGXU — Windows 端到端真实备份验收")
+    print("影序 YINGXU — Windows runner 模拟素材卡备份检查")
     print(f"工作目录: {WORK}")
     print("=" * 78)
 
@@ -226,7 +226,7 @@ def main():
         print(f"  FAIL {r['name']} — {r['detail']}")
     print("=" * 78)
 
-    out = os.path.join(ROOT, "e2e-result.json")
+    out = os.path.join(WORK, "e2e-result.json")
     with open(out, "w", encoding="utf-8") as f:
         json.dump({"work_dir": WORK, "results": results}, f, ensure_ascii=False, indent=2)
     print(f"报告: {out}")

@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/build-windows.yml
+      - e2e_win_check.py
       - smb/**
       - desktop/smb-win.spec
       - requirements.txt
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/build-windows.yml
+      - e2e_win_check.py
       - smb/**
       - desktop/smb-win.spec
       - requirements.txt
@@ -45,6 +47,12 @@ jobs:
         env:
           SMB_CONFIG_DIR: ${{ runner.temp }}/yingxu-test-config
         run: python -m unittest discover -s tests -v
+
+      - name: Run isolated backup flow on Windows runner
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+        run: python e2e_win_check.py
 
       - name: Resolve application version
         id: app-version
@@ -127,3 +135,11 @@ jobs:
           if-no-files-found: error
       - name: Explain release status
         run: echo "This is an unsigned CI preview. Publish only after Windows real-device acceptance."
+
+      - name: Upload Windows runner E2E report
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: YINGXU-Windows-v${{ steps.app-version.outputs.version }}-E2E-report
+          path: ${{ runner.temp }}/yingxu-e2e-*/e2e-result.json
+          if-no-files-found: warn
