@@ -5,7 +5,7 @@
 ## 2026-10-21 当前推进与结束门槛
 
 - **平台范围修正：**Windows 验收使用 x64 虚拟机；GitHub `windows-latest` runner 属于虚拟机验收证据，不要求实体 Windows 电脑。iOS 仅交付 Safari PWA；Android 真机暂缓；不开发小程序、原生 iOS 或 Android 商店版。macOS/Windows 代码签名与公证按用户决定排除。
-- **PR 状态基线：**PR #9（`codex/iphone-pwa-offline-checkpoint`，原 head `829c7cf`）和 PR #10（`codex/windows-e2e-ci`，原 head `7558c41`）均 OPEN/DRAFT、mergeable。PR #10 原 head 的 Windows x64 workflow 与 Reliability 检查通过；其中的虚拟机 E2E 是隔离目录下的服务/备份检查，不代表手机设备、物理读卡器或 Windows 用户桌面安装验收。
+- **PR 状态基线：**PR #10 已于 2026-10-21 通过 squash 合并，main merge commit `6b042d033e3b985399574c8de77ec4073f5c4733`；其 Windows x64 runner E2E / Reliability checks 均通过。PR #9（`codex/iphone-pwa-offline-checkpoint`）仍 OPEN/DRAFT，当前产品提交 `c8d2e7f`，新 head checks 正在运行。虚拟机 E2E 是隔离目录下的打包服务/备份检查，不代表手机设备、物理读卡器或 Windows 用户桌面 GUI 安装验收。
 - **本轮源码变更：**桌面局域网 `/pocket/` 新增配对后的手机媒体上传 API 和选择/扫描/传输界面：从照片或 Files 选择照片、RAW、视频；填归档名；增量 SHA‑256 扫描；对本批相同内容去重；预检查目标磁盘可用空间；512 KiB 分块上传；可以暂停/取消；桌面重验 SHA‑256、清理失败临时文件，并写入桌面历史/同步账号元数据。桌面偏好设置每 3 秒读取一次手机上传进度。
 - **PWA 的设备边界：**HTTPS PWA 继续缓存页面和云端历史；明确说明在线原件传输需要打开附近电脑的局域网页面。iOS Safari 18.4+ 支持页面选择 Files 目录；早期版本可通过多文件选择器逐项授权。浏览器无法静默读取整张相册或外接盘、向任意本机目录写入，且锁屏/切换应用可能暂停。代码目前实现“选定素材→同 Wi‑Fi 传到电脑”，不是手机任意目标盘/后台无中断/电脑离线排队。
 - **更新功能改动：**偏好设置现在可下载最新适用平台发行文件；桌面端先按 GitHub Release 的 SHA‑256 metadata（metadata 缺失时使用同版 SHA256SUMS）校验完整下载，校验失败不提供文件。当前仍要用户手动安装/替换并保留旧版，不能静默覆盖运行中的 App。
@@ -13,7 +13,14 @@
 - **发布基准：**正式 GitHub Latest Release 仍为 `v1.0.34`，Windows EXE 和 SHA256SUMS 有公开 digest；v1.0.40 仍为草稿候选。新增代码没有对应候选安装包或正式发行，不得提前更新下载页版本号。
 - **当前验证进度：**手机上传 API、安全配对、哈希通过/失败、历史落库和权限拒绝定向测试已新增；增量 SHA‑256 跨块/边界测试已新增。更新下载校验成功/失败测试已新增。本轮本机全量 Python 回归为 121 项、119 通过、2 项 Windows 条件跳过；手机上传/协议/更新定向组 24 项通过；Pocket 云同步与 SHA‑256 Node 测试合计 10 项通过，内嵌局域网页面脚本语法检查与 `git diff --check` 通过。新代码的 GitHub CI、Pages 部署及 iPhone 真机上传流程尚未完成。
 - **真实用户门槛：**仍需在 iPhone Safari 用一张照片和一段视频走完整扫描→传输→桌面校验→历史流程，并验证暂停/恢复、断网重连及锁屏恢复；登录真实 Firebase 账号验证同步/UID 隔离的任务仍由用户在本机输入凭据后完成，不得复用聊天密码。Android 真机、Windows 实体机均不列入验收条件。
-- **有限结束条件：**PR #9/#10 对应代码审阅与 checks 通过，按授权合并；Windows x64 虚拟机 E2E 在包含新代码的 main head 通过；新 Pages 首页/Pocket/下载/隐私/更新路由部署并 HTTP 200；桌面候选与 Release 资产 SHA‑256 对齐；升级和回退步骤可读。iPhone PWA 与 Firebase 真实账户项若仍只需用户在设备/应用内操作，则完成其余独立工作后输出唯一明确步骤，保持目标未完成，不以 CI 或发布状态冒充全端验收。PWA 仍不承诺锁屏持续传输或离线期间后台排队；这受浏览器权限和执行限制，需保持为明确的平台边界。
+- **有限结束条件：**PR #9 checks 通过后按授权合并；Windows x64 虚拟机 E2E 在包含新代码的 main head 通过；新 Pages 首页/Pocket/下载/隐私/更新路由部署并 HTTP 200；桌面候选与 Release 资产 SHA‑256 对齐；升级和回退步骤可读。iPhone PWA 与 Firebase 真实账户项若仍只需用户在设备/应用内操作，则完成其余独立工作后输出唯一明确步骤，保持目标未完成，不以 CI 或发布状态冒充全端验收。PWA 仍不承诺锁屏持续传输或离线期间后台排队；这受浏览器权限和执行限制，需保持为明确的平台边界。
+
+## 2026-10-20 新增 Windows runner 功能验收
+
+- PR #10 head `eb079c9353312f27fc22c91f16e11be95d59f42d` 的 Windows preview run `39445925130` 与 Reliability run `39445924653` 均 success。
+- Windows runner 在临时目录中用合成来源卡完成 20 项检查：扫描、无效来源拒绝、复制、SHA-256、照片/视频分类、缩略图树、增量跳过、历史/报告导出及来源不变；Windows reliability suite 通过。x64 PE、未签名状态、SHA-256 清单读回与构建 artifact 上传也通过。
+- Windows EXE artifact `12276881124` metadata digest `sha256:60626be7ff1202bd7d779516ecb7382ebdc6f032f5bba0a84910eff0089cb9da`；E2E JSON 报告 artifact `12275642204` metadata digest `sha256:43767f6cee57f34c02dc2840760a18fccd5849e3dfa5450f001d40e017131ced`。此处是 GitHub-hosted Windows runner 的合成文件系统功能检查，不是用户 Windows PC、真实读卡器或打包 GUI 安装验收；Windows 实机门槛仍开放。
+- E2E 脚本修正为从自身文件位置定位仓库，并将用户配置、模拟来源、备份目标与报告全部放入临时目录；改前快照保存在 `docs/snapshots/2026-10-20-windows-e2e-ci/`。
 
 ## 2026-10-20 当前目标范围与权威状态
 
@@ -299,3 +306,25 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - **Current release evidence:** Local `origin/main` is `1dcd5284b2dfde9a2fa9425bd1fc8761e147ad6e`; latest main Reliability (`39326896855`), Pocket (`39326896840`) and Windows (`39326896672`) runs are successful. GitHub Release `v1.0.40` remains Draft with macOS DMG, Windows EXE and SHA256SUMS; latest public Release is `v1.0.34` with Windows EXE and checksum. No publication was performed.
 - **Site recheck:** canonical `/`, `/pocket/`, `/download/`, and `/privacy.html` returned HTTP 200 using the system Python TLS store. `/update/` returned a TLS EOF in this check, so its current response is inconclusive. The update/install/rollback route and public release promotion remain open gates.
 - **Home screen note:** there are two same-named Pocket icons. Neither was removed because their origin could not be distinguished safely.
+
+## 2026-10-20 Windows 打包程序运行验收补充
+
+- 现有 Windows runner 流程已对隔离的合成来源卡做 20 项备份接口检查，但旧流程在 Python 进程内启动 Flask，不能证明 PyInstaller 产物能启动。
+- PR #10 新增构建后运行阶段：用临时配置启动本次生成的 unsigned x64 EXE，轮询 `/api/health` 并核对版本，再将同一套扫描、复制、SHA-256、重复跳过、历史和报告断言指向 EXE 自己的服务；完成后终止测试进程。
+- 该 Windows-hosted runner 结果可以证明候选 EXE 在 CI 虚拟机中启动并执行合成备份流程，不代替用户 Windows PC、真实 SD 卡读卡器、交互式桌面窗口或不同机器上的安装升级验收。
+- 本次修改前快照：`docs/snapshots/2026-10-20-windows-packaged-runtime/`。
+
+### 首轮 Windows GUI runner 探测结果与调整
+
+- PR #10 exact head `7089fc6fa2087829ff73319d331d217057df0ff5` 的 Windows preview run `39449881232` 通过 reliability 与 Python 进程内模拟备份，但“启动打包 EXE 并执行备份”步骤失败；PyInstaller 构建成功。runner 上 GUI EXE 进程保持存活，但 `/api/health` 在等待期间未响应，步骤日志不能进一步区分 WebView 会话与后台服务线程问题。
+- 为避免把缺失的 GUI 运行时误报为产品功能失败或通过，本分支改用显式的 `YINGXU_E2E_HEADLESS=1` 诊断模式：相同打包 EXE 直接运行内置服务，随后对其服务执行健康版本核对和完整合成备份断言。标准用户启动仍保留 pywebview 桌面窗口流程。
+- 下一次成功结果只可证明 Windows runner 上打包 EXE 的服务端资源和核心备份流程可运行；仍不覆盖 GUI 窗口交互、用户 Windows 安装/升级或真实读卡器。
+- 调整前快照：`docs/snapshots/2026-10-20-windows-packaged-runtime-adjustment/`。
+- PR #10 exact head `6deddba` 对应 run `39450869691` 的 PyInstaller build 与打包服务健康检查通过；验证脚本随后在打印中文标题时因 runner `cp1252` stdout 编码失败，尚未执行打包服务备份断言。workflow 子进程现显式使用 UTF-8；修复前快照在 `docs/snapshots/2026-10-20-windows-packaged-utf8-fix/`，修复效果待新 run 验证。
+
+#### Packaged Windows service E2E terminal evidence (`bbfb942`)
+
+- PR #10 head `bbfb942a83fe2c4d9412c4f6c3c0ac788cbbc560`: Windows preview run `39451574588` success; Reliability push `39451563134` and Reliability PR `39451574482` success across Windows/macOS/Ubuntu × Python 3.11/3.12; macOS candidate run `39451574496` success.
+- Windows preview runner built the unsigned v1.0.40 EXE, launched that exact packaged executable in explicit isolated service mode, confirmed `/api/health` HTTP 200 and version 1.0.40, then passed 21 packaged-service E2E assertions including scan, invalid source rejection, copy, SHA-256, duplicates, history/report and unchanged source. PE x64, unsigned status, checksum manifest and artifact upload passed.
+- Windows EXE artifact `12278397307`: 27,876,356 bytes, Actions metadata digest `sha256:be9a656d6e1cc8f1108f1b1745a5a91d0ea6ea6442df0e1ea3eb5edf831ac18a`. E2E report artifact `12279032308`: 1,971 bytes, metadata digest `sha256:1c2bb3347743966d26412bc56245f4324ee5d4d33855fd382df77264d65e7087`.
+- This establishes packaged backend/service behavior on a Windows-hosted runner. It does not establish pywebview GUI interaction, a user-PC install/upgrade, or a physical card reader. PR #10 remains OPEN/DRAFT; the user's Windows device gate remains open. Snapshot: `docs/snapshots/2026-10-20-windows-packaged-e2e-terminal/`.
