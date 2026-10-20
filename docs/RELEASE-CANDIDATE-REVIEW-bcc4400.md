@@ -133,3 +133,9 @@
 - Android artifact `12209584250` (`yingxu-pocket-android-debug-72f849b94c871be2f651423ef4e6267ac0c0119d`) metadata: 94,609,015 bytes, GitHub SHA-256 `b01d2998695912c5b95c74d1b586028fd09707e749c17739990688296dcdbfb9`.
 - The downloaded `app-debug.apk` is 257 MB; SHA-256 `18455f05985e2731563d314fa629f74b8b8a2adc113f968d6249f0c42093ca8a`. `unzip -t` reports no errors and the package includes `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`. It is a debug build; no Android device installation was performed.
 - Current run confirms PWA/JS/cloud-client checks, Expo compatibility, mobile lint/typecheck/tests, Android project generation, and Android bundle export succeeded. The run does not produce an iOS IPA.
+
+## 2026-10-20 iPhone PWA device result and release gate refresh
+
+- iPhone HTTPS PWA home-screen installation, standalone launch, and offline page-shell rendering are now verified on-device: the login form rendered with Airplane Mode visible and without Safari chrome.
+- Firebase sign-in, authenticated history cache, sync queue/reconnect, and account isolation remain unverified. The phone remains offline; do not treat the offline login form as cloud-sync evidence.
+- `v1.0.40` remains Draft; `v1.0.34` remains Latest/public. Public Pages `/`, `/pocket/`, `/download/`, and `/privacy.html` returned HTTP 200 in the current check; `/update/` was inconclusive due TLS EOF. Windows device acceptance, release promotion, and upgrade/rollback verification remain open.

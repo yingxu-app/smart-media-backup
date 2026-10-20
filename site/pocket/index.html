@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#080b0c">
-  <meta name="description" content="影序 Pocket：在手机上查看已同步的备份进度和归档历史。">
+  <meta name="description" content="影序 Pocket：查看多端备份进度与归档记录，并在同一 Wi-Fi 下把手机照片和视频备份到电脑。">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebasedatabase.app https://*.firebaseio.com; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="影序 Pocket">
@@ -26,7 +26,7 @@
 
   <section id="authCard" class="card">
     <h2>登录影序账号</h2>
-    <p class="hint">登录后可查看电脑和其他设备同步的备份进度与归档记录。照片、视频和电脑本地路径不会上传。</p>
+    <p class="hint">登录后可查看电脑和其他设备同步的备份进度与归档记录。原始照片和视频不会上传到影序云端；同一 Wi‑Fi 下可从配对电脑页面选择手机素材并备份到电脑磁盘。</p>
     <div class="field"><label for="email">邮箱</label><input id="email" type="email" autocomplete="username" inputmode="email" placeholder="name@example.com"></div>
     <div class="field"><label for="displayName">用户名（注册必填；已有账号可修改）</label><input id="displayName" maxlength="40" autocomplete="nickname" placeholder="例如：影序用户；已有账号可留空"></div>
     <div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password" placeholder="只用于本次登录请求"></div>
@@ -54,14 +54,14 @@
 
   <section class="card">
     <h2>连接附近的电脑</h2>
-    <p class="hint">手机和电脑使用同一 Wi‑Fi 时，可打开电脑提供的 Pocket 页面进行局域网协作。电脑须保持运行；此入口会打开电脑的本地页面。</p>
+    <p class="hint">手机和电脑使用同一 Wi‑Fi 时，打开配对后的电脑页面可选择手机照片、视频或 Files/SD 卡文件夹，分批传到电脑的备份目标。手机端会显示扫描和传输进度；电脑离线时可继续查看缓存历史，但不能传输。</p>
     <div class="field"><label for="desktopAddress">电脑显示的局域网地址</label><input id="desktopAddress" inputmode="url" placeholder="例如 http://192.168.1.20:8080"></div>
     <button id="openDesktopButton" class="button secondary">打开电脑协作页</button>
     <p id="desktopMessage" class="message" role="status" aria-live="polite"></p>
   </section>
 
   <p id="offlineStatus" class="privacy" role="status" aria-live="polite">正在准备离线页面。</p>
-  <p class="privacy">影序 Pocket 同步进度和归档元数据，不上传原始照片、视频或电脑绝对路径。登录刷新令牌与已缓存历史保存在此浏览器的 IndexedDB 中；退出账号会清除这些本机缓存。</p>
+  <p class="privacy">原始照片和视频只会在你明确选择后通过同一 Wi‑Fi 传到已配对电脑，不上传到影序云端。手机浏览器需要保持页面打开；锁屏或切换应用后，系统可能暂停传输。电脑绝对路径和凭据不上传。登录刷新令牌与已缓存历史保存在此浏览器的 IndexedDB 中；退出账号会清除这些本机缓存。</p>
   <div class="footer-links"><a href="../">影序官网</a><a href="../privacy.html">隐私说明</a></div>
 </main>
 <script src="./firebase-config.js"></script>

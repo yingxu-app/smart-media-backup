@@ -2,6 +2,19 @@
 
 核对日期：2026-10-20。下方历史记录保留当时证据；当前范围与状态以本节为准。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
 
+## 2026-10-21 当前推进与结束门槛
+
+- **平台范围修正：**Windows 验收使用 x64 虚拟机；GitHub `windows-latest` runner 属于虚拟机验收证据，不要求实体 Windows 电脑。iOS 仅交付 Safari PWA；Android 真机暂缓；不开发小程序、原生 iOS 或 Android 商店版。macOS/Windows 代码签名与公证按用户决定排除。
+- **PR 状态基线：**PR #10 已于 2026-10-21 通过 squash 合并，main merge commit `6b042d033e3b985399574c8de77ec4073f5c4733`；其 Windows x64 runner E2E / Reliability checks 均通过。PR #9（`codex/iphone-pwa-offline-checkpoint`）仍 OPEN/DRAFT，当前产品提交 `c8d2e7f`，新 head checks 正在运行。虚拟机 E2E 是隔离目录下的打包服务/备份检查，不代表手机设备、物理读卡器或 Windows 用户桌面 GUI 安装验收。
+- **本轮源码变更：**桌面局域网 `/pocket/` 新增配对后的手机媒体上传 API 和选择/扫描/传输界面：从照片或 Files 选择照片、RAW、视频；填归档名；增量 SHA‑256 扫描；对本批相同内容去重；预检查目标磁盘可用空间；512 KiB 分块上传；可以暂停/取消；桌面重验 SHA‑256、清理失败临时文件，并写入桌面历史/同步账号元数据。桌面偏好设置每 3 秒读取一次手机上传进度。
+- **PWA 的设备边界：**HTTPS PWA 继续缓存页面和云端历史；明确说明在线原件传输需要打开附近电脑的局域网页面。iOS Safari 18.4+ 支持页面选择 Files 目录；早期版本可通过多文件选择器逐项授权。浏览器无法静默读取整张相册或外接盘、向任意本机目录写入，且锁屏/切换应用可能暂停。代码目前实现“选定素材→同 Wi‑Fi 传到电脑”，不是手机任意目标盘/后台无中断/电脑离线排队。
+- **更新功能改动：**偏好设置现在可下载最新适用平台发行文件；桌面端先按 GitHub Release 的 SHA‑256 metadata（metadata 缺失时使用同版 SHA256SUMS）校验完整下载，校验失败不提供文件。当前仍要用户手动安装/替换并保留旧版，不能静默覆盖运行中的 App。
+- **更新页线上核查：**2026-10-21 使用仓库 `.venv` 的 certifi CA bundle 复核规范 Pages 首页、`/pocket/`、`/download/`、`/privacy.html`、`/update/` 均 HTTP 200；线上 `/update/` 标题和手动安装说明可读。此前 TLS EOF 是系统 Python 证书链不全导致的检查环境差异，不能称为线上路由故障。此次代码中的新版页面尚待合并部署。
+- **发布基准：**正式 GitHub Latest Release 仍为 `v1.0.34`，Windows EXE 和 SHA256SUMS 有公开 digest；v1.0.40 仍为草稿候选。新增代码没有对应候选安装包或正式发行，不得提前更新下载页版本号。
+- **当前验证进度：**手机上传 API、安全配对、哈希通过/失败、历史落库和权限拒绝定向测试已新增；增量 SHA‑256 跨块/边界测试已新增。更新下载校验成功/失败测试已新增。本轮本机全量 Python 回归为 121 项、119 通过、2 项 Windows 条件跳过；手机上传/协议/更新定向组 24 项通过；Pocket 云同步与 SHA‑256 Node 测试合计 10 项通过，内嵌局域网页面脚本语法检查与 `git diff --check` 通过。新代码的 GitHub CI、Pages 部署及 iPhone 真机上传流程尚未完成。
+- **真实用户门槛：**仍需在 iPhone Safari 用一张照片和一段视频走完整扫描→传输→桌面校验→历史流程，并验证暂停/恢复、断网重连及锁屏恢复；登录真实 Firebase 账号验证同步/UID 隔离的任务仍由用户在本机输入凭据后完成，不得复用聊天密码。Android 真机、Windows 实体机均不列入验收条件。
+- **有限结束条件：**PR #9 checks 通过后按授权合并；Windows x64 虚拟机 E2E 在包含新代码的 main head 通过；新 Pages 首页/Pocket/下载/隐私/更新路由部署并 HTTP 200；桌面候选与 Release 资产 SHA‑256 对齐；升级和回退步骤可读。iPhone PWA 与 Firebase 真实账户项若仍只需用户在设备/应用内操作，则完成其余独立工作后输出唯一明确步骤，保持目标未完成，不以 CI 或发布状态冒充全端验收。PWA 仍不承诺锁屏持续传输或离线期间后台排队；这受浏览器权限和执行限制，需保持为明确的平台边界。
+
 ## 2026-10-20 新增 Windows runner 功能验收
 
 - PR #10 head `eb079c9353312f27fc22c91f16e11be95d59f42d` 的 Windows preview run `39445925130` 与 Reliability run `39445924653` 均 success。
@@ -284,6 +297,16 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - The Pocket job initially stopped at `expo install --check`: the online Expo version service recommended `expo@58.0.16`, `expo-modules-core@58.0.23`, and `expo-router@58.0.24`. Offline package metadata reported no matching `expo-modules-core@58.0.23`, and this Mac could not reach npm (`ECONNREFUSED`), so I could not verify that the other recommended versions were published or installable. The pinned installed SDK's bundled module map accepts the current package versions under `EXPO_OFFLINE=1`; the workflow now uses that SDK-local compatibility check. The remaining lint/typecheck/test/prebuild/export checks must pass on the next exact PR head before accepting the CI checkpoint.
 - macOS artifact `12196956679` metadata: 21,098,798 bytes, SHA-256 `aba82f823633e03e8d487874b05196a7b2185060ba3c8312a267c5b5a8f9b796`. GitHub's artifact download tool returned a reusable ZIP file reference, while local `gh` download failed with TLS EOF; therefore the package bytes have not been locally hashed or inspected. The current macOS build is ad-hoc/unnotarized by the existing workflow design.
 - Current work is reviewable in PR #4 but not merged. Pages has not been deployed, Latest Release remains v1.0.34, and no live Firebase account password was entered. Real login/sync, public PWA routing, iPhone Safari installation/offline restore, Windows current-candidate device acceptance, signing/notarization, and release download/upgrade/rollback remain open.
+
+## 2026-10-20 iPhone HTTPS PWA offline launch checkpoint
+
+- **Verified on device:** On the current public `yingxu-app.github.io` Pocket page, Safari's Add to Home Screen flow was completed with “Open as Web App” enabled. The iPhone home screen then showed two entries named “影序 Pocket”; one was launched successfully. The app rendered its YINGXU POCKET account-login page without Safari address or navigation bars.
+- **Offline evidence:** The iPhone status bar showed Airplane Mode during launch. The standalone PWA displayed its login form while offline, confirming the cached page shell can start from the home screen. This does not verify authenticated history cache, Firebase login, queued sync, or online recovery.
+- **Network recovery:** Airplane Mode remained enabled. Control Center could not be reached through the current mirror gesture, and the mirrored app reported user control during one attempt. No account data or credentials were entered. Continue after network access is restored, then have the user enter credentials on-device for Firebase sync verification.
+- **Current release evidence:** Local `origin/main` is `1dcd5284b2dfde9a2fa9425bd1fc8761e147ad6e`; latest main Reliability (`39326896855`), Pocket (`39326896840`) and Windows (`39326896672`) runs are successful. GitHub Release `v1.0.40` remains Draft with macOS DMG, Windows EXE and SHA256SUMS; latest public Release is `v1.0.34` with Windows EXE and checksum. No publication was performed.
+- **Site recheck:** canonical `/`, `/pocket/`, `/download/`, and `/privacy.html` returned HTTP 200 using the system Python TLS store. `/update/` returned a TLS EOF in this check, so its current response is inconclusive. The update/install/rollback route and public release promotion remain open gates.
+- **Home screen note:** there are two same-named Pocket icons. Neither was removed because their origin could not be distinguished safely.
+
 ## 2026-10-20 Windows 打包程序运行验收补充
 
 - 现有 Windows runner 流程已对隔离的合成来源卡做 20 项备份接口检查，但旧流程在 Python 进程内启动 Flask，不能证明 PyInstaller 产物能启动。

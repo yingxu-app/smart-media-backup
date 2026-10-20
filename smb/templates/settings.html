@@ -39,13 +39,13 @@
 
 <div class="card settings-form" style="margin-top:16px;">
     <div class="card-header"><h3>⬆️ 软件更新</h3></div>
-    <p class="pocket-copy">检查影序 GitHub 正式发行版。发现适用于这台电脑的新版本后，可打开官方发行页下载并安装。</p>
+    <p class="pocket-copy">检查影序 GitHub 正式发行版。发现新版本后，影序可下载并校验安装包 SHA-256，再由你按系统步骤安装。</p>
     <div class="form-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn-primary" id="checkUpdateButton" onclick="checkForUpdates()">检查更新</button>
         <a class="btn-secondary" id="updateReleaseLink" href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer" style="display:none;text-decoration:none;">打开官方发行页</a>
     </div>
     <div id="updateCheckMessage" class="save-msg" style="display:none;" aria-live="polite"></div>
-    <p class="pocket-copy">更新需要你手动下载和安装。建议先结束备份任务，并按步骤保存旧版本与历史数据副本。</p>
+    <p class="pocket-copy">影序不会自动覆盖正在运行的应用。建议先结束备份任务，下载并校验新包，再按步骤保存旧版本与历史数据副本后安装。</p>
     <a class="btn-secondary" href="https://yingxu-app.github.io/smart-media-backup/update/" target="_blank" rel="noopener noreferrer" style="display:inline-flex;text-decoration:none;">查看升级与回退步骤 ↗</a>
 </div>
 
@@ -331,19 +331,33 @@ async function checkForUpdates() {
         if (!response.ok) throw new Error(result.error || "暂时无法检查更新，请稍后重试。");
         releaseLink.href = result.release_url;
         if (result.update_available && result.assets.length) {
-            message.textContent = `发现 ${result.platform} 新版本 v${result.latest_version}（当前 v${result.current_version}）。点击“打开官方发行页”下载并安装。`;
+            const asset = result.assets[0];
+            releaseLink.href = `/api/updates/download?asset=${encodeURIComponent(asset.name)}`;
+            releaseLink.removeAttribute("target");
+            releaseLink.removeAttribute("rel");
+            releaseLink.textContent = "下载并校验安装包";
+            message.textContent = `发现 ${result.platform} 新版本 v${result.latest_version}（当前 v${result.current_version}）。下载前会校验官方 SHA-256；安装和回退按步骤手动完成。`;
             message.style.color = "#4ade80";
             releaseLink.style.display = "inline-flex";
         } else if (result.update_available) {
             message.textContent = `发现 v${result.latest_version}，但该版本暂未提供 ${result.platform} 安装包。`;
             message.style.color = "#fbbf24";
+            releaseLink.href = result.release_url;
+            releaseLink.textContent = "查看官方发行页";
+            releaseLink.target = "_blank";
             releaseLink.style.display = "inline-flex";
         } else if (result.latest_version && result.current_version && result.latest_version !== result.current_version) {
             message.textContent = `当前 v${result.current_version}，高于公开发行版 v${result.latest_version}；目前没有可更新的正式版本。`;
             message.style.color = "#fbbf24";
+            releaseLink.href = result.release_url;
+            releaseLink.textContent = "查看官方发行页";
+            releaseLink.target = "_blank";
         } else {
             message.textContent = `当前已是最新正式版本 v${result.current_version}。`;
             message.style.color = "#4ade80";
+            releaseLink.href = result.release_url;
+            releaseLink.textContent = "查看官方发行页";
+            releaseLink.target = "_blank";
         }
     } catch (error) {
         message.textContent = error.message || "暂时无法检查更新，请检查网络后重试。";
@@ -705,11 +719,19 @@ function showPocketTcpStatus(data) {
     if (data.error) {
         status.textContent = `❌ ${data.error}`;
         status.style.color = "#e74c3c";
-    } else if (data.running) {
+    } else if (["copying", "paused", "queued"].includes((data.phone_transfer || {}).status)) {
         const transfer = data.phone_transfer || {};
-        const active = ["copying", "paused", "queued"].includes(transfer.status);
         const count = `${transfer.processed_files || 0} / ${transfer.total_files || 0} 项`;
         const current = transfer.current_file ? ` · ${transfer.current_file}` : "";
+        const label = transfer.status === "paused" ? "已暂停" : transfer.status === "queued" ? "等待重连" : "正在传输";
+        const bytes = transfer.total_bytes ? ` · ${Math.floor((transfer.bytes_copied || 0) / transfer.total_bytes * 100)}%` : "";
+        status.textContent = `✅ 手机局域网导入：${label} ${count}${bytes}${current}`;
+        status.style.color = "#4ade80";
+    } else if (data.running) {
+        const transfer = data.phone_transfer || {};
+        const count = `${transfer.processed_files || 0} / ${transfer.total_files || 0} 项`;
+        const current = transfer.current_file ? ` · ${transfer.current_file}` : "";
+        const active = ["copying", "paused", "queued"].includes(transfer.status);
         const label = transfer.status === "paused" ? "已暂停" : transfer.status === "queued" ? "等待重连" : "正在传输";
         status.textContent = `✅ 已开启：${data.host}:${data.port}（仅局域网）${active ? `\n手机导入：${label} ${count}${current}` : ""}`;
         status.style.color = "#4ade80";
