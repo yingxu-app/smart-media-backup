@@ -194,16 +194,17 @@ class MobileInbox:
         descriptor, temporary = tempfile.mkstemp(prefix=".yingxu-pocket-", suffix=".part", dir=target.parent)
         session["mobile_upload"] = {
             "file": os.fdopen(descriptor, "wb"), "temporary": Path(temporary),
-            "target": target, "size": size, "received": 0,
+            "target": target, "inbox": inbox, "size": size, "received": 0,
         }
         return {"status": "receiving", "size": size}
 
-    def append(self, session: dict, offset: int, encoded: str) -> dict:
+    def append(self, session: dict, offset: int, encoded: str,
+               max_chunk_bytes: int = MAX_TRANSFER_CHUNK_BYTES) -> dict:
         transfer = session.get("mobile_upload")
         if not transfer:
             raise ValueError("没有已开始的手机文件传输")
         data = base64.b64decode(str(encoded), validate=True)
-        if len(data) > MAX_TRANSFER_CHUNK_BYTES or offset != transfer["received"]:
+        if len(data) > max_chunk_bytes or offset != transfer["received"]:
             raise ValueError("手机文件分块格式或偏移无效")
         if transfer["received"] + len(data) > transfer["size"]:
             raise ValueError("接收的数据超过声明文件大小")
@@ -216,12 +217,12 @@ class MobileInbox:
         if not transfer:
             raise ValueError("没有已开始的手机文件传输")
         session.pop("mobile_upload", None)
-        transfer["file"].flush()
-        os.fsync(transfer["file"].fileno())
-        transfer["file"].close()
         temporary: Path = transfer["temporary"]
         target: Path = transfer["target"]
         try:
+            transfer["file"].flush()
+            os.fsync(transfer["file"].fileno())
+            transfer["file"].close()
             if transfer["received"] != transfer["size"]:
                 raise ValueError("文件尚未完整接收")
             hasher = hashlib.sha256()
@@ -239,7 +240,8 @@ class MobileInbox:
                             existing.update(block)
                     if existing.hexdigest() == digest:
                         temporary.unlink(missing_ok=True)
-                        return {"status": "skipped", "sha256": digest, "size": transfer["size"]}
+                        return {"status": "skipped", "sha256": digest, "size": transfer["size"],
+                                "relative_path": target.relative_to(transfer["inbox"]).as_posix()}
                     stem, suffix = target.stem, target.suffix
                     index = 2
                     while True:
@@ -249,8 +251,13 @@ class MobileInbox:
                             break
                         index += 1
                 temporary.replace(target)
-            return {"status": "copied", "sha256": digest, "size": transfer["size"]}
+            return {"status": "copied", "sha256": digest, "size": transfer["size"],
+                    "relative_path": target.relative_to(transfer["inbox"]).as_posix()}
         except Exception:
+            try:
+                transfer["file"].close()
+            except OSError:
+                pass
             temporary.unlink(missing_ok=True)
             raise
 

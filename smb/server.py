@@ -35,7 +35,8 @@ from .detector import (list_removable_volumes, list_all_volumes, list_candidate_
 from .backup import BackupEngine
 from . import db
 from .pocket import PocketPairingManager, PocketNotesStore
-from .pocket_tcp import DesktopMediaSource, MobileInbox, PocketTcpBridge
+from .pocket_tcp import (MAX_TRANSFER_FILE_BYTES, DesktopMediaSource, MobileInbox,
+                         PocketTcpBridge)
 from .transfer import transfer_manager
 from .firebase_sync import FirebaseSyncClient, FirebaseSyncError, KeyringTokenStore
 
@@ -54,6 +55,12 @@ pocket_notes = PocketNotesStore()
 POCKET_TCP_PORT = 18080
 _pocket_tcp_bridge = None
 _pocket_tcp_bridge_lock = threading.Lock()
+_pocket_mobile_inbox = MobileInbox(lambda: _pocket_mobile_inbox_root())
+_pocket_upload_sessions = {}
+_pocket_upload_sessions_lock = threading.RLock()
+MAX_HTTP_POCKET_CHUNK_BYTES = 512 * 1024
+_pocket_http_transfer_progress = {"status": "idle"}
+_pocket_http_transfer_progress_lock = threading.Lock()
 _firebase_sync_client = None
 _firebase_sync_lock = threading.RLock()
 
@@ -243,7 +250,7 @@ def _configure_pocket_tcp(enabled: bool) -> None:
                     start_provider=_pocket_start_desktop_backup,
                     pause_provider=_pocket_pause_desktop_backup,
                     cancel_provider=_pocket_cancel_desktop_backup,
-                    mobile_inbox=MobileInbox(_pocket_mobile_inbox_root),
+                    mobile_inbox=_pocket_mobile_inbox,
                     desktop_media_source=DesktopMediaSource(lambda: _scan_cache),
                 )
                 bridge.start()
@@ -585,7 +592,7 @@ def api_pocket_tcp_settings():
             "running": bool(_pocket_tcp_bridge and _pocket_tcp_bridge.running),
             "host": _local_ip(),
             "port": POCKET_TCP_PORT,
-            "phone_transfer": (_pocket_tcp_bridge.mobile_transfer_progress if _pocket_tcp_bridge else {"status": "idle"}),
+            "phone_transfer": _get_pocket_phone_transfer_progress(),
         })
 
     data = request.get_json(silent=True)
@@ -635,7 +642,23 @@ def api_pocket_connect():
 
 @app.route("/api/pocket/disconnect", methods=["POST"])
 def api_pocket_disconnect():
-    pocket_pairing.revoke(_pocket_token())
+    token = _pocket_token()
+    if token:
+        with _pocket_upload_sessions_lock:
+            state = _pocket_upload_sessions.pop(token, None)
+        if state:
+            _pocket_mobile_inbox.abort(state["inbox_session"])
+            finished = state.get("completed_indices", set()) | state.get("failed_indices", set())
+            for item in state.get("manifest", []):
+                if item["index"] not in finished:
+                    db.update_file_status(state["backup_id"], item["source_path"], "cancelled",
+                                          error="手机断开连接，原始手机文件未修改")
+            if state.get("backup_id"):
+                db.finish_backup(state["backup_id"], "cancelled", "手机已断开连接，未完成文件已清理")
+            with _pocket_http_transfer_progress_lock:
+                _pocket_http_transfer_progress.update({"status": "cancelled", "current_file": "",
+                                                       "updatedAt": int(time.time() * 1000)})
+    pocket_pairing.revoke(token)
     response = jsonify({"status": "ok"})
     response.delete_cookie("yingxu_pocket", path="/")
     return response
@@ -679,6 +702,277 @@ def api_pocket_notes():
     if request.method == "POST":
         return jsonify({"status": "ok", "notes": pocket_notes.save(request.get_json(silent=True) or {})})
     return jsonify({"notes": pocket_notes.load()})
+
+
+def _pocket_http_upload_state(create: bool = False):
+    token = _pocket_token()
+    if not token:
+        return None
+    with _pocket_upload_sessions_lock:
+        if create:
+            return _pocket_upload_sessions.setdefault(token, {
+                "inbox_session": {}, "manifest": [], "backup_id": None,
+                "active_index": None, "started_at": time.time(),
+            })
+        return _pocket_upload_sessions.get(token)
+
+
+def _get_pocket_phone_transfer_progress():
+    with _pocket_http_transfer_progress_lock:
+        http_progress = dict(_pocket_http_transfer_progress)
+    if http_progress.get("status") in {"copying", "paused", "queued"}:
+        return http_progress
+    return _pocket_tcp_bridge.mobile_transfer_progress if _pocket_tcp_bridge else http_progress
+
+
+@app.route("/api/pocket/inbox/plan", methods=["POST"])
+@pocket_login_required
+def api_pocket_inbox_plan():
+    """Create a desktop history row for a phone-to-computer LAN backup."""
+    raw_data = request.get_json(silent=True)
+    data = raw_data if isinstance(raw_data, dict) else {}
+    event_name = str(data.get("event_name") or "手机备份").strip()[:120] or "手机备份"
+    files = data.get("files")
+    if not isinstance(files, list) or not files or len(files) > 1000:
+        return jsonify({"error": "请选择 1 到 1000 个照片或视频文件"}), 400
+    root_value = _pocket_mobile_inbox_root()
+    if not root_value or not Path(root_value).expanduser().is_dir():
+        return jsonify({"error": "请先在电脑偏好设置中选择可用的备份目标磁盘"}), 409
+    manifest = []
+    total_size = 0
+    db_files = []
+    photo_suffixes = {".arw", ".cr2", ".cr3", ".nef", ".nrw", ".dng", ".orf", ".rw2",
+                      ".raf", ".srw", ".x3f", ".3fr", ".fff", ".mef", ".mos", ".jpg",
+                      ".jpeg", ".png", ".heic", ".heif", ".tif", ".tiff", ".webp", ".bmp", ".gif"}
+    video_suffixes = {".mp4", ".mov", ".m4v", ".avi", ".mxf", ".braw", ".mpg", ".mts",
+                      ".m2ts", ".insv", ".webm", ".mkv", ".wmv", ".flv", ".3gp"}
+    for index, item in enumerate(files):
+        if not isinstance(item, dict):
+            return jsonify({"error": "手机文件清单格式无效"}), 400
+        relative = str(item.get("relative_path") or "")
+        size = item.get("size")
+        digest = str(item.get("sha256") or "").lower()
+        if not relative or len(relative) > 1200 or not isinstance(size, int) or isinstance(size, bool) or size < 0 or size > MAX_TRANSFER_FILE_BYTES:
+            return jsonify({"error": "手机文件名称或大小无效"}), 400
+        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+            return jsonify({"error": "手机文件 SHA-256 清单无效"}), 400
+        parts = relative.replace("\\", "/").split("/")
+        if any(part in ("", ".", "..") for part in parts):
+            return jsonify({"error": "手机文件路径无效"}), 400
+        total_size += size
+        if total_size > 100 * 1024 * 1024 * 1024:
+            return jsonify({"error": "单次手机备份总容量不能超过 100 GB"}), 400
+        source_path = f"手机端/{index}/{relative}"
+        media_type = "video" if str(item.get("media_type")) == "video" else "photo"
+        suffix = Path(parts[-1]).suffix.lower()
+        if suffix not in (video_suffixes if media_type == "video" else photo_suffixes):
+            return jsonify({"error": "手机上传仅接受支持的照片、RAW 或视频文件"}), 400
+        manifest.append({"index": index, "relative_path": relative, "size": size,
+                         "sha256": digest, "source_path": source_path, "media_type": media_type})
+        db_files.append({"path": source_path, "camera": "手机导入", "media_type": media_type, "size": size})
+
+    backup_root = str(Path(root_value).expanduser().resolve() / "影序手机备份")
+    known_hashes = db.get_known_hashes(backup_root)
+    skip_indices = {item["index"] for item in manifest if item["sha256"] in known_hashes}
+    bytes_to_copy = sum(item["size"] for item in manifest if item["index"] not in skip_indices)
+    try:
+        free_bytes = shutil.disk_usage(root_value).free
+    except OSError:
+        return jsonify({"error": "无法读取电脑备份磁盘剩余空间，请重新选择可用的备份目标"}), 409
+    if bytes_to_copy > free_bytes:
+        return jsonify({"error": f"电脑备份磁盘空间不足：需要 {bytes_to_copy} 字节，可用 {free_bytes} 字节"}), 507
+
+    state = _pocket_http_upload_state(create=True)
+    if state.get("active_index") is not None:
+        _pocket_mobile_inbox.abort(state["inbox_session"])
+    if state.get("backup_id"):
+        db.finish_backup(state["backup_id"], "partial", "新的手机任务替代了尚未完成的任务")
+    backup_id = db.create_backup(event_name, backup_root, [backup_root])
+    db.add_files(backup_id, db_files)
+    for item in manifest:
+        if item["index"] in skip_indices:
+            item["result"] = "skipped"
+            db.update_file_status(backup_id, item["source_path"], "skipped", verified=True,
+                                  source_hash=item["sha256"], error="相同 SHA-256 已在电脑归档中")
+    state.update({"manifest": manifest, "backup_id": backup_id, "active_index": None,
+                  "started_at": time.time(), "event_name": event_name,
+                  "completed_indices": set(skip_indices), "failed_indices": set()})
+    with _pocket_http_transfer_progress_lock:
+        _pocket_http_transfer_progress.update({"status": "copying", "current_file": "",
+            "total_files": len(manifest), "processed_files": len(skip_indices), "copied_files": 0,
+            "skipped_files": len(skip_indices),
+            "bytes_copied": sum(item["size"] for item in manifest if item["index"] in skip_indices),
+            "total_bytes": total_size,
+            "updatedAt": int(time.time() * 1000)})
+    return jsonify({"status": "planned", "backup_id": backup_id,
+                    "total_files": len(manifest), "total_size": total_size,
+                    "skip_indices": sorted(skip_indices)})
+
+
+@app.route("/api/pocket/inbox/begin", methods=["POST"])
+@pocket_login_required
+def api_pocket_inbox_begin():
+    state = _pocket_http_upload_state()
+    raw_data = request.get_json(silent=True)
+    data = raw_data if isinstance(raw_data, dict) else {}
+    index = data.get("index")
+    if not state or not isinstance(index, int) or index < 0 or index >= len(state["manifest"]):
+        return jsonify({"error": "手机备份任务无效，请重新扫描"}), 409
+    if state.get("active_index") is not None:
+        _pocket_mobile_inbox.abort(state["inbox_session"])
+    item = state["manifest"][index]
+    try:
+        result = _pocket_mobile_inbox.begin(
+            state["inbox_session"], item["relative_path"], item["size"]
+        )
+    except (OSError, ValueError) as error:
+        return jsonify({"error": str(error)}), 409
+    state["active_index"] = index
+    with _pocket_http_transfer_progress_lock:
+        _pocket_http_transfer_progress.update({"status": "copying",
+            "current_file": item["relative_path"].split("/")[-1],
+            "updatedAt": int(time.time() * 1000)})
+    return jsonify(result)
+
+
+@app.route("/api/pocket/inbox/chunk", methods=["POST"])
+@pocket_login_required
+def api_pocket_inbox_chunk():
+    if request.content_length and request.content_length > int(MAX_HTTP_POCKET_CHUNK_BYTES * 1.5) + 4096:
+        return jsonify({"error": "手机文件分块超过限制"}), 413
+    state = _pocket_http_upload_state()
+    raw_data = request.get_json(silent=True)
+    data = raw_data if isinstance(raw_data, dict) else {}
+    if not state or state.get("active_index") != data.get("index"):
+        return jsonify({"error": "当前没有对应的手机文件传输"}), 409
+    try:
+        result = _pocket_mobile_inbox.append(
+            state["inbox_session"], int(data.get("offset", -1)),
+            str(data.get("data") or ""), max_chunk_bytes=MAX_HTTP_POCKET_CHUNK_BYTES,
+        )
+    except (OSError, TypeError, ValueError) as error:
+        return jsonify({"error": str(error)}), 400
+    with _pocket_http_transfer_progress_lock:
+        _pocket_http_transfer_progress.update({
+            "bytes_copied": sum(value["size"] for value in state["manifest"]
+                                if value["index"] in state.get("completed_indices", set())) + result["received"],
+            "updatedAt": int(time.time() * 1000),
+        })
+    return jsonify(result)
+
+
+@app.route("/api/pocket/inbox/finish", methods=["POST"])
+@pocket_login_required
+def api_pocket_inbox_finish():
+    state = _pocket_http_upload_state()
+    raw_data = request.get_json(silent=True)
+    data = raw_data if isinstance(raw_data, dict) else {}
+    index = data.get("index")
+    if not state or state.get("active_index") != index or not state.get("backup_id"):
+        return jsonify({"error": "当前没有对应的手机文件传输"}), 409
+    if not isinstance(index, int) or index < 0 or index >= len(state["manifest"]):
+        return jsonify({"error": "手机文件清单已失效"}), 409
+    item = state["manifest"][index]
+    try:
+        result = _pocket_mobile_inbox.finish(state["inbox_session"], item["sha256"])
+    except OSError:
+        message = "电脑目标磁盘写入失败，请检查可用空间和写入权限"
+        db.update_file_status(state["backup_id"], item["source_path"], "failed", error=message)
+        state["failed_indices"].add(index)
+        state["active_index"] = None
+        return jsonify({"error": message}), 507
+    except ValueError as error:
+        db.update_file_status(state["backup_id"], item["source_path"], "failed", error=str(error))
+        state["failed_indices"].add(index)
+        state["active_index"] = None
+        return jsonify({"error": str(error)}), 400
+    status = "skipped" if result.get("status") == "skipped" else "completed"
+    dest = str(Path(_pocket_mobile_inbox_root()).expanduser().resolve() / "影序手机备份" /
+                result.get("relative_path", item["relative_path"]))
+    db.update_file_status(state["backup_id"], item["source_path"], status, dest,
+                          verified=True, source_hash=result["sha256"])
+    state["completed_indices"].add(index)
+    state["active_index"] = None
+    item["result"] = result.get("status")
+    with _pocket_http_transfer_progress_lock:
+        _pocket_http_transfer_progress.update({
+            "processed_files": len(state["completed_indices"]) + len(state["failed_indices"]),
+            "copied_files": sum(1 for value in state["manifest"]
+                                if value["index"] in state["completed_indices"] and value.get("result") != "skipped"),
+            "skipped_files": sum(1 for value in state["manifest"]
+                                 if value["index"] in state["completed_indices"] and value.get("result") == "skipped"),
+            "bytes_copied": sum(value["size"] for value in state["manifest"]
+                                 if value["index"] in state["completed_indices"]),
+            "updatedAt": int(time.time() * 1000),
+        })
+    return jsonify(result)
+
+
+@app.route("/api/pocket/inbox/abort", methods=["POST"])
+@pocket_login_required
+def api_pocket_inbox_abort():
+    state = _pocket_http_upload_state()
+    if state:
+        _pocket_mobile_inbox.abort(state["inbox_session"])
+        state["active_index"] = None
+    return jsonify({"status": "aborted"})
+
+
+@app.route("/api/pocket/inbox/progress", methods=["POST"])
+@pocket_login_required
+def api_pocket_inbox_progress():
+    state = _pocket_http_upload_state()
+    if not state or not state.get("backup_id"):
+        return jsonify({"error": "没有进行中的手机备份"}), 409
+    raw_data = request.get_json(silent=True)
+    data = raw_data if isinstance(raw_data, dict) else {}
+    status = str(data.get("status") or "copying")
+    if status not in {"copying", "paused"}:
+        return jsonify({"error": "传输状态无效"}), 400
+    with _pocket_http_transfer_progress_lock:
+        _pocket_http_transfer_progress.update({"status": status, "updatedAt": int(time.time() * 1000)})
+    return jsonify({"status": status})
+
+
+@app.route("/api/pocket/inbox/complete", methods=["POST"])
+@pocket_login_required
+def api_pocket_inbox_complete():
+    state = _pocket_http_upload_state()
+    if not state or not state.get("backup_id"):
+        return jsonify({"error": "没有可完成的手机备份任务"}), 409
+    raw_data = request.get_json(silent=True)
+    data = raw_data if isinstance(raw_data, dict) else {}
+    requested = str(data.get("status") or "completed")
+    if requested not in {"completed", "partial", "cancelled", "failed"}:
+        requested = "failed"
+    if state.get("active_index") is not None:
+        _pocket_mobile_inbox.abort(state["inbox_session"])
+        state["active_index"] = None
+    finished_indices = state.get("completed_indices", set()) | state.get("failed_indices", set())
+    pending_status = "cancelled" if requested == "cancelled" else "failed"
+    for item in state["manifest"]:
+        if item["index"] not in finished_indices:
+            db.update_file_status(state["backup_id"], item["source_path"], pending_status,
+                                  error="任务结束前未传输；原始手机文件未修改")
+    completed = len(state.get("completed_indices", set()))
+    failed = len(state.get("failed_indices", set()))
+    if requested == "completed" and completed < len(state["manifest"]):
+        requested = "partial" if completed else "failed"
+    elif requested == "cancelled" and completed:
+        requested = "partial"
+    if failed and requested == "completed":
+        requested = "partial"
+    db.finish_backup(state["backup_id"], requested,
+                     str(data.get("message") or "")[:500])
+    backup_id = state["backup_id"]
+    with _pocket_upload_sessions_lock:
+        _pocket_upload_sessions.pop(_pocket_token(), None)
+    with _pocket_http_transfer_progress_lock:
+        _pocket_http_transfer_progress.update({"status": requested, "current_file": "",
+                                               "updatedAt": int(time.time() * 1000)})
+    threading.Thread(target=_sync_latest_desktop_history, daemon=True,
+                     name=f"yingxu-pocket-history-{backup_id}").start()
+    return jsonify({"status": requested, "backup_id": backup_id})
 
 
 @app.route("/website")
@@ -917,7 +1211,8 @@ def api_latest_update():
     else:
         platform_name, suffixes = "Linux", (".appimage", ".deb", ".rpm")
     platform_assets = [
-        {"name": str(asset.get("name") or ""), "url": str(asset.get("browser_download_url") or ""), "size": int(asset.get("size") or 0)}
+        {"name": str(asset.get("name") or ""), "url": str(asset.get("browser_download_url") or ""),
+         "size": int(asset.get("size") or 0), "digest": str(asset.get("digest") or "")}
         for asset in assets
         if str(asset.get("name") or "").lower().endswith(suffixes)
         and asset.get("browser_download_url")
@@ -932,6 +1227,119 @@ def api_latest_update():
         "release_url": str(release.get("html_url") or "https://github.com/yingxu-app/smart-media-backup/releases/latest"),
         "published_at": str(release.get("published_at") or ""),
     })
+
+
+@app.route("/api/updates/download")
+def api_download_latest_update():
+    """Download the current platform's latest release after SHA-256 verification."""
+    import hashlib
+    import re
+    import ssl
+    import tempfile
+    import urllib.error
+    import urllib.request
+    import certifi
+
+    asset_name = str(request.args.get("asset") or "")
+    if not re.fullmatch(r"YINGXU-(macOS|Windows|Linux)-v[0-9A-Za-z.+-]+\.(dmg|exe|msi|appimage|deb|rpm)", asset_name):
+        return jsonify({"error": "更新文件名无效"}), 400
+    if sys.platform == "darwin":
+        platform_name, suffixes = "macOS", (".dmg",)
+    elif sys.platform.startswith("win"):
+        platform_name, suffixes = "Windows", (".exe", ".msi")
+    else:
+        platform_name, suffixes = "Linux", (".appimage", ".deb", ".rpm")
+
+    tls_context = ssl.create_default_context(cafile=certifi.where())
+
+    def read_json(url):
+        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
+                                                  "User-Agent": "YINGXU-Update-Checker"})
+        with urllib.request.urlopen(req, timeout=30, context=tls_context) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    try:
+        release = read_json("https://api.github.com/repos/yingxu-app/smart-media-backup/releases/latest")
+        assets = release.get("assets") if isinstance(release.get("assets"), list) else []
+        asset = next((item for item in assets if str(item.get("name") or "") == asset_name), None)
+        if not asset or not asset_name.lower().endswith(suffixes):
+            return jsonify({"error": f"最新正式发行版没有适用于 {platform_name} 的这个文件"}), 404
+        download_url = str(asset.get("browser_download_url") or "")
+        if not download_url.startswith("https://github.com/yingxu-app/smart-media-backup/releases/download/"):
+            return jsonify({"error": "发行文件来源不受信任，已停止下载"}), 502
+        expected_size = int(asset.get("size") or 0)
+        if expected_size > 1024 * 1024 * 1024:
+            return jsonify({"error": "更新文件超过 1 GB 下载限制"}), 413
+        expected_digest = str(asset.get("digest") or "").lower()
+        match = re.fullmatch(r"sha256:([0-9a-f]{64})", expected_digest)
+        if match:
+            expected_digest = match.group(1)
+        else:
+            checksum_asset = next((item for item in assets if item.get("name") == "SHA256SUMS.txt"), None)
+            if not checksum_asset:
+                return jsonify({"error": "正式发行版没有提供 SHA-256 校验值"}), 502
+            checksum_url = str(checksum_asset.get("browser_download_url") or "")
+            if not checksum_url.startswith("https://github.com/yingxu-app/smart-media-backup/releases/download/"):
+                return jsonify({"error": "校验文件来源不受信任"}), 502
+            checksum_request = urllib.request.Request(checksum_url, headers={"User-Agent": "YINGXU-Update-Checker"})
+            with urllib.request.urlopen(checksum_request, timeout=30, context=tls_context) as response:
+                manifest = response.read(256 * 1024).decode("utf-8", "replace")
+            expected_digest = ""
+            for line in manifest.splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 2 and parts[-1].lstrip("*") == asset_name and re.fullmatch(r"[0-9a-fA-F]{64}", parts[0]):
+                    expected_digest = parts[0].lower()
+                    break
+            if not expected_digest:
+                return jsonify({"error": "校验清单中没有该更新文件的 SHA-256"}), 502
+
+        file_request = urllib.request.Request(download_url, headers={"User-Agent": "YINGXU-Update-Checker"})
+        temporary_path = ""
+        digest = hashlib.sha256()
+        actual_size = 0
+        try:
+            with urllib.request.urlopen(file_request, timeout=60, context=tls_context) as response:
+                with tempfile.NamedTemporaryFile(prefix="yingxu-update-", suffix="-" + asset_name,
+                                                 delete=False) as output:
+                    temporary_path = output.name
+                    while True:
+                        block = response.read(1024 * 1024)
+                        if not block:
+                            break
+                        actual_size += len(block)
+                        if actual_size > 1024 * 1024 * 1024 or (expected_size and actual_size > expected_size):
+                            raise ValueError("下载大小超过发行元数据")
+                        digest.update(block)
+                        output.write(block)
+            if expected_size and actual_size != expected_size:
+                raise ValueError("下载文件大小与发行元数据不一致")
+            if digest.hexdigest() != expected_digest:
+                raise ValueError("下载文件 SHA-256 与正式发行清单不一致")
+        except Exception:
+            if temporary_path:
+                Path(temporary_path).unlink(missing_ok=True)
+            raise
+
+        response = send_file(temporary_path, as_attachment=True, download_name=asset_name,
+                             mimetype="application/octet-stream", conditional=True)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Yingxu-SHA256"] = expected_digest
+        response.headers["X-Yingxu-Verified"] = "true"
+        response.call_on_close(lambda: Path(temporary_path).unlink(missing_ok=True))
+        return response
+    except ValueError as error:
+        return jsonify({"error": f"更新包校验失败：{error}"}), 502
+    except Exception as error:
+        if isinstance(error, urllib.error.HTTPError):
+            code = f"HTTP_{error.code}"
+        elif isinstance(error, urllib.error.URLError) and isinstance(error.reason, ssl.SSLError):
+            code = "TLS_ERROR"
+        elif isinstance(error, TimeoutError):
+            code = "TIMEOUT"
+        else:
+            code = "UPDATE_DOWNLOAD_FAILED"
+        app.logger.warning("Verified update download failed (%s)", code)
+        return jsonify({"error": f"更新包下载失败，诊断码 {code}；未提供未校验文件"}), 502
 
 
 @app.route("/api/volumes")

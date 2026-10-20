@@ -7,7 +7,11 @@ on:
       - "site/pocket/**"
       - "smb/pocket_tcp.py"
       - "smb/server.py"
+      - "smb/static/pocket/**"
+      - "smb/templates/pocket.html"
       - "tests/pocket-cloud-sync.test.cjs"
+      - "tests/pocket-sha256.test.cjs"
+      - "tests/test_pocket_http_upload.py"
       - "tests/test_pocket_tcp.py"
       - ".github/workflows/mobile.yml"
   push:
@@ -17,7 +21,11 @@ on:
       - "site/pocket/**"
       - "smb/pocket_tcp.py"
       - "smb/server.py"
+      - "smb/static/pocket/**"
+      - "smb/templates/pocket.html"
       - "tests/pocket-cloud-sync.test.cjs"
+      - "tests/pocket-sha256.test.cjs"
+      - "tests/test_pocket_http_upload.py"
       - "tests/test_pocket_tcp.py"
       - ".github/workflows/mobile.yml"
   workflow_dispatch:
@@ -40,6 +48,14 @@ jobs:
           cache: true
           cache-dependency-path: mobile/pnpm-lock.yaml
           install: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install Python server dependencies
+        working-directory: .
+        run: python -m pip install -r requirements.txt
       - name: Check iPhone PWA JavaScript and cloud client
         working-directory: .
         run: |
@@ -47,6 +63,8 @@ jobs:
           node --check site/pocket/cloud-sync.js
           node --check site/pocket/sw.js
           node --test tests/pocket-cloud-sync.test.cjs
+          node --test tests/pocket-sha256.test.cjs
+          python -m unittest tests.test_pocket_http_upload tests.test_pocket_tcp -v
           node -e "JSON.parse(require('node:fs').readFileSync('site/pocket/manifest.webmanifest', 'utf8'))"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

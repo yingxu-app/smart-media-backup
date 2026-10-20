@@ -17,14 +17,14 @@
   <main class="wrap download-page">
     <p class="eyebrow">UPDATE &amp; ROLLBACK</p>
     <h1>更新与回退</h1>
-    <p class="download-lead">偏好设置里的“检查更新”会查询正式版本并打开官方发行页。它不会在后台替你覆盖应用；请核对版本与 SHA-256 后再手动安装。</p>
+    <p class="download-lead">偏好设置里的“检查更新”查询正式版本后，可直接下载并校验对应安装包的 SHA-256。影序不会覆盖正在运行的应用；下载完成后仍需按系统步骤手动安装。</p>
 
     <section class="release-card">
       <h2>更新前先保护备份记录</h2>
       <ol>
         <li>等当前备份任务结束，退出影序。</li>
-        <li>在偏好设置点击“检查更新”，然后只从影序的 <a href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer">GitHub 正式发行页</a>下载对应系统的文件和同版本 <code>SHA256SUMS.txt</code>。</li>
-        <li>按下载页说明计算安装包 SHA-256，并逐字比对清单；不一致时不要打开。</li>
+        <li>在偏好设置点击“检查更新”，再点击“下载并校验安装包”。影序会从 GitHub 最新正式发行版下载适用于当前系统的文件，并在交给浏览器前校验 GitHub 提供的 SHA-256。</li>
+        <li>也可以从影序的 <a href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer">GitHub 正式发行页</a>手动下载。手动下载时请按下载页说明自行计算 SHA-256，并与同版本 <code>SHA256SUMS.txt</code> 比对。</li>
         <li>把用户数据目录复制到安全位置作为回退副本。默认目录为 macOS/Linux 的 <code>~/.config/smb/</code>，Windows 的 <code>%USERPROFILE%\.config\smb\</code>。里面包含备份历史、设置，也可能有第三方服务凭据；请只保存在你控制的本机或加密磁盘，不要上传或发给他人。</li>
       </ol>
     </section>
@@ -56,7 +56,7 @@
       <p>回退副本只在更新前创建时才能恢复到更新前的数据状态。影序不会自动删除旧程序或自动回滚用户数据。</p>
     </section>
 
-    <p class="release-meta">官方版本、安装包与校验文件以 <a href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer">GitHub 最新正式发行页</a>为准。<a href="../download/">返回下载页</a></p>
+    <p class="release-meta">自动校验只确认下载包与 GitHub 正式发行元数据中的 SHA-256 一致，不会安装或替换当前应用。官方版本、安装包与校验文件以 <a href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer">GitHub 最新正式发行页</a>为准。<a href="../download/">返回下载页</a></p>
   </main>
   <footer class="footer wrap"><a class="brand footer-brand" href="../"><img src="../assets/yingxu-icon.svg" alt=""><span>影序 <b>YINGXU</b></span></a><small>先校验，再安装；保留旧版本和数据副本。</small></footer>
 </body>
