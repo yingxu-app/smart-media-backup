@@ -1,0 +1,129 @@
+name: Build Windows preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/build-windows.yml
+      - smb/**
+      - desktop/smb-win.spec
+      - requirements.txt
+      - setup.py
+      - tests/**
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-windows.yml
+      - smb/**
+      - desktop/smb-win.spec
+      - requirements.txt
+      - setup.py
+      - tests/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run reliability suite
+        env:
+          SMB_CONFIG_DIR: ${{ runner.temp }}/yingxu-test-config
+        run: python -m unittest discover -s tests -v
+
+      - name: Resolve application version
+        id: app-version
+        shell: pwsh
+        run: |
+          $version = python -c "from smb import __version__; print(__version__)"
+          if ($LASTEXITCODE -ne 0 -or -not $version) {
+            throw 'Could not resolve the application version.'
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build .exe with PyInstaller
+        run: |
+          pyinstaller desktop/smb-win.spec --noconfirm
+          dir dist\
+
+      - name: Verify x64 PE and create SHA-256 manifest
+        shell: pwsh
+        run: |
+          $executables = @(Get-ChildItem dist -Filter '*.exe' -File)
+          if ($executables.Count -ne 1) {
+            throw "Expected exactly one EXE, found $($executables.Count)"
+          }
+
+          $executable = $executables[0]
+          $stream = [System.IO.File]::OpenRead($executable.FullName)
+          try {
+            $dosHeader = New-Object byte[] 64
+            if ($stream.Read($dosHeader, 0, $dosHeader.Length) -ne $dosHeader.Length) {
+              throw 'Executable is too short to contain a DOS header'
+            }
+            if ($dosHeader[0] -ne 0x4d -or $dosHeader[1] -ne 0x5a) {
+              throw 'Executable does not start with the MZ signature'
+            }
+
+            $peOffset = [BitConverter]::ToInt32($dosHeader, 0x3c)
+            if ($peOffset -lt 64 -or $peOffset -gt ($stream.Length - 6)) {
+              throw "Invalid PE header offset: $peOffset"
+            }
+            $stream.Position = $peOffset
+            $peHeader = New-Object byte[] 6
+            if ($stream.Read($peHeader, 0, $peHeader.Length) -ne $peHeader.Length) {
+              throw 'Executable has a truncated PE header'
+            }
+            if ($peHeader[0] -ne 0x50 -or $peHeader[1] -ne 0x45 -or $peHeader[2] -ne 0 -or $peHeader[3] -ne 0) {
+              throw 'Executable has an invalid PE signature'
+            }
+            $machine = [BitConverter]::ToUInt16($peHeader, 4)
+            if ($machine -ne 0x8664) {
+              throw ('Expected x64 PE machine 0x8664, got 0x{0:x4}' -f $machine)
+            }
+          }
+          finally {
+            $stream.Dispose()
+          }
+
+          $signature = Get-AuthenticodeSignature $executable.FullName
+          if ($signature.Status -ne 'NotSigned') {
+            throw "Expected an unsigned preview, got Authenticode status '$($signature.Status)'"
+          }
+
+          $hash = (Get-FileHash -Algorithm SHA256 $executable.FullName).Hash.ToLowerInvariant()
+          $manifestLine = "$hash  $($executable.Name)"
+          $manifestPath = Join-Path $executable.DirectoryName 'SHA256SUMS.txt'
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          [System.IO.File]::WriteAllText($manifestPath, $manifestLine + "`n", $utf8NoBom)
+          $readBack = (Get-Content $manifestPath -Raw -Encoding UTF8).Trim()
+          if ($readBack -cne $manifestLine) {
+            throw 'SHA-256 manifest read-back mismatch'
+          }
+          Write-Host $manifestLine
+
+      - name: Upload unsigned preview artifact
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: YINGXU-Windows-v${{ steps.app-version.outputs.version }}-unsigned-preview
+          path: |
+            dist/*.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+      - name: Explain release status
+        run: echo "This is an unsigned CI preview. Publish only after Windows real-device acceptance."

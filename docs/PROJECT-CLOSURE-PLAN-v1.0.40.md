@@ -2,6 +2,13 @@
 
 核对日期：2026-10-20。下方历史记录保留当时证据；当前范围与状态以本节为准。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
 
+## 2026-10-20 新增 Windows runner 功能验收
+
+- PR #10 head `eb079c9353312f27fc22c91f16e11be95d59f42d` 的 Windows preview run `39445925130` 与 Reliability run `39445924653` 均 success。
+- Windows runner 在临时目录中用合成来源卡完成 20 项检查：扫描、无效来源拒绝、复制、SHA-256、照片/视频分类、缩略图树、增量跳过、历史/报告导出及来源不变；Windows reliability suite 通过。x64 PE、未签名状态、SHA-256 清单读回与构建 artifact 上传也通过。
+- Windows EXE artifact `12276881124` metadata digest `sha256:60626be7ff1202bd7d779516ecb7382ebdc6f032f5bba0a84910eff0089cb9da`；E2E JSON 报告 artifact `12275642204` metadata digest `sha256:43767f6cee57f34c02dc2840760a18fccd5849e3dfa5450f001d40e017131ced`。此处是 GitHub-hosted Windows runner 的合成文件系统功能检查，不是用户 Windows PC、真实读卡器或打包 GUI 安装验收；Windows 实机门槛仍开放。
+- E2E 脚本修正为从自身文件位置定位仓库，并将用户配置、模拟来源、备份目标与报告全部放入临时目录；改前快照保存在 `docs/snapshots/2026-10-20-windows-e2e-ci/`。
+
 ## 2026-10-20 当前目标范围与权威状态
 
 - **范围决定：**iPhone 交付为 Safari PWA；不开发原生 iOS。Android 真机验收暂缓（用户没有 Android 设备），Android CI/debug artifact 仍保留为构建证据。停止小程序开发，不纳入活跃发布门禁。异地原始媒体上传/下载和浏览器在线备份不在本阶段。
@@ -277,3 +284,24 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - The Pocket job initially stopped at `expo install --check`: the online Expo version service recommended `expo@58.0.16`, `expo-modules-core@58.0.23`, and `expo-router@58.0.24`. Offline package metadata reported no matching `expo-modules-core@58.0.23`, and this Mac could not reach npm (`ECONNREFUSED`), so I could not verify that the other recommended versions were published or installable. The pinned installed SDK's bundled module map accepts the current package versions under `EXPO_OFFLINE=1`; the workflow now uses that SDK-local compatibility check. The remaining lint/typecheck/test/prebuild/export checks must pass on the next exact PR head before accepting the CI checkpoint.
 - macOS artifact `12196956679` metadata: 21,098,798 bytes, SHA-256 `aba82f823633e03e8d487874b05196a7b2185060ba3c8312a267c5b5a8f9b796`. GitHub's artifact download tool returned a reusable ZIP file reference, while local `gh` download failed with TLS EOF; therefore the package bytes have not been locally hashed or inspected. The current macOS build is ad-hoc/unnotarized by the existing workflow design.
 - Current work is reviewable in PR #4 but not merged. Pages has not been deployed, Latest Release remains v1.0.34, and no live Firebase account password was entered. Real login/sync, public PWA routing, iPhone Safari installation/offline restore, Windows current-candidate device acceptance, signing/notarization, and release download/upgrade/rollback remain open.
+## 2026-10-20 Windows 打包程序运行验收补充
+
+- 现有 Windows runner 流程已对隔离的合成来源卡做 20 项备份接口检查，但旧流程在 Python 进程内启动 Flask，不能证明 PyInstaller 产物能启动。
+- PR #10 新增构建后运行阶段：用临时配置启动本次生成的 unsigned x64 EXE，轮询 `/api/health` 并核对版本，再将同一套扫描、复制、SHA-256、重复跳过、历史和报告断言指向 EXE 自己的服务；完成后终止测试进程。
+- 该 Windows-hosted runner 结果可以证明候选 EXE 在 CI 虚拟机中启动并执行合成备份流程，不代替用户 Windows PC、真实 SD 卡读卡器、交互式桌面窗口或不同机器上的安装升级验收。
+- 本次修改前快照：`docs/snapshots/2026-10-20-windows-packaged-runtime/`。
+
+### 首轮 Windows GUI runner 探测结果与调整
+
+- PR #10 exact head `7089fc6fa2087829ff73319d331d217057df0ff5` 的 Windows preview run `39449881232` 通过 reliability 与 Python 进程内模拟备份，但“启动打包 EXE 并执行备份”步骤失败；PyInstaller 构建成功。runner 上 GUI EXE 进程保持存活，但 `/api/health` 在等待期间未响应，步骤日志不能进一步区分 WebView 会话与后台服务线程问题。
+- 为避免把缺失的 GUI 运行时误报为产品功能失败或通过，本分支改用显式的 `YINGXU_E2E_HEADLESS=1` 诊断模式：相同打包 EXE 直接运行内置服务，随后对其服务执行健康版本核对和完整合成备份断言。标准用户启动仍保留 pywebview 桌面窗口流程。
+- 下一次成功结果只可证明 Windows runner 上打包 EXE 的服务端资源和核心备份流程可运行；仍不覆盖 GUI 窗口交互、用户 Windows 安装/升级或真实读卡器。
+- 调整前快照：`docs/snapshots/2026-10-20-windows-packaged-runtime-adjustment/`。
+- PR #10 exact head `6deddba` 对应 run `39450869691` 的 PyInstaller build 与打包服务健康检查通过；验证脚本随后在打印中文标题时因 runner `cp1252` stdout 编码失败，尚未执行打包服务备份断言。workflow 子进程现显式使用 UTF-8；修复前快照在 `docs/snapshots/2026-10-20-windows-packaged-utf8-fix/`，修复效果待新 run 验证。
+
+#### Packaged Windows service E2E terminal evidence (`bbfb942`)
+
+- PR #10 head `bbfb942a83fe2c4d9412c4f6c3c0ac788cbbc560`: Windows preview run `39451574588` success; Reliability push `39451563134` and Reliability PR `39451574482` success across Windows/macOS/Ubuntu × Python 3.11/3.12; macOS candidate run `39451574496` success.
+- Windows preview runner built the unsigned v1.0.40 EXE, launched that exact packaged executable in explicit isolated service mode, confirmed `/api/health` HTTP 200 and version 1.0.40, then passed 21 packaged-service E2E assertions including scan, invalid source rejection, copy, SHA-256, duplicates, history/report and unchanged source. PE x64, unsigned status, checksum manifest and artifact upload passed.
+- Windows EXE artifact `12278397307`: 27,876,356 bytes, Actions metadata digest `sha256:be9a656d6e1cc8f1108f1b1745a5a91d0ea6ea6442df0e1ea3eb5edf831ac18a`. E2E report artifact `12279032308`: 1,971 bytes, metadata digest `sha256:1c2bb3347743966d26412bc56245f4324ee5d4d33855fd382df77264d65e7087`.
+- This establishes packaged backend/service behavior on a Windows-hosted runner. It does not establish pywebview GUI interaction, a user-PC install/upgrade, or a physical card reader. PR #10 remains OPEN/DRAFT; the user's Windows device gate remains open. Snapshot: `docs/snapshots/2026-10-20-windows-packaged-e2e-terminal/`.

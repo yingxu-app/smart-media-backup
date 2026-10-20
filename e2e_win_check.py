@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""影序 YINGXU — Windows 端到端真实备份验收（模拟来源卡，隔离配置目录）。
+"""影序 YINGXU — Windows runner 端到端备份检查（模拟来源卡，隔离配置目录）。
 
-不触碰用户真实配置：SMB_CONFIG_DIR 指向临时目录。
-产物全部落在临时目录，验证完可整体删除。
+这是在 Windows CI runner 上使用模拟来源卡的功能检查，不代表实体 Windows 电脑/读卡器验收。
+不触碰用户真实配置：SMB_CONFIG_DIR 和所有测试产物都指向临时目录。
 """
 import json
 import os
@@ -15,12 +15,17 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROJ = os.path.join(ROOT, "smart-media-backup")
-sys.path.insert(0, PROJ)
+ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, ROOT)
 
-WORK = tempfile.mkdtemp(prefix="yingxu-e2e-")
-CONFIG_DIR = os.path.join(WORK, "config")
+RUNNER_TEMP = os.environ.get("RUNNER_TEMP") or None
+WORK = tempfile.mkdtemp(prefix="yingxu-e2e-", dir=RUNNER_TEMP)
+EXTERNAL_SERVER = os.environ.get("YINGXU_E2E_EXTERNAL_SERVER") == "1"
+CONFIG_DIR = (
+    os.path.abspath(os.environ["SMB_CONFIG_DIR"])
+    if EXTERNAL_SERVER and os.environ.get("SMB_CONFIG_DIR")
+    else os.path.join(WORK, "config")
+)
 SOURCE = os.path.join(WORK, "FAKE_SD")
 TARGET = os.path.join(WORK, "backup-target")
 os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -30,7 +35,7 @@ os.makedirs(TARGET, exist_ok=True)
 os.environ["SMB_CONFIG_DIR"] = CONFIG_DIR
 
 _PORT = 8098
-BASE = f"http://127.0.0.1:{_PORT}"
+BASE = os.environ.get("YINGXU_E2E_BASE_URL", f"http://127.0.0.1:{_PORT}")
 urllib.request.install_opener(urllib.request.build_opener(urllib.request.ProxyHandler({})))
 
 results = []
@@ -102,17 +107,28 @@ def tree(root):
 
 def main():
     print("=" * 78)
-    print("影序 YINGXU — Windows 端到端真实备份验收")
+    print("影序 YINGXU — Windows runner 模拟素材卡备份检查")
     print(f"工作目录: {WORK}")
     print("=" * 78)
 
     n = make_fakesd()
     print(f"模拟来源卡已生成: {n} 个文件\n")
 
-    if not start_server():
-        print("服务启动失败")
-        return 1
-    print("服务就绪\n")
+    if EXTERNAL_SERVER:
+        code, body = req("GET", "/api/health")
+        try:
+            health = json.loads(body)
+        except Exception:
+            health = {}
+        log(code == 200 and health.get("status") == "ok",
+            "打包 EXE 服务已响应健康检查", f"HTTP {code} version={health.get('version')!r}")
+        if code != 200 or health.get("status") != "ok":
+            return 1
+    else:
+        if not start_server():
+            print("服务启动失败")
+            return 1
+        print("服务就绪\n")
 
     TERMINAL = ("done", "completed", "partial", "failed", "error", "cancelled")
 
@@ -226,7 +242,7 @@ def main():
         print(f"  FAIL {r['name']} — {r['detail']}")
     print("=" * 78)
 
-    out = os.path.join(ROOT, "e2e-result.json")
+    out = os.path.join(WORK, "e2e-result.json")
     with open(out, "w", encoding="utf-8") as f:
         json.dump({"work_dir": WORK, "results": results}, f, ensure_ascii=False, indent=2)
     print(f"报告: {out}")
