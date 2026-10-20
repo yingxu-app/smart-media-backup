@@ -2,6 +2,13 @@
 
 核对日期：2026-10-20。下方历史记录保留当时证据；当前范围与状态以本节为准。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
 
+## 2026-10-20 新增 Windows runner 功能验收
+
+- PR #10 head `eb079c9353312f27fc22c91f16e11be95d59f42d` 的 Windows preview run `39445925130` 与 Reliability run `39445924653` 均 success。
+- Windows runner 在临时目录中用合成来源卡完成 20 项检查：扫描、无效来源拒绝、复制、SHA-256、照片/视频分类、缩略图树、增量跳过、历史/报告导出及来源不变；Windows reliability suite 通过。x64 PE、未签名状态、SHA-256 清单读回与构建 artifact 上传也通过。
+- Windows EXE artifact `12276881124` metadata digest `sha256:60626be7ff1202bd7d779516ecb7382ebdc6f032f5bba0a84910eff0089cb9da`；E2E JSON 报告 artifact `12275642204` metadata digest `sha256:43767f6cee57f34c02dc2840760a18fccd5849e3dfa5450f001d40e017131ced`。此处是 GitHub-hosted Windows runner 的合成文件系统功能检查，不是用户 Windows PC、真实读卡器或打包 GUI 安装验收；Windows 实机门槛仍开放。
+- E2E 脚本修正为从自身文件位置定位仓库，并将用户配置、模拟来源、备份目标与报告全部放入临时目录；改前快照保存在 `docs/snapshots/2026-10-20-windows-e2e-ci/`。
+
 ## 2026-10-20 当前目标范围与权威状态
 
 - **范围决定：**iPhone 交付为 Safari PWA；不开发原生 iOS。Android 真机验收暂缓（用户没有 Android 设备），Android CI/debug artifact 仍保留为构建证据。停止小程序开发，不纳入活跃发布门禁。异地原始媒体上传/下载和浏览器在线备份不在本阶段。
