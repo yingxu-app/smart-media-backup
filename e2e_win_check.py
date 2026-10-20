@@ -35,7 +35,7 @@ os.makedirs(TARGET, exist_ok=True)
 os.environ["SMB_CONFIG_DIR"] = CONFIG_DIR
 
 _PORT = 8098
-BASE = f"http://127.0.0.1:{_PORT}"
+BASE = os.environ.get("YINGXU_E2E_BASE_URL", f"http://127.0.0.1:{_PORT}")
 urllib.request.install_opener(urllib.request.build_opener(urllib.request.ProxyHandler({})))
 
 results = []

@@ -290,3 +290,10 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - PR #10 新增构建后运行阶段：用临时配置启动本次生成的 unsigned x64 EXE，轮询 `/api/health` 并核对版本，再将同一套扫描、复制、SHA-256、重复跳过、历史和报告断言指向 EXE 自己的服务；完成后终止测试进程。
 - 该 Windows-hosted runner 结果可以证明候选 EXE 在 CI 虚拟机中启动并执行合成备份流程，不代替用户 Windows PC、真实 SD 卡读卡器、交互式桌面窗口或不同机器上的安装升级验收。
 - 本次修改前快照：`docs/snapshots/2026-10-20-windows-packaged-runtime/`。
+
+### 首轮 Windows GUI runner 探测结果与调整
+
+- PR #10 exact head `7089fc6fa2087829ff73319d331d217057df0ff5` 的 Windows preview run `39449881232` 通过 reliability 与 Python 进程内模拟备份，但“启动打包 EXE 并执行备份”步骤失败；PyInstaller 构建成功。runner 上 GUI EXE 进程保持存活，但 `/api/health` 在等待期间未响应，步骤日志不能进一步区分 WebView 会话与后台服务线程问题。
+- 为避免把缺失的 GUI 运行时误报为产品功能失败或通过，本分支改用显式的 `YINGXU_E2E_HEADLESS=1` 诊断模式：相同打包 EXE 直接运行内置服务，随后对其服务执行健康版本核对和完整合成备份断言。标准用户启动仍保留 pywebview 桌面窗口流程。
+- 下一次成功结果只可证明 Windows runner 上打包 EXE 的服务端资源和核心备份流程可运行；仍不覆盖 GUI 窗口交互、用户 Windows 安装/升级或真实读卡器。
+- 调整前快照：`docs/snapshots/2026-10-20-windows-packaged-runtime-adjustment/`。

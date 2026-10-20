@@ -22,6 +22,13 @@ def _wait_until_ready(url: str, timeout: float = 15.0) -> bool:
 def main():
     from smb.server import main as server_main
     from smb.config import config
+
+    # Deterministic packaged-service mode for Windows runner E2E. Normal desktop
+    # launches continue through the native pywebview window below.
+    if os.environ.get("YINGXU_E2E_HEADLESS") == "1":
+        server_main(open_browser=False, host_override="127.0.0.1")
+        return
+
     import webview
 
     url = f"http://127.0.0.1:{config.web_port}"

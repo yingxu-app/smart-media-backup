@@ -69,14 +69,14 @@ jobs:
           pyinstaller desktop/smb-win.spec --noconfirm
           dir dist\
 
-      - name: Launch packaged EXE and exercise backup flow
+      - name: Exercise backup flow through packaged EXE service
         shell: pwsh
         run: |
           $configDir = Join-Path $env:RUNNER_TEMP 'yingxu-packaged-config'
           New-Item -ItemType Directory -Force -Path $configDir | Out-Null
           $config = @{
             web_host = '127.0.0.1'
-            web_port = 8098
+            web_port = 18198
             auto_open_browser = $false
             pocket_enabled = $false
             pocket_tcp_enabled = $false
@@ -92,15 +92,17 @@ jobs:
           $startInfo.UseShellExecute = $false
           $startInfo.CreateNoWindow = $true
           $startInfo.Environment['SMB_CONFIG_DIR'] = $configDir
+          $startInfo.Environment['YINGXU_E2E_HEADLESS'] = '1'
           $process = [System.Diagnostics.Process]::Start($startInfo)
           if (-not $process) { throw 'Could not start packaged EXE.' }
 
           try {
             $health = $null
-            for ($i = 0; $i -lt 60; $i++) {
+            $deadline = [DateTime]::UtcNow.AddSeconds(30)
+            while ([DateTime]::UtcNow -lt $deadline) {
               if ($process.HasExited) { throw "Packaged EXE exited early with code $($process.ExitCode)." }
               try {
-                $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8098/api/health' -TimeoutSec 2
+                $health = Invoke-RestMethod -Uri 'http://127.0.0.1:18198/api/health' -TimeoutSec 1
                 break
               } catch {
                 Start-Sleep -Milliseconds 500
@@ -113,6 +115,7 @@ jobs:
 
             $env:SMB_CONFIG_DIR = $configDir
             $env:YINGXU_E2E_EXTERNAL_SERVER = '1'
+            $env:YINGXU_E2E_BASE_URL = 'http://127.0.0.1:18198'
             python e2e_win_check.py
             if ($LASTEXITCODE -ne 0) { throw "Packaged EXE backup flow failed with exit code $LASTEXITCODE." }
           }
