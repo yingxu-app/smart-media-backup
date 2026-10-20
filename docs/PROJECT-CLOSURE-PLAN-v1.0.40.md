@@ -298,3 +298,10 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - 下一次成功结果只可证明 Windows runner 上打包 EXE 的服务端资源和核心备份流程可运行；仍不覆盖 GUI 窗口交互、用户 Windows 安装/升级或真实读卡器。
 - 调整前快照：`docs/snapshots/2026-10-20-windows-packaged-runtime-adjustment/`。
 - PR #10 exact head `6deddba` 对应 run `39450869691` 的 PyInstaller build 与打包服务健康检查通过；验证脚本随后在打印中文标题时因 runner `cp1252` stdout 编码失败，尚未执行打包服务备份断言。workflow 子进程现显式使用 UTF-8；修复前快照在 `docs/snapshots/2026-10-20-windows-packaged-utf8-fix/`，修复效果待新 run 验证。
+
+#### Packaged Windows service E2E terminal evidence (`bbfb942`)
+
+- PR #10 head `bbfb942a83fe2c4d9412c4f6c3c0ac788cbbc560`: Windows preview run `39451574588` success; Reliability push `39451563134` and Reliability PR `39451574482` success across Windows/macOS/Ubuntu × Python 3.11/3.12; macOS candidate run `39451574496` success.
+- Windows preview runner built the unsigned v1.0.40 EXE, launched that exact packaged executable in explicit isolated service mode, confirmed `/api/health` HTTP 200 and version 1.0.40, then passed 21 packaged-service E2E assertions including scan, invalid source rejection, copy, SHA-256, duplicates, history/report and unchanged source. PE x64, unsigned status, checksum manifest and artifact upload passed.
+- Windows EXE artifact `12278397307`: 27,876,356 bytes, Actions metadata digest `sha256:be9a656d6e1cc8f1108f1b1745a5a91d0ea6ea6442df0e1ea3eb5edf831ac18a`. E2E report artifact `12279032308`: 1,971 bytes, metadata digest `sha256:1c2bb3347743966d26412bc56245f4324ee5d4d33855fd382df77264d65e7087`.
+- This establishes packaged backend/service behavior on a Windows-hosted runner. It does not establish pywebview GUI interaction, a user-PC install/upgrade, or a physical card reader. PR #10 remains OPEN/DRAFT; the user's Windows device gate remains open. Snapshot: `docs/snapshots/2026-10-20-windows-packaged-e2e-terminal/`.
