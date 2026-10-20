@@ -284,3 +284,9 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - The Pocket job initially stopped at `expo install --check`: the online Expo version service recommended `expo@58.0.16`, `expo-modules-core@58.0.23`, and `expo-router@58.0.24`. Offline package metadata reported no matching `expo-modules-core@58.0.23`, and this Mac could not reach npm (`ECONNREFUSED`), so I could not verify that the other recommended versions were published or installable. The pinned installed SDK's bundled module map accepts the current package versions under `EXPO_OFFLINE=1`; the workflow now uses that SDK-local compatibility check. The remaining lint/typecheck/test/prebuild/export checks must pass on the next exact PR head before accepting the CI checkpoint.
 - macOS artifact `12196956679` metadata: 21,098,798 bytes, SHA-256 `aba82f823633e03e8d487874b05196a7b2185060ba3c8312a267c5b5a8f9b796`. GitHub's artifact download tool returned a reusable ZIP file reference, while local `gh` download failed with TLS EOF; therefore the package bytes have not been locally hashed or inspected. The current macOS build is ad-hoc/unnotarized by the existing workflow design.
 - Current work is reviewable in PR #4 but not merged. Pages has not been deployed, Latest Release remains v1.0.34, and no live Firebase account password was entered. Real login/sync, public PWA routing, iPhone Safari installation/offline restore, Windows current-candidate device acceptance, signing/notarization, and release download/upgrade/rollback remain open.
+## 2026-10-20 Windows 打包程序运行验收补充
+
+- 现有 Windows runner 流程已对隔离的合成来源卡做 20 项备份接口检查，但旧流程在 Python 进程内启动 Flask，不能证明 PyInstaller 产物能启动。
+- PR #10 新增构建后运行阶段：用临时配置启动本次生成的 unsigned x64 EXE，轮询 `/api/health` 并核对版本，再将同一套扫描、复制、SHA-256、重复跳过、历史和报告断言指向 EXE 自己的服务；完成后终止测试进程。
+- 该 Windows-hosted runner 结果可以证明候选 EXE 在 CI 虚拟机中启动并执行合成备份流程，不代替用户 Windows PC、真实 SD 卡读卡器、交互式桌面窗口或不同机器上的安装升级验收。
+- 本次修改前快照：`docs/snapshots/2026-10-20-windows-packaged-runtime/`。

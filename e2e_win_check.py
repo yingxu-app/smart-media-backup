@@ -20,7 +20,12 @@ sys.path.insert(0, ROOT)
 
 RUNNER_TEMP = os.environ.get("RUNNER_TEMP") or None
 WORK = tempfile.mkdtemp(prefix="yingxu-e2e-", dir=RUNNER_TEMP)
-CONFIG_DIR = os.path.join(WORK, "config")
+EXTERNAL_SERVER = os.environ.get("YINGXU_E2E_EXTERNAL_SERVER") == "1"
+CONFIG_DIR = (
+    os.path.abspath(os.environ["SMB_CONFIG_DIR"])
+    if EXTERNAL_SERVER and os.environ.get("SMB_CONFIG_DIR")
+    else os.path.join(WORK, "config")
+)
 SOURCE = os.path.join(WORK, "FAKE_SD")
 TARGET = os.path.join(WORK, "backup-target")
 os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -109,10 +114,21 @@ def main():
     n = make_fakesd()
     print(f"模拟来源卡已生成: {n} 个文件\n")
 
-    if not start_server():
-        print("服务启动失败")
-        return 1
-    print("服务就绪\n")
+    if EXTERNAL_SERVER:
+        code, body = req("GET", "/api/health")
+        try:
+            health = json.loads(body)
+        except Exception:
+            health = {}
+        log(code == 200 and health.get("status") == "ok",
+            "打包 EXE 服务已响应健康检查", f"HTTP {code} version={health.get('version')!r}")
+        if code != 200 or health.get("status") != "ok":
+            return 1
+    else:
+        if not start_server():
+            print("服务启动失败")
+            return 1
+        print("服务就绪\n")
 
     TERMINAL = ("done", "completed", "partial", "failed", "error", "cancelled")
 
