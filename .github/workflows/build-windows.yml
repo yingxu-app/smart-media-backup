@@ -116,6 +116,8 @@ jobs:
             $env:SMB_CONFIG_DIR = $configDir
             $env:YINGXU_E2E_EXTERNAL_SERVER = '1'
             $env:YINGXU_E2E_BASE_URL = 'http://127.0.0.1:18198'
+            $env:PYTHONIOENCODING = 'utf-8'
+            $env:PYTHONUTF8 = '1'
             python e2e_win_check.py
             if ($LASTEXITCODE -ne 0) { throw "Packaged EXE backup flow failed with exit code $LASTEXITCODE." }
           }

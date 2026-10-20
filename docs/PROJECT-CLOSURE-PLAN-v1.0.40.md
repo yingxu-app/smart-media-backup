@@ -297,3 +297,4 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - 为避免把缺失的 GUI 运行时误报为产品功能失败或通过，本分支改用显式的 `YINGXU_E2E_HEADLESS=1` 诊断模式：相同打包 EXE 直接运行内置服务，随后对其服务执行健康版本核对和完整合成备份断言。标准用户启动仍保留 pywebview 桌面窗口流程。
 - 下一次成功结果只可证明 Windows runner 上打包 EXE 的服务端资源和核心备份流程可运行；仍不覆盖 GUI 窗口交互、用户 Windows 安装/升级或真实读卡器。
 - 调整前快照：`docs/snapshots/2026-10-20-windows-packaged-runtime-adjustment/`。
+- PR #10 exact head `6deddba` 对应 run `39450869691` 的 PyInstaller build 与打包服务健康检查通过；验证脚本随后在打印中文标题时因 runner `cp1252` stdout 编码失败，尚未执行打包服务备份断言。workflow 子进程现显式使用 UTF-8；修复前快照在 `docs/snapshots/2026-10-20-windows-packaged-utf8-fix/`，修复效果待新 run 验证。
