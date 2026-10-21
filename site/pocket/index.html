@@ -55,12 +55,13 @@
 
   <section class="card">
     <h2>连接附近的电脑</h2>
-    <p class="hint">手机和电脑使用同一 Wi‑Fi 时，选择素材并开始备份；影序会把所选文件交给配对电脑完成扫描、去重、分块传输和 SHA‑256 校验。电脑关闭时仍可打开此 PWA 查看已缓存的云端历史，但不能传输。</p>
+    <p class="hint">手机和电脑使用同一 Wi‑Fi 时，选择素材并开始备份；影序会把所选文件交给配对电脑完成扫描、去重、分块传输和 SHA‑256 校验。电脑暂时离线时，所选素材会暂存在本机浏览器，重新连接后可继续。</p>
     <div class="field"><label for="desktopAddress">电脑显示的局域网地址</label><input id="desktopAddress" inputmode="url" placeholder="例如 http://192.168.1.20:8080"></div>
     <div class="field"><label for="phoneEventName">归档名称</label><input id="phoneEventName" maxlength="120" placeholder="例如：2026年秋季旅行"></div>
     <div class="field"><label for="phoneMediaFiles">选择照片、视频或 Files 中的素材</label><input id="phoneMediaFiles" class="file-input" type="file" accept="image/*,video/*,.arw,.cr2,.cr3,.nef,.nrw,.dng,.orf,.rw2,.raf,.srw,.x3f,.3fr,.fff,.mef,.mos,.mxf,.braw,.mpg,.mts,.m2ts,.insv,.webm,.mkv,.wmv,.flv" multiple></div>
     <div class="field"><label for="phoneFolderFiles">选择 Files/SD 卡中的文件夹（Safari 18.4+ 或支持目录选择的浏览器）</label><input id="phoneFolderFiles" class="file-input" type="file" webkitdirectory directory multiple></div>
     <div class="row"><button id="phoneBackupButton" class="button primary">扫描并备份到电脑</button><button id="clearPhoneFilesButton" class="button secondary">清除选择</button></div>
+    <div id="phoneQueueActions" class="row hidden"><button id="resumePhoneQueueButton" class="button primary">连接电脑并继续</button><button id="clearPhoneQueueButton" class="button secondary">清除本机暂存</button></div>
     <div id="phoneBackupControls" class="row hidden"><button id="pausePhoneBackupButton" class="button secondary">暂停</button><button id="cancelPhoneBackupButton" class="button secondary">取消任务</button></div>
     <div id="phoneBackupProgressTrack" class="progress-track hidden"><div id="phoneBackupProgressBar" class="progress-bar"></div></div>
     <p id="desktopMessage" class="message" role="status" aria-live="polite">选择素材后，影序会打开已配对的电脑协作页继续传输。</p>
@@ -68,7 +69,7 @@
   </section>
 
   <p id="offlineStatus" class="privacy" role="status" aria-live="polite">正在准备离线页面。</p>
-  <p class="privacy">原始照片和视频只会在你明确选择后通过同一 Wi‑Fi 传到已配对电脑，不上传到影序云端。手机浏览器需要保持页面打开；锁屏或切换应用后，系统可能暂停传输。电脑绝对路径和凭据不上传。登录刷新令牌与已缓存历史保存在此浏览器的 IndexedDB 中；退出账号会清除这些本机缓存。</p>
+  <p class="privacy">原始照片和视频不会上传到影序云端。为支持电脑暂时离线后的重试，待处理素材会暂存在此浏览器的 IndexedDB；成功备份后自动清除，也可手动清除。电脑绝对路径和凭据不上传。手机浏览器需要保持页面打开；锁屏或切换应用后，系统可能暂停传输。登录刷新令牌与云端历史同样保存在本机；退出账号会清除这些账号缓存。</p>
   <div class="footer-links"><a href="../">影序官网</a><a href="../privacy.html">隐私说明</a></div>
 </main>
 <script src="./firebase-config.js"></script>

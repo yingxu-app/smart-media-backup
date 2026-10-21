@@ -11,6 +11,10 @@
   let selectedPhoneFiles = [];
   let handoffWindow = null;
   let handoffOrigin = "";
+  let phoneQueue = null;
+  let handoffReady = false;
+  let handoffQueueSaved = false;
+  let handoffEventName = "";
   const MAX_PHONE_FILES = 1000;
 
   function setMessage(id, message, isError = false) {
@@ -257,18 +261,90 @@
     setMessage("desktopMessage", "已清除手机文件选择。");
   }
 
+  function updatePhoneQueueActions() {
+    const hasQueue = Boolean(phoneQueue?.files?.length);
+    byId("phoneQueueActions").classList.toggle("hidden", !hasQueue);
+    byId("resumePhoneQueueButton").disabled = Boolean(handoffWindow && !handoffWindow.closed && handoffTimer);
+    byId("clearPhoneQueueButton").disabled = Boolean(handoffWindow && !handoffWindow.closed && handoffTimer);
+  }
+
+  async function persistPhoneQueue(address, eventName) {
+    const totalBytes = selectedPhoneFiles.reduce((sum, item) => sum + item.file.size, 0);
+    if (navigator.storage?.estimate) {
+      const estimate = await navigator.storage.estimate();
+      const available = Number(estimate.quota) - Number(estimate.usage || 0);
+      if (Number.isFinite(available) && available > 0 && totalBytes > available * 0.9) {
+        throw new Error("手机浏览器可用存储空间不足以暂存这批素材。请释放空间后重试。");
+      }
+    }
+    const candidate = {
+      version: 1,
+      createdAt: Date.now(),
+      desktopAddress: address,
+      eventName,
+      totalBytes,
+      files: selectedPhoneFiles.map(item => ({
+        file: item.file,
+        relativePath: item.relativePath,
+        kind: item.kind,
+        name: item.file.name,
+        size: item.file.size,
+        lastModified: item.file.lastModified,
+      })),
+    };
+    await client.store.set("phoneBackupQueue", candidate);
+    phoneQueue = candidate;
+    handoffQueueSaved = true;
+    if (navigator.storage?.persist) await navigator.storage.persist().catch(() => false);
+    updatePhoneQueueActions();
+  }
+
+  async function clearPhoneQueue({ clearSelection = false } = {}) {
+    await client.store.remove("phoneBackupQueue");
+    phoneQueue = null;
+    handoffQueueSaved = false;
+    if (clearSelection) {
+      selectedPhoneFiles = [];
+      byId("phoneMediaFiles").value = "";
+      byId("phoneFolderFiles").value = "";
+      renderSelectedFiles();
+    }
+    updatePhoneQueueActions();
+  }
+
+  async function loadPhoneQueue() {
+    const saved = await client.store.get("phoneBackupQueue");
+    if (!saved || !Array.isArray(saved.files) || !saved.files.length) return;
+    phoneQueue = saved;
+    handoffQueueSaved = true;
+    selectedPhoneFiles = saved.files
+      .filter(item => item?.file && typeof item.file.slice === "function" && typeof item.relativePath === "string")
+      .map(item => ({ file: item.file, relativePath: item.relativePath, kind: item.kind, status: "待连接电脑" }));
+    if (!selectedPhoneFiles.length) {
+      await clearPhoneQueue({ clearSelection: true });
+      return;
+    }
+    byId("desktopAddress").value = saved.desktopAddress || "";
+    byId("phoneEventName").value = saved.eventName || "";
+    renderSelectedFiles();
+    updatePhoneQueueActions();
+    setMessage("desktopMessage", `发现本机待处理任务：${selectedPhoneFiles.length} 个文件已暂存，连接电脑后可继续。`);
+  }
+
   function handleDesktopMessage(event) {
     if (!handoffOrigin || event.origin !== handoffOrigin || event.source !== handoffWindow) return;
     const data = event.data || {};
     if (data.type === "YINGXU_POCKET_READY" && handoffWindow && !handoffWindow.closed) {
       clearInterval(handoffTimer);
       handoffTimer = 0;
+      if (handoffReady) return;
       try {
         handoffWindow.postMessage({
           type: "YINGXU_POCKET_FILES",
-          eventName: byId("phoneEventName").value.trim() || "手机备份",
+          eventName: handoffEventName || "手机备份",
           files: selectedPhoneFiles.map(item => ({ file: item.file, relativePath: item.relativePath, kind: item.kind })),
         }, event.origin);
+        handoffReady = true;
         setMessage("desktopMessage", "已连接电脑协作页，正在扫描并校验所选素材…");
       } catch (_) {
         byId("phoneBackupButton").disabled = false;
@@ -291,6 +367,10 @@
       byId("phoneBackupProgressTrack").classList.remove("hidden");
       byId("phoneBackupProgressBar").style.width = data.status === "completed" ? "100%" : `${Math.max(0, Math.min(100, Number(data.percent) || 0))}%`;
       setMessage("desktopMessage", String(data.message || "电脑备份任务结束。"), data.status !== "completed");
+      if (data.status === "completed" && handoffQueueSaved) {
+        clearPhoneQueue({ clearSelection: true }).catch(() => setMessage("desktopMessage", "备份已完成，但浏览器未能清除本机暂存媒体。请点击“清除本机暂存”后再退出。", true));
+      }
+      else updatePhoneQueueActions();
     }
   }
 
@@ -302,9 +382,15 @@
     handoffWindow.postMessage({ type: "YINGXU_POCKET_COMMAND", command }, handoffOrigin);
   }
 
-  function startPhoneBackup() {
+  async function startPhoneBackup({ resume = false } = {}) {
     try {
-      const base = new URL(byId("desktopAddress").value.trim());
+      if (resume && phoneQueue) {
+        selectedPhoneFiles = phoneQueue.files.map(item => ({ file: item.file, relativePath: item.relativePath, kind: item.kind, status: "待连接电脑" }));
+      } else {
+        selectedPhoneFiles = readSelectedFiles();
+      }
+      const address = resume && phoneQueue?.desktopAddress ? phoneQueue.desktopAddress : byId("desktopAddress").value.trim();
+      const base = new URL(address);
       if (base.protocol !== "http:" || base.username || base.password || base.hostname === "localhost" || base.hostname === "127.0.0.1") {
         throw new Error("请输入电脑在同一 Wi‑Fi 下显示的局域网 HTTP 地址。");
       }
@@ -318,7 +404,6 @@
       if (!privateIpv4 && !base.hostname.endsWith(".local")) {
         throw new Error("电脑地址必须是同一局域网的私有 IPv4 地址或 .local 名称。");
       }
-      selectedPhoneFiles = readSelectedFiles();
       if (!selectedPhoneFiles.length) throw new Error("请先选择至少一个支持的照片或视频文件。");
       if (selectedPhoneFiles.length > MAX_PHONE_FILES) throw new Error("单次最多选择 1000 个文件，请分批备份。");
       const totalBytes = selectedPhoneFiles.reduce((sum, item) => sum + item.file.size, 0);
@@ -327,9 +412,31 @@
       window.removeEventListener("message", handleDesktopMessage);
       window.addEventListener("message", handleDesktopMessage);
       handoffOrigin = base.origin;
-      handoffWindow = window.open(base.href, "yingxuPocketDesktop");
+      handoffReady = false;
+      handoffQueueSaved = Boolean(resume && phoneQueue);
+      handoffEventName = resume && phoneQueue?.eventName
+        ? phoneQueue.eventName : byId("phoneEventName").value.trim() || "手机备份";
+      if (!resume && phoneQueue?.files?.length && !window.confirm("本机已有未完成的手机备份任务。开始新任务会替换该暂存任务，是否继续？")) return;
+      handoffWindow = window.open("about:blank", "yingxuPocketDesktop");
       if (!handoffWindow) throw new Error("浏览器拦截了电脑协作页。请允许此 PWA 打开局域网页面后重试。");
       byId("phoneBackupButton").disabled = true;
+      if (!resume) {
+        try {
+          await persistPhoneQueue(`${base.origin}/pocket/`, handoffEventName);
+          setMessage("desktopMessage", "素材已暂存在本机浏览器；电脑暂时离线时可稍后连接继续。原始文件不会上传到影序云端。");
+        } catch (storageError) {
+          const directOnly = window.confirm(`${storageError.message || "无法在本机暂存素材。"}\n\n是否只尝试本次直连？传输中断后需要重新选择素材。`);
+          if (!directOnly) {
+            handoffWindow.close();
+            handoffWindow = null;
+            byId("phoneBackupButton").disabled = false;
+            return;
+          }
+          handoffQueueSaved = false;
+          updatePhoneQueueActions();
+        }
+      }
+      handoffWindow.location.href = base.href;
       let attempts = 0;
       clearInterval(handoffTimer);
       handoffTimer = window.setInterval(() => {
@@ -337,19 +444,24 @@
           clearInterval(handoffTimer);
           handoffTimer = 0;
           byId("phoneBackupButton").disabled = false;
-          setMessage("desktopMessage", "电脑协作页已关闭。电脑需保持运行并与手机位于同一 Wi‑Fi。", true);
+          setMessage("desktopMessage", handoffQueueSaved ? "电脑页已关闭；文件仍暂存在本机，可稍后重试连接。"
+            : "电脑协作页已关闭。电脑需保持运行并与手机位于同一 Wi‑Fi。", true);
+          updatePhoneQueueActions();
           return;
         }
         if (++attempts > 600) {
           clearInterval(handoffTimer);
           handoffTimer = 0;
           byId("phoneBackupButton").disabled = false;
-          setMessage("desktopMessage", "尚未收到电脑页面就绪信号。请在电脑页面完成配对后重试。", true);
+          setMessage("desktopMessage", handoffQueueSaved ? "电脑暂不可用；任务已保存在本机。打开电脑后点击“连接电脑并继续”。"
+            : "尚未连接电脑，请稍后重试或重新选择素材。", handoffQueueSaved);
+          updatePhoneQueueActions();
           return;
         }
         try { handoffWindow.postMessage({ type: "YINGXU_POCKET_PING" }, base.origin); } catch (_) {}
       }, 500);
-      setMessage("desktopMessage", "请在电脑页面完成一次配对；页面就绪后，所选素材会自动交接并开始扫描。电脑需保持运行。");
+      setMessage("desktopMessage", handoffQueueSaved ? "任务已保存在本机；正在连接电脑。页面就绪后会自动继续。"
+        : "正在尝试直连电脑；电脑需保持运行并与手机处于同一 Wi‑Fi。");
     } catch (error) { setMessage("desktopMessage", error.message || "地址格式无效。", true); }
   }
 
@@ -357,6 +469,17 @@
   byId("phoneFolderFiles").addEventListener("change", () => { selectedPhoneFiles = readSelectedFiles(); renderSelectedFiles(); });
   byId("phoneBackupButton").addEventListener("click", startPhoneBackup);
   byId("clearPhoneFilesButton").addEventListener("click", clearPhoneSelection);
+  byId("resumePhoneQueueButton").addEventListener("click", () => startPhoneBackup({ resume: true }));
+  byId("clearPhoneQueueButton").addEventListener("click", async () => {
+    if (window.confirm("清除本机暂存的原始媒体？电脑上已备份的文件不会删除。")) {
+      try {
+        await clearPhoneQueue({ clearSelection: true });
+        setMessage("desktopMessage", "本机暂存文件已清除；电脑上的已完成备份不受影响。");
+      } catch (_) {
+        setMessage("desktopMessage", "浏览器未能清除暂存文件，请检查本机存储空间后重试。", true);
+      }
+    }
+  });
   byId("pausePhoneBackupButton").addEventListener("click", () => sendDesktopCommand("toggle-pause"));
   byId("cancelPhoneBackupButton").addEventListener("click", () => {
     if (window.confirm("取消手机备份？已完成并校验的文件会保留在电脑，未完成文件不会保留。")) sendDesktopCommand("cancel");
@@ -375,6 +498,7 @@
   });
 
   updateOfflineStatus();
+  loadPhoneQueue().catch(() => setMessage("desktopMessage", "无法读取本机暂存任务；请重新选择素材。", true));
   if (!client.configured) setMessage("authMessage", "Firebase 配置不完整，请联系影序维护者。", true);
   if ("serviceWorker" in navigator && window.isSecureContext) {
     navigator.serviceWorker.register("./sw.js", { scope: "./" })
