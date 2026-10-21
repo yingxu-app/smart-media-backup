@@ -279,6 +279,14 @@ jobs:
             $info.CreateNoWindow = $Headless
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
             $legacyConsole = $Version -eq '1.0.34'
+            if ($legacyConsole) {
+              # The published frozen build reads this standard Python setting
+              # before its startup banner. The runner's redirected handles are
+              # CP1252, so UTF-8 with backslash replacement keeps diagnostics
+              # writable while we exercise the old data format and upgrade.
+              $info.Environment['PYTHONIOENCODING'] = 'utf-8:backslashreplace'
+              $info.Environment['PYTHONUTF8'] = '1'
+            }
             if (-not $legacyConsole) {
               # The old-version E2E also sets these variables for its Python
               # helper in this PowerShell process. Do not let them mask the
@@ -400,6 +408,14 @@ jobs:
               catch { $lastProbeError = $_.Exception.Message; Start-Sleep -Milliseconds 500 }
             }
             if (-not $health -or $health.version -ne $Version) {
+              if ($legacyConsole) {
+                $consoleText = [YingxuLegacyConsole]::ReadConsoleText($running.ConsoleOutput)
+                if ($consoleText) { Write-Host "[1.0.34 console]`n$consoleText" }
+                $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+                  Where-Object { $_.LocalPort -in @(8080, 18200) } |
+                  Select-Object LocalAddress, LocalPort, OwningProcess)
+                Write-Host "[1.0.34 diagnostics] pid=$($process.Id) exited=$($process.HasExited) listeners=$($listeners | ConvertTo-Json -Compress)"
+              }
               Stop-YingxuVersion $running
               throw "$Version did not become healthy; got '$($health.version)'. Last probe: $lastProbeError"
             }
