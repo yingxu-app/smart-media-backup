@@ -3,6 +3,17 @@
 审计日期：2026-10-21。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。历史矩阵保留当时证据，最新范围和线上状态以本节为准。
 
 
+## PR #12 独立开发验收最新检查点（2026-10-21，代码 head `ed7ee84`）
+
+- PR #12 当前代码 head `ed7ee84ef27088b7e546c71f6ebc96bf6330c800`。Reliability PR `39574987576`、push `39574979508`、Windows preview `39574987782`、Pocket `39574987610` 均 success。Pocket Android debug build 与 artifact 上传成功；artifact `12334986479` 为 94,609,018 bytes，GitHub metadata SHA-256 `2ca4dd665dc3a45ad3db92402d81e02a8eb00305c100cf880d3e50ab832d7cf7`。这是 debug 构建证据，不是 Android 真机验收。
+- Windows x64 runner E2E `39574987782` 的隔离备份 20/20、打包 v1.0.40 服务备份 21/21、pywebview 原生窗口 8/8 通过。覆盖扫描、文件复制、SHA-256、重复跳过、报告/历史、源素材不变及 GUI 导航。
+- 旧公开 v1.0.34 EXE 的真实启动诊断确认 `yingxu-local-server` 线程因 CP1252 `UnicodeEncodeError` 在中文启动横幅处退出；该冻结 EXE 不接受外部 UTF-8 环境覆盖。新桌面入口在 CP1252 下重配 stdout/stderr，增加线程日志回归；桌面候选通过 CP1252 runner 的打包服务/GUI验收。升级 E2E 用与 v1.0.34 完全一致的 SQLite 表结构夹具，验证候选读取旧历史、追加备份记录并恢复升级前数据快照。故历史 v1.0.34 在 CP1252 环境中的服务器启动缺陷仍是已知限制，不能写作已由新版本修复旧二进制。
+- Windows unsigned preview artifact `12334590133` metadata 与本机 ZIP SHA-256 一致：`97518540056dbaa930ed7655ed65998a7707155a7fe2a5a7431221bf345701a2`。包内 x64 PE EXE 为 28,207,009 bytes，SHA-256 `1db962cd56419026623d56c53a352ba2dedfcde7ff45c9635db0d7d963f70e86`，与包内 `SHA256SUMS.txt` 一致；本机 `file` 识别为 PE32+ x86-64。未签名，尚非正式发布。
+- macOS candidate `39574988177` 第一次仅因 GitHub blob storage DNS `ENOTFOUND` 在上传步骤失败；只重跑 macOS 失败 workflow 一次后成功，测试、构建、DMG 打包此前均通过。artifact `12334389734` metadata 与本机 ZIP SHA-256 一致：`3c88d85b57e68cb2f7b330014d981210fba26a33a5c4c6eac1bcded6f207c08c`；DMG SHA-256 `123e537f4622e41ffb3de794e6ed03d64c50604bb52efdddb8b6ba8ff035b27f` 与清单一致，`hdiutil verify` 为 VALID。app 为 arm64 ad-hoc 签名、无 Team ID；用户已排除正式签名/公证。
+- 本轮本机桌面入口定向测试 6/6 通过（含 CP1252 下服务线程中文日志）；v1.0.34 SQLite fixture 通过当前数据库迁移后读取。Pocket JS/CNG/check、lint/typecheck 和 Android debug 构建均以该 head 终态成功。
+- **不代表完成：**PR #12 仍需转为 ready 并按授权合并，之后核验 Pages 部署；正式 Latest Release 仍为 v1.0.34，v1.0.40 继续保持候选/Draft。真实 Firebase 注册登录、同账号同步与 UID 隔离仍未实测；iPhone Safari PWA 文件传输/恢复仍待手机操作。PWA 不保证锁屏持续传输，不静默扫描整张相册、不写任意手机目录，原始媒体不上传 Firebase。
+
+
 
 ## 2026-10-21 PR #12 CI 与 Windows 虚拟机编码修正
 

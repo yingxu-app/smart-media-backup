@@ -3,6 +3,15 @@
 核对日期：2026-10-21。下方历史记录保留当时证据；当前范围与状态以本节为准。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
 
 
+## PR #12 独立开发闭环检查点（2026-10-21）
+
+- **代码与自动化：**CP1252 中文日志修复、线程日志回归与 Pocket 本地暂存恢复测试已完成。Reliability PR/push、Windows x64 runner、Pocket/PWA/Android debug build 均成功。Windows E2E：隔离服务 20/20、候选 EXE 服务备份 21/21、pywebview 界面 8/8；候选可读 v1.0.34 数据格式、执行备份并恢复升级前数据库快照。旧公开 v1.0.34 EXE 在 CP1252 下仍有已证实的启动崩溃；它不能由新版本源码回写修复，升级验收用其原数据库 schema 夹具明确验证数据兼容。
+- **候选包：**Windows artifact `12334590133` ZIP metadata 与本机 SHA-256 一致，EXE 与包内 manifest 一致并识别为 x64。macOS artifact `12334389734` ZIP 与 DMG 校验通过；DMG 内 app 为 arm64 ad-hoc 签名且无 Team ID。候选均未正式签名/公证或发布。
+- **PR 与部署：**PR #12 的代码检查已完成，待转为 ready、合并后检查 Pages 首页、`/pocket/`、`/download/`、`/update/`、`/privacy.html`。正式 Release/下载页保持 v1.0.34，未发布 v1.0.40。
+- **目标结束边界：**独立开发任务在合并及 Pages 部署核验、最终审计同步后结束。交接仍需用户在真实 Firebase 账号完成注册/登录、用户名/跨设备数据/UID 隔离及离线恢复验证，并在 iPhone Safari PWA 完成真实照片/视频传输、桌面哈希/历史核对、断网恢复。此处不把账户或手机验收伪报为完成。
+
+
+
 
 ## 2026-10-21 PR #12 Windows x64 VM 首轮与修正
 
