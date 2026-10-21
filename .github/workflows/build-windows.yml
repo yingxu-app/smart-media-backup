@@ -187,9 +187,14 @@ jobs:
 
       - name: Exercise v1.0.34 install, v1.0.40 upgrade, and rollback in Windows x64 VM
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          $release = Invoke-RestMethod -Headers @{ 'User-Agent' = 'YINGXU-Windows-VM-E2E' } `
-            -Uri 'https://api.github.com/repos/yingxu-app/smart-media-backup/releases/tags/v1.0.34'
+          $release = Invoke-RestMethod -Headers @{
+            'User-Agent' = 'YINGXU-Windows-VM-E2E'
+            'Authorization' = "Bearer $env:GITHUB_TOKEN"
+            'Accept' = 'application/vnd.github+json'
+          } -Uri 'https://api.github.com/repos/yingxu-app/smart-media-backup/releases/tags/v1.0.34'
           $oldAsset = $release.assets | Where-Object { $_.name -eq 'YINGXU-Windows-v1.0.34.exe' } | Select-Object -First 1
           $manifestAsset = $release.assets | Where-Object { $_.name -eq 'SHA256SUMS.txt' } | Select-Object -First 1
           if (-not $oldAsset -or -not $manifestAsset) { throw 'Published v1.0.34 Windows EXE or SHA256SUMS.txt is missing.' }
