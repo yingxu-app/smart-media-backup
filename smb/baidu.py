@@ -228,9 +228,10 @@ class BaiduPan:
             result = response.json()
             if not isinstance(result, dict) or result.get("errno", 0) != 0:
                 return {"error": "百度网盘未能返回容量信息"}
-            total = int(result["quota"])
+            total = int(result["total"])
             used = int(result["used"])
-            free = int(result.get("free", max(0, total - used)))
+            # The API's `free` field is the free-tier allowance, not unused space.
+            free = max(0, total - used)
             if min(total, used, free) < 0:
                 return {"error": "百度网盘返回的容量数据无效"}
             return {"total": total, "used": used, "free": free}
