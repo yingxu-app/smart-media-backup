@@ -2,6 +2,7 @@ import unittest
 import json
 import io
 import tempfile
+import threading
 from unittest.mock import patch
 from pathlib import Path
 
@@ -38,6 +39,31 @@ class DesktopRunConsoleEncodingTests(unittest.TestCase):
                 _make_console_output_encoding_safe()
                 print("服务线程：影序已启动", file=stream)
 
+            stream.flush()
+            self.assertIn("服务线程：影序已启动", raw.getvalue().decode("utf-8"))
+        finally:
+            stream.detach()
+
+    def test_service_thread_can_log_chinese_without_uncaught_encoding_error(self):
+        raw = io.BytesIO()
+        stream = io.TextIOWrapper(raw, encoding="cp1252")
+        errors = []
+
+        def log_from_service_thread():
+            try:
+                print("服务线程：影序已启动", file=stream)
+            except Exception as exc:  # surfaced by the test instead of the thread hook
+                errors.append(exc)
+
+        try:
+            with patch("sys.stdout", stream), patch("sys.stderr", stream):
+                _make_console_output_encoding_safe()
+                worker = threading.Thread(target=log_from_service_thread)
+                worker.start()
+                worker.join(timeout=2)
+
+            self.assertFalse(worker.is_alive(), "service logging thread did not finish")
+            self.assertEqual(errors, [])
             stream.flush()
             self.assertIn("服务线程：影序已启动", raw.getvalue().decode("utf-8"))
         finally:

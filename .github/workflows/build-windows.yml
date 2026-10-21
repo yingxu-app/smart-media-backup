@@ -420,4 +420,6 @@ jobs:
           path: |
             ${{ runner.temp }}/yingxu-e2e-*/e2e-result.json
             ${{ runner.temp }}/yingxu-webview-ui-e2e.json
+            ${{ runner.temp }}/yingxu-1.0.34-stdout.log
+            ${{ runner.temp }}/yingxu-1.0.34-stderr.log
           if-no-files-found: warn
