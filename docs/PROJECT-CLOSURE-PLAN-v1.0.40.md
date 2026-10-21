@@ -28,6 +28,14 @@
 - **真实用户门槛：**仍需在 iPhone Safari 用一张照片和一段视频走完整扫描→传输→桌面校验→历史流程，并验证暂停/恢复、断网重连及锁屏恢复；登录真实 Firebase 账号验证同步/UID 隔离的任务仍由用户在本机输入凭据后完成，不得复用聊天密码。Android 真机、Windows 实体机均不列入验收条件。
 - **有限结束条件：**PR #9 checks 通过后按授权合并；Windows x64 虚拟机 E2E 在包含新代码的 main head 通过；新 Pages 首页/Pocket/下载/隐私/更新路由部署并 HTTP 200；桌面候选与 Release 资产 SHA‑256 对齐；升级和回退步骤可读。iPhone PWA 与 Firebase 真实账户项若仍只需用户在设备/应用内操作，则完成其余独立工作后输出唯一明确步骤，保持目标未完成，不以 CI 或发布状态冒充全端验收。PWA 仍不承诺锁屏持续传输或离线期间后台排队；这受浏览器权限和执行限制，需保持为明确的平台边界。
 
+## 2026-10-21 PWA 手机备份入口推进
+
+- **本地源码变更：**HTTPS Pocket PWA 新增手机照片/视频和 Files 文件夹选择、归档名称、文件预览、单批 1000 文件/100 GiB 上限、开始/清除选择、扫描进度、暂停/继续/取消和任务结果显示。用户点击开始后，PWA 通过 `postMessage` 将用户明确选择的 `File` 对象交给同 Wi-Fi 的桌面 `/pocket/` 页面；桌面现有配对会话负责安全授权，既有上传流程负责 SHA-256 扫描、重复跳过、分块传输、桌面端复验和历史记录。
+- **浏览器边界：**PWA 不直接从 HTTPS 发起到电脑 HTTP 私网的文件/API 请求，而由用户点击打开的局域网页面完成传输；这是为避开浏览器混合内容限制。PWA 主界面仍可查看其本机缓存的云端历史，电脑关闭时不能备份到电脑。iOS Files 文件夹选择需要支持 `webkitdirectory` 的 Safari 版本；锁屏/切出应用仍可能暂停传输。
+- **当前证据等级：**改动保存在本地分支 `codex/windows-vm-webview-acceptance`，已包含改前快照 `docs/snapshots/2026-10-21-pocket-pwa-handoff/`。`node --check` 对 PWA 与桌面 Pocket 内嵌脚本通过；现有 Pocket Node 定向测试 15/15、HTTP 上传 Python 定向测试 4/4、`git diff --check` 通过。尚未推送/部署、未通过 iPhone 实际交接验证；不得描述为已上线或设备验收。
+- **仍未实现：**PWA 不能静默扫描相册、向 iPhone 任意本地目录/照片图库写入、保证锁屏后台持续复制、电脑离线时替电脑落盘排队，或异地传输原片。全桌面功能映射仍需逐项梳理；本次只推进手机选取素材到已配对电脑的入口。
+- **其余闭环状态：**Windows 验收仅使用 x64 虚拟机；实体 Windows 测试已排除。官方更新下载与 SHA-256 校验、人工安装及回退说明已实现；本轮线上 `/update/` 和 `/pocket/` 均 HTTP 200。公开 Latest Release 仍为 v1.0.34，v1.0.40 未发布；真实 Firebase 注册/登录、iPhone PWA交接与离线恢复、Windows 虚拟机 GUI 升级/回退仍待验证。
+
 ## 2026-10-20 新增 Windows runner 功能验收
 
 - PR #10 head `eb079c9353312f27fc22c91f16e11be95d59f42d` 的 Windows preview run `39445925130` 与 Reliability run `39445924653` 均 success。
