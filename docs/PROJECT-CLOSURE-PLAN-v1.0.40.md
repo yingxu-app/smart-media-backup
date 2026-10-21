@@ -249,7 +249,7 @@ The following checks refer to the exact current PR head `df2411578a0598d8c82415e
 - Pocket run `39013794196` completed successfully. iOS Simulator job `117341606981` completed successfully; the run's artifact list contains only the Android debug APK, no iOS Simulator app or IPA.
 - The canonical Pages home, `/download/`, and `/privacy.html` under `https://yingxu-app.github.io/smart-media-backup/` all returned HTTP 200. The legacy org root URL returns a GitHub Pages “Site not found” 404, and API lookup for the old standalone `yingxu-app/yingxu-app.github.io` repo returns 404. Do not publish the stale local clone, which advertises macOS v1.0.31 and Windows v1.0.33.
 - GitHub Release API lists the expected Windows v1.0.34 EXE and checksum file, but direct asset downloads from the audit host failed during TLS handshake with EOF; end-to-end public download remains unverified from this host.
-- `https://smart-media-backup.vercel.app/` root returns HTTP 200 with older marketing content; `/download/` and `/privacy.html` return 404. It is not a complete current mirror. Pages uses the main repository's workflow; deployment run `38924919861` succeeded.
+- Pages uses the main repository's workflow; deployment run `38924919861` succeeded.
 - Still open: Windows and mobile real-device use, real WeChat AppID/DevTools/review, EAS account/project setup, formal Apple/Google signing, notarization and store release, and the scope of browser-based backup.
 
 ## Follow-up verification — docs head `7283164`, product source `9bbae70`

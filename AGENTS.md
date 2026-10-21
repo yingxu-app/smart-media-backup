@@ -159,7 +159,7 @@ SD卡扫描完成 → ai_namer.suggest_event_name(sample_images)
 | Web面板 | Flask+SocketIO, Chart.js图表, 暗色主题 |
 | macOS App | PyInstaller打包, 自签名, DMG安装包, 桌面双击可用 |
 | Windows App | GitHub Actions自动构建, Release可下载 |
-| 官网 | GitHub Pages + Vercel 双线部署, 含下载链接+安装教程 |
+| 官网 | GitHub Pages 主站 + ChatGPT Sites 备用站, 含下载链接+安装教程 |
 | AI命名 | 支持Ollama本地(llava) / OpenAI(gpt-4o-mini), 默认Ollama |
 | 百度网盘 | OAuth已授权, 分片上传, 备份完自动触发 |
 | GitHub | 代码全部推送, 含CI/CD工作流 |
@@ -204,13 +204,17 @@ pyinstaller smb-win.spec --noconfirm
 
 ## 部署
 
-**托管平台只有一个：GitHub**（`yingxu-app/smart-media-backup`）。全部安装包从 Releases 下载。
+**网页托管仅保留 GitHub Pages 与 ChatGPT Sites**。全部安装包从 GitHub Releases 下载。
+
+- 主站：https://yingxu-app.github.io/smart-media-backup/
+- 备用站：https://yingxu-smart-media-backup.nanyu20050927.chatgpt.site/
+- 部署记录见 `docs/WEBSITE-HOSTING.md`。
 
 - 发布页（含 macOS DMG / Windows EXE）：https://github.com/yingxu-app/smart-media-backup/releases/latest
 
-> 2026-09-21 废弃：GitHub Pages 官网、Vercel、Gitee 镜像、仓库内 `website/` 目录。
+> 旧独立官网、Gitee 镜像和仓库内 `website/` 目录已停用；以以上两处现行地址为准。
 > 已归档副本见 `~/Documents/项目/_归档/影序-已废弃官网与Gitee同步/`。
 
 ## 网站范围更新（2026-10-16）
 
-当前用户目标重新要求交付网页和小程序。继续遵守“GitHub 单一托管平台”：官网与下载页放在本仓库 `site/`，通过 GitHub Pages 发布；不恢复已失效的独立官网仓库或 Vercel。线上只列入 GitHub Releases 的正式版本，不把本机候选或 CI 预览写成公开下载。在线网页产品范围仍待用户确认。
+当前用户目标重新要求交付网页和小程序。官网采用 GitHub Pages 主站与 ChatGPT Sites 备用站：官网与下载页放在本仓库 `site/`，通过 GitHub Pages 发布；不恢复已失效的独立官网仓库。线上只列入 GitHub Releases 的正式版本，不把本机候选或 CI 预览写成公开下载。在线网页产品范围仍待用户确认。
