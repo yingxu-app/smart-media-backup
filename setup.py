@@ -25,6 +25,7 @@ setup(
         "psutil>=5.9",
         "humanize>=4.9",
         "Pillow>=10.0",
+        "openai>=1.30",
     ],
     extras_require={
         "dev": ["pytest", "black"],

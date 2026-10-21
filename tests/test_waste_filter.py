@@ -30,6 +30,15 @@ class WasteHeuristicPixelAccessTests(unittest.TestCase):
             result = self.reviewer._heuristic_review(str(self.image_path))
         self.assertEqual(result["label"], "黑图")
 
+    def test_single_image_ai_result_cannot_classify_cross_image_duplicate(self):
+        with mock.patch.object(self.reviewer, "_heuristic_review", return_value={
+            "label": "正常", "confidence": 0.2, "reason": "画面正常", "source": "heuristic"
+        }), mock.patch.object(self.reviewer, "_ai_review", return_value={
+            "label": "重复", "confidence": 0.99, "reason": "看起来重复", "source": "ai"
+        }):
+            result = self.reviewer.review(str(self.image_path))
+        self.assertEqual(result["label"], "正常")
+
 
 if __name__ == "__main__":
     unittest.main()

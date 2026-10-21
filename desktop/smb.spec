@@ -27,6 +27,7 @@ a = Analysis(
         "smb.server", "smb.transfer", "smb.pocket_tcp",
         "smb.phash", "smb.lightroom", "smb.baidu", "smb.ai_namer",
         "smb.waste_filter", "smb.windows_preview", "smb.pocket",
+        "openai",
         "flask", "flask_socketio", "engineio", "engineio.async_drivers",
         "engineio.async_drivers.threading", "socketio",
         "psutil", "humanize", "dateutil", "dateutil.parser",
