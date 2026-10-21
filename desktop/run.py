@@ -21,6 +21,18 @@ def _wait_until_ready(url: str, timeout: float = 15.0) -> bool:
     return False
 
 
+def _make_console_output_encoding_safe() -> None:
+    """Keep localized diagnostics from crashing background threads on legacy Windows code pages."""
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if stream is None or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (OSError, ValueError):
+            pass
+
+
 def _run_windows_ui_probe(window, base_url: str, report_path: str) -> None:
     """Exercise the real pywebview window only in the Windows VM E2E job."""
     results = []
@@ -90,6 +102,7 @@ def _run_windows_ui_probe(window, base_url: str, report_path: str) -> None:
 
 
 def main():
+    _make_console_output_encoding_safe()
     from smb.server import main as server_main
     from smb.config import config
 

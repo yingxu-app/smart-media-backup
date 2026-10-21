@@ -4,6 +4,12 @@
 
 
 
+## 2026-10-21 PR #12 Windows x64 VM 首轮与修正
+
+- PR #12 已推送为草稿。Pocket run `39532108875` 成功终态：PWA 检查通过；Android debug artifact `12316761659` 元数据 digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，不代表 Android 设备验收。
+- Windows run `39532108863` 的打包服务备份通过，原生 pywebview UI 步骤失败，升级/回退随之跳过。日志明确显示中文日志输出到 cp1252 时触发 `UnicodeEncodeError`，本地服务线程退出，UI 探针未得到报告。
+- 本机修复 `desktop/run.py`：stdout/stderr 使用 `backslashreplace`，避免控制台不支持字符中断服务；新增两个回归测试。定向测试 2/2、Python 编译和 `git diff --check` 通过。该修复尚未推送，需在 PR 新 head 上重新运行 Windows x64 VM 流程。
+
 ## 2026-10-21 PWA 本机暂存队列候选
 
 - 新增本机 IndexedDB 媒体暂存和“连接电脑并继续”手动重试入口，供电脑暂时离线或传输中断后恢复；成功完成后自动清除暂存，用户也可以手动确认清除。

@@ -4,6 +4,13 @@
 
 
 
+## 2026-10-21 PR #12 CI 与 Windows 虚拟机编码修正
+
+- PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 已推送为草稿。原始 head `cfdaedc3c3928e112a8d9a76fa66d3633f5b695a` 的 Pocket run `39532108875` 已终态 success，PWA 检查通过；Android debug artifact `12316761659` 元数据大小 94,609,014 bytes、digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，仅是 CI debug 包，不代表 Android 设备验收。
+- 同 head 的 Windows preview run `39532108863`：打包服务备份通过；原生 pywebview UI 步骤失败，后面的安装/升级/回退被跳过。日志根因为服务启动线程在 Windows cp1252 输出中文时抛 `UnicodeEncodeError`，服务线程退出，导致 UI 探针没有生成报告。
+- 修复已在本机工作树：桌面入口为 stdout/stderr 配置 `backslashreplace`，避免不支持的 Windows 代码页让日志输出杀死服务线程；新增两个回归测试。本机测试 2/2 通过，Python 编译与 `git diff --check` 通过。修复尚未提交/推送，Windows x64 VM 尚未用修复后的 head 复验。
+- 当前 PR head 的 Pocket/Android run 已成功终态；未重启。下一个 CI 只会由修复提交产生。
+
 ## 2026-10-21 PWA 本机媒体队列候选（未部署）
 
 - PWA 在开始电脑备份前，将用户所选 File/Blob、文件相对路径、归档名和目标电脑地址保存到本机 IndexedDB；电脑未连接、传输失败或任务未完成时，可手动点击“连接电脑并继续”，不必重新打开文件选择器。成功完成后自动清除本次暂存媒体；用户也可在界面明确确认后手动清除。
