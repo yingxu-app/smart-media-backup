@@ -1,4 +1,4 @@
-const CACHE_NAME = "yingxu-pocket-shell-v4";
+const CACHE_NAME = "yingxu-pocket-shell-v5";
 const SHELL_INDEX = new URL("./index.html", self.registration.scope).href;
 const APP_SHELL = [
   "./",
