@@ -217,6 +217,29 @@ jobs:
           $configPath = Join-Path $configDir 'config.json'
           [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
 
+          if (-not ('YingxuLegacyConsole' -as [type])) {
+            Add-Type -TypeDefinition @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class YingxuLegacyConsole {
+            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool AllocConsole();
+            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool FreeConsole();
+            [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+            [DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int standardHandle);
+            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetStdHandle(int standardHandle, IntPtr handle);
+            [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+            public static extern IntPtr CreateFile(string name, uint access, uint share, IntPtr security,
+              uint creation, uint flags, IntPtr template);
+            [DllImport("kernel32.dll", SetLastError=true)]
+            public static extern bool SetHandleInformation(IntPtr handle, uint mask, uint flags);
+            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool CloseHandle(IntPtr handle);
+            [DllImport("kernel32.dll")] public static extern uint GetConsoleOutputCP();
+            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetConsoleOutputCP(uint codePage);
+            [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr window, int command);
+          }
+          "@
+          }
+
           function Start-YingxuVersion($Executable, $Version, $ConfigPath, $Headless) {
             $info = [System.Diagnostics.ProcessStartInfo]::new()
             $info.FileName = $Executable
@@ -225,13 +248,7 @@ jobs:
             $info.CreateNoWindow = $Headless
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
             $legacyConsole = $Version -eq '1.0.34'
-            if ($legacyConsole) {
-              # Set the Python encoding overrides on the frozen process before
-              # it starts. Changing the PowerShell environment after Start()
-              # cannot affect the old release's threaded startup banner.
-              $info.Environment['PYTHONUTF8'] = '1'
-              $info.Environment['PYTHONIOENCODING'] = 'utf-8:backslashreplace'
-            } else {
+            if (-not $legacyConsole) {
               # The old-version E2E also sets these variables for its Python
               # helper in this PowerShell process. Do not let them mask the
               # candidate's own CP1252-safe startup behavior.
@@ -240,7 +257,48 @@ jobs:
             }
             if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
             else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
-            $process = [System.Diagnostics.Process]::Start($info)
+            $originalStdout = [IntPtr]::Zero
+            $originalStderr = [IntPtr]::Zero
+            $consoleOutput = [IntPtr]::Zero
+            $allocatedConsole = $false
+            $originalConsoleCodePage = 0
+            try {
+              if ($legacyConsole) {
+                # GitHub Actions gives PowerShell pipe-backed stdout/stderr.
+                # The published frozen v1.0.34 build uses the ANSI code page
+                # for a pipe and crashes while printing its Chinese banner.
+                # Give only this legacy process a hidden UTF-8 console; keep
+                # the current candidate on the runner pipes to test its fix.
+                $originalStdout = [YingxuLegacyConsole]::GetStdHandle(-11)
+                $originalStderr = [YingxuLegacyConsole]::GetStdHandle(-12)
+                $originalConsoleCodePage = [YingxuLegacyConsole]::GetConsoleOutputCP()
+                if ([YingxuLegacyConsole]::GetConsoleWindow() -eq [IntPtr]::Zero) {
+                  if (-not [YingxuLegacyConsole]::AllocConsole()) { throw 'Could not allocate the legacy UTF-8 console.' }
+                  $allocatedConsole = $true
+                  [void][YingxuLegacyConsole]::ShowWindow([YingxuLegacyConsole]::GetConsoleWindow(), 0)
+                  $originalConsoleCodePage = [YingxuLegacyConsole]::GetConsoleOutputCP()
+                }
+                $consoleOutput = [YingxuLegacyConsole]::CreateFile('CONOUT$', 0xC0000000, 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
+                if ($consoleOutput -eq [IntPtr](-1)) { throw 'Could not open the legacy console output handle.' }
+                if (-not [YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 1)) { throw 'Could not make the legacy console output inheritable.' }
+                if (-not [YingxuLegacyConsole]::SetConsoleOutputCP(65001)) { throw 'Could not set UTF-8 output for the legacy console.' }
+                if (-not [YingxuLegacyConsole]::SetStdHandle(-11, $consoleOutput) -or
+                    -not [YingxuLegacyConsole]::SetStdHandle(-12, $consoleOutput)) { throw 'Could not attach the legacy process to the UTF-8 console.' }
+              }
+              $process = [System.Diagnostics.Process]::Start($info)
+            }
+            finally {
+              if ($legacyConsole) {
+                [void][YingxuLegacyConsole]::SetStdHandle(-11, $originalStdout)
+                [void][YingxuLegacyConsole]::SetStdHandle(-12, $originalStderr)
+                if ($consoleOutput -ne [IntPtr]::Zero -and $consoleOutput -ne [IntPtr](-1)) {
+                  [void][YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 0)
+                  [void][YingxuLegacyConsole]::CloseHandle($consoleOutput)
+                }
+                if ($originalConsoleCodePage) { [void][YingxuLegacyConsole]::SetConsoleOutputCP($originalConsoleCodePage) }
+                if ($allocatedConsole) { [void][YingxuLegacyConsole]::FreeConsole() }
+              }
+            }
             if (-not $process) { throw "Could not launch $Version." }
             $launcher = $process
             $deadline = [DateTime]::UtcNow.AddSeconds(45)
