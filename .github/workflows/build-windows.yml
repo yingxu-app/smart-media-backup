@@ -217,6 +217,18 @@ jobs:
           $configPath = Join-Path $configDir 'config.json'
           [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
 
+          if (-not ('YingxuConsoleCodePage' -as [type])) {
+            Add-Type -TypeDefinition @"
+          using System.Runtime.InteropServices;
+          public static class YingxuConsoleCodePage {
+            [DllImport("kernel32.dll")] public static extern uint GetConsoleOutputCP();
+            [DllImport("kernel32.dll")] public static extern bool SetConsoleOutputCP(uint codePage);
+          }
+          "@
+          }
+          $originalConsoleCodePage = [YingxuConsoleCodePage]::GetConsoleOutputCP()
+          if (-not $originalConsoleCodePage) { throw 'Could not read the runner console output code page.' }
+
           function Start-YingxuVersion($Executable, $Version, $ConfigPath, $Headless) {
             $info = [System.Diagnostics.ProcessStartInfo]::new()
             $info.FileName = $Executable
@@ -225,20 +237,18 @@ jobs:
             $info.CreateNoWindow = $Headless
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
             # The published v1.0.34 frozen build predates the in-app UTF-8
-            # console fix. Windows ignores PYTHONIOENCODING for interactive
-            # consoles unless legacy stdio is enabled; the candidate is tested
-            # without any of these compatibility overrides.
+            # console fix and ignores environment-level encoding overrides.
+            # Run that legacy baseline under a UTF-8 console code page; restore
+            # the runner's original code page before testing the candidate.
             if ($Version -eq '1.0.34') {
-              $info.Environment['PYTHONIOENCODING'] = 'utf-8'
-              $info.Environment['PYTHONUTF8'] = '1'
-              $info.Environment['PYTHONLEGACYWINDOWSSTDIO'] = '1'
+              if (-not [YingxuConsoleCodePage]::SetConsoleOutputCP(65001)) { throw 'Could not set UTF-8 console mode for v1.0.34.' }
             } else {
+              if (-not [YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)) { throw 'Could not restore the runner console code page for the candidate.' }
               # The old-version E2E also sets these variables for its Python
               # helper in this PowerShell process. Do not let them mask the
               # candidate's own CP1252-safe startup behavior.
               $info.Environment.Remove('PYTHONIOENCODING') | Out-Null
               $info.Environment.Remove('PYTHONUTF8') | Out-Null
-              $info.Environment.Remove('PYTHONLEGACYWINDOWSSTDIO') | Out-Null
             }
             if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
             else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
@@ -267,6 +277,7 @@ jobs:
           }
           finally {
             if (-not $oldProcess.HasExited) { Stop-Process -Id $oldProcess.Id -Force }
+            [void][YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)
           }
 
           Copy-Item -LiteralPath $configDir -Destination $rollbackDir -Recurse
@@ -294,6 +305,7 @@ jobs:
           }
           finally {
             if (-not $rollbackProcess.HasExited) { Stop-Process -Id $rollbackProcess.Id -Force }
+            [void][YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)
           }
 
       - name: Verify x64 PE and create SHA-256 manifest

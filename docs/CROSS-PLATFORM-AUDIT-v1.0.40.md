@@ -6,6 +6,13 @@
 
 ## 2026-10-21 PR #12 CI 与 Windows 虚拟机编码修正
 
+### 最新进展（run `39544529046`）
+
+- PR #12 修复提交 `5d8c323d5acd00aab2d5e5931583c990bcb8ed45` 已推送。Reliability PR/push 六项矩阵、macOS candidate 和 Pocket PWA 检查均通过；macOS artifact `12320464791` metadata SHA-256 为 `63602f8e1e9e27a25b5840d8ee101718fa5f01d6c745942cc030b94b547aa0b9`。
+- Windows run `39544529046` 的备份 21 项、打包 EXE 服务及 pywebview GUI 八项均通过；旧 v1.0.34 仍在继承的 CP1252 控制台中输出中文后退出，安装/升级/回退步骤失败。设置 `PYTHONIOENCODING`、`PYTHONUTF8` 与 `PYTHONLEGACYWINDOWSSTDIO` 未改变该冻结包的实际输出流。
+- 新修正将旧 v1.0.34 的基线启动限定在 UTF-8 Windows 控制台代码页，并在启动候选前恢复 runner 原有代码页；候选仍在原 CP1252 环境中测试自身 UTF-8 安全入口。此兼容设置只用于旧版基线，完整安装、备份、历史读取、升级和回退结果待修正后的 Windows run。
+- Pocket run `39544529155` 的 PWA、队列恢复测试、lint/typecheck 与 Android bundle export 已成功，Android debug APK build 仍运行。旧 head run `39542648184` 的 Android debug build 已终态 success。
+
 - PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 的工作分支为 `codex/windows-vm-webview-acceptance`，修复提交 `70ee5a82070c7fcb9ab28683839d7b2ff83dcfed`，PR OPEN/DRAFT、mergeable。
 - Windows run `39542648189` 的隔离备份 21 项与 pywebview GUI 八项探针均通过。旧 v1.0.34 仍在 CP1252 stderr 输出中文并崩溃，Python 编码环境变量没有改变附着控制台的代码页，因此安装/升级/回退步骤失败。
 - 桌面入口已重配置 stdout/stderr 为 UTF-8 与 `backslashreplace`；CP1252 `TextIOWrapper` 中文写入回归用例通过。本机 Windows workflow 修正正在准备：Windows Python 控制台会忽略 `PYTHONIOENCODING`，除非同时设置 `PYTHONLEGACYWINDOWSSTDIO`（[Python 3.11 文档](https://docs.python.org/3.11/using/cmdline.html#envvar-PYTHONIOENCODING)）；旧版测试会组合这两项，候选启动时清除 helper 变量以检验自身修复。Pocket workflow 也将纳入新增的暂存队列测试。
