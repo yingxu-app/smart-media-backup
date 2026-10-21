@@ -6,11 +6,12 @@
 
 ## 2026-10-21 PR #12 CI 与 Windows 虚拟机编码修正
 
-### 最新进展（runs `39544529046`、`39545231559`）
+### 最新进展（runs `39544529046`、`39545231559`、`39545905105`）
 
 - PR #12 修复提交 `5d8c323d5acd00aab2d5e5931583c990bcb8ed45` 已推送。Reliability PR/push 六项矩阵、macOS candidate 和 Pocket PWA 检查均通过；macOS artifact `12320464791` metadata SHA-256 为 `63602f8e1e9e27a25b5840d8ee101718fa5f01d6c745942cc030b94b547aa0b9`。
 - Windows run `39544529046` 的备份 21 项、打包 EXE 服务及 pywebview GUI 八项均通过；旧 v1.0.34 仍在 CP1252 标准输出流中输出中文后退出，安装/升级/回退步骤失败。环境编码覆盖未改变该冻结包的实际流编码。
-- Windows run `39545231559` 进一步确认只改控制台输出代码页无效：旧 EXE 继承的是标准输出管道，Python 对管道使用系统 ANSI code page。官方 Python 文档说明 Windows 的 NUL 字符设备采用启动时控制台代码页（[Python 3.11 `sys` 文档](https://docs.python.org/3.11/library/sys.html#sys.stdin)）。当前 workflow 将旧版通过 `cmd.exe` 启动，输出/错误流指向 NUL，并在 UTF-8 控制台环境中启动；再按父进程和映像路径定位旧 EXE，以便健康检查与准确停止。候选仍直接继承原 CP1252 runner 流，验证自身 UTF-8 安全入口。修正结果待新 Windows run。
+- Windows run `39545231559` 进一步确认只改控制台输出代码页无效：旧 EXE 继承的是标准输出管道，Python 对管道使用系统 ANSI code page。官方 Python 文档说明 Windows 的 NUL 字符设备采用启动时控制台代码页（[Python 3.11 `sys` 文档](https://docs.python.org/3.11/library/sys.html#sys.stdin)）。run `39545905105` 的 NUL stdout 消除了 CP1252 `UnicodeEncodeError`，但旧版仍未通过健康检查；这说明编码崩溃已规避，旧服务的实际启动原因仍需 stderr 证据。
+- 当前 workflow 保持旧版通过 `cmd.exe` + UTF-8 控制台 + NUL stdout 启动，stderr 写入诊断日志，并在健康失败时输出最后探测错误及日志；按父进程/映像路径定位旧 EXE。候选仍直接继承原 CP1252 runner 流，验证自身 UTF-8 安全入口。该诊断版待新 Windows run。
 - 桌面入口 UTF-8 重配置及 CP1252 回归用例已由本机测试通过。完整安装、备份、历史读取、升级和回退仍以 Windows x64 runner 实测为准。
 - Pocket run `39544529155` 的 PWA、队列恢复测试、lint/typecheck 与 Android bundle export 已成功，Android debug APK build 仍运行。旧 head run `39542648184` 的 Android debug build 已终态 success。
 

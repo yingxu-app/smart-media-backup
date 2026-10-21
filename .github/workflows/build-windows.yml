@@ -236,6 +236,7 @@ jobs:
             $info.CreateNoWindow = $Headless
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
             $legacyConsole = $Version -eq '1.0.34'
+            $legacyStderrPath = Join-Path (Split-Path -Parent $ConfigPath) 'legacy-v1.0.34-stderr.log'
             # The published v1.0.34 frozen build predates the in-app UTF-8 fix
             # and ignores environment-level encoding overrides. Run it in the
             # inherited UTF-8 console with its streams attached to NUL; Python
@@ -244,7 +245,7 @@ jobs:
             if ($legacyConsole) {
               if (-not [YingxuConsoleCodePage]::SetConsoleOutputCP(65001)) { throw 'Could not set UTF-8 console mode for v1.0.34.' }
               $info.FileName = $env:ComSpec
-              $info.Arguments = "/d /s /c `"`"$Executable`" 1>NUL 2>NUL`""
+              $info.Arguments = "/d /s /c `"`"$Executable`" 1>NUL 2>`"$legacyStderrPath`"`""
               $info.CreateNoWindow = $false
             } else {
               if (-not [YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)) { throw 'Could not restore the runner console code page for the candidate.' }
@@ -276,12 +277,18 @@ jobs:
             }
             $running = [pscustomobject]@{ App = $process; Launcher = $launcher }
             $health = $null
+            $lastProbeError = ''
             while ([DateTime]::UtcNow -lt $deadline) {
               if ($process.HasExited) { throw "$Version exited early with code $($process.ExitCode)." }
               try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/health' -TimeoutSec 1; break }
-              catch { Start-Sleep -Milliseconds 500 }
+              catch { $lastProbeError = $_.Exception.Message; Start-Sleep -Milliseconds 500 }
             }
-            if (-not $health -or $health.version -ne $Version) { Stop-YingxuVersion $running; throw "$Version did not become healthy; got '$($health.version)'." }
+            if (-not $health -or $health.version -ne $Version) {
+              Stop-YingxuVersion $running
+              $detail = if ($legacyConsole -and (Test-Path -LiteralPath $legacyStderrPath)) { Get-Content -LiteralPath $legacyStderrPath -Raw -Encoding Default } else { '' }
+              if ($detail) { Write-Host "[$Version stderr]`n$detail" }
+              throw "$Version did not become healthy; got '$($health.version)'. Last probe: $lastProbeError"
+            }
             return $running
           }
 

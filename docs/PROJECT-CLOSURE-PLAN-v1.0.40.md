@@ -9,7 +9,7 @@
 ### 最新推进状态（2026-10-21）
 
 - 修复提交 `5d8c323d5acd00aab2d5e5931583c990bcb8ed45` 已推送。Reliability PR/push 矩阵、macOS candidate 和 Pocket PWA 检查通过；Windows run `39544529046` 中备份 21 项和 pywebview GUI 八项通过，但 v1.0.34 仍因 CP1252 控制台中文日志退出。
-- 已定位到旧冻结包继承的标准输出管道仍用系统 ANSI code page，单改控制台输出代码页无效。workflow 现将旧版 v1.0.34 通过 `cmd.exe` 启动并把 stdout/stderr 指向 NUL，使旧程序在 UTF-8 控制台页下运行；候选版恢复 runner 原始代码页并直接启动，以检验自身编码修复。该修正已做前置快照，等待 Windows x64 runner 验收。
+- 已确认旧版 CP1252 异常在 stdout 指向 NUL 后消失，但 v1.0.34 仍不响应健康检查。下一版 workflow 保留 NUL stdout、将 stderr 保存为诊断文件并输出最后探测错误，以查明服务未就绪的独立原因。候选版恢复 runner 原始代码页并直接启动，仍会检验自身编码修复；尚未达到升级/回退验收。
 - Pocket run `39544529155` 的 PWA/队列测试与 Android bundle 已成功；Android debug APK 构建仍运行。旧 head Pocket run `39542648184` 已终态 success。
 
 - PR #12 当前分支 `codex/windows-vm-webview-acceptance` head 为 `70ee5a82070c7fcb9ab28683839d7b2ff83dcfed`，OPEN/DRAFT、mergeable。Windows run `39542648189` 的隔离备份 21 项和 pywebview GUI 八项均通过；旧 v1.0.34 仍因 CP1252 中文日志在健康启动前崩溃。
