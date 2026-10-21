@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/build-windows.yml
       - e2e_win_check.py
+      - desktop/run.py
       - smb/**
       - desktop/smb-win.spec
       - requirements.txt
@@ -16,6 +17,7 @@ on:
     paths:
       - .github/workflows/build-windows.yml
       - e2e_win_check.py
+      - desktop/run.py
       - smb/**
       - desktop/smb-win.spec
       - requirements.txt
@@ -86,9 +88,13 @@ jobs:
 
           $executable = Get-ChildItem dist -Filter '*.exe' -File | Select-Object -First 1
           if (-not $executable) { throw 'Packaged EXE was not found.' }
+          $installDir = Join-Path $env:RUNNER_TEMP 'yingxu-portable-install'
+          New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+          $installedExe = Join-Path $installDir $executable.Name
+          Copy-Item -LiteralPath $executable.FullName -Destination $installedExe -Force
           $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-          $startInfo.FileName = $executable.FullName
-          $startInfo.WorkingDirectory = $executable.DirectoryName
+          $startInfo.FileName = $installedExe
+          $startInfo.WorkingDirectory = $installDir
           $startInfo.UseShellExecute = $false
           $startInfo.CreateNoWindow = $true
           $startInfo.Environment['SMB_CONFIG_DIR'] = $configDir
@@ -120,6 +126,49 @@ jobs:
             $env:PYTHONUTF8 = '1'
             python e2e_win_check.py
             if ($LASTEXITCODE -ne 0) { throw "Packaged EXE backup flow failed with exit code $LASTEXITCODE." }
+          }
+          finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+
+      - name: Exercise native pywebview UI in Windows x64 VM
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP 'yingxu-portable-install'
+          $configDir = Join-Path $env:RUNNER_TEMP 'yingxu-packaged-config'
+          $configPath = Join-Path $configDir 'config.json'
+          $reportPath = Join-Path $env:RUNNER_TEMP 'yingxu-webview-ui-e2e.json'
+          $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+          $config.web_port = 18199
+          [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
+          $installedExe = Get-ChildItem -LiteralPath $installDir -Filter '*.exe' -File | Select-Object -First 1
+          if (-not $installedExe) { throw 'Installed portable EXE was not found.' }
+          Remove-Item -LiteralPath $reportPath -Force -ErrorAction SilentlyContinue
+          $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+          $startInfo.FileName = $installedExe.FullName
+          $startInfo.WorkingDirectory = $installDir
+          $startInfo.UseShellExecute = $false
+          $startInfo.CreateNoWindow = $false
+          $startInfo.Environment['SMB_CONFIG_DIR'] = $configDir
+          $startInfo.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null
+          $startInfo.Environment['YINGXU_E2E_UI_REPORT'] = $reportPath
+          $process = [System.Diagnostics.Process]::Start($startInfo)
+          if (-not $process) { throw 'Could not launch the native pywebview window.' }
+
+          try {
+            $deadline = [DateTime]::UtcNow.AddSeconds(60)
+            while (-not (Test-Path -LiteralPath $reportPath) -and [DateTime]::UtcNow -lt $deadline) {
+              if ($process.HasExited) { throw "Native UI process exited early with code $($process.ExitCode)." }
+              Start-Sleep -Milliseconds 500
+            }
+            if (-not (Test-Path -LiteralPath $reportPath)) { throw 'Native pywebview UI probe produced no report within 60 seconds.' }
+            $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
+            if (-not $report.passed) {
+              $failed = @($report.results | Where-Object { -not $_.ok } | ForEach-Object { "$($_.name): $($_.detail)" }) -join '; '
+              throw "Native pywebview UI acceptance failed: $failed"
+            }
+            $report.results | ForEach-Object { Write-Host "[PASS] $($_.name) $($_.detail)" }
           }
           finally {
             if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
@@ -197,5 +246,7 @@ jobs:
         uses: actions/upload-artifact@v7.0.2
         with:
           name: YINGXU-Windows-v${{ steps.app-version.outputs.version }}-E2E-report
-          path: ${{ runner.temp }}/yingxu-e2e-*/e2e-result.json
+          path: |
+            ${{ runner.temp }}/yingxu-e2e-*/e2e-result.json
+            ${{ runner.temp }}/yingxu-webview-ui-e2e.json
           if-no-files-found: warn
