@@ -1,5 +1,14 @@
 # 影序全端闭环状态审计 v1.0.40
 
+## PR #12 合并及 Pages 部署验收检查点（2026-10-21）
+
+- **合并与 CI：**PR #12 已于 2026-10-21 合并至 `main`，merge commit `db5b48facfc036f7dc40e5e61e270a33b1c2a3e5`；PR head `852af2d0c1c8a64f59966cbf9d7fe9df900c090a` 的 Reliability PR/push、Windows preview、macOS candidate、Pocket/PWA 与 Android debug 全部 success。合并后的 main push Reliability `39584315138`、Windows `39584315070`、Pocket `39584315157`、Pages Deploy `39584315201` 也均 success；Android debug 的 Gradle 构建完成时间为 10:41:19Z。Android 仍只是 debug 构建证据。
+- **Windows VM 与包体：**Windows x64 runner 的服务、升级/旧历史兼容和 pywebview GUI E2E 全通过；最新报告含 20/20、21/21 两组服务检查及 GUI 8/8。最新 Windows artifact `12335068489`（GitHub digest `sha256:81c3159d694d07b4f254c7b2b3d892a6af13d88d34bf51939c161a80b03e98b0`）；下载后的 EXE SHA-256 `bb96544ac1931d3c827542c0b3413bd386453778204ab92f31c6d71fc9873223` 与包内 `SHA256SUMS.txt` 一致，文件类型为 PE32+ GUI x86-64。旧 v1.0.34 冻结 EXE 在 CP1252 下的中文启动日志崩溃仍作为已知旧版限制记录；新版候选本身通过 CP1252 runner 验收。
+- **macOS 候选包：**artifact `12335257815`，GitHub digest `sha256:877abe5fe2336bc9082312afe157a3b6422493a3d9326464d8e1946ad6a65fa2`。DMG SHA-256 `cca3b1a7e5a980d63d7c0d6e758cc2e361fbbd9c1d715bc57cc2bccf741c263a` 与包内清单一致，`hdiutil verify` 为 VALID，app `codesign --verify --deep --strict` 通过，架构 arm64。签名仍为 ad-hoc、没有 Team ID，也未公证。
+- **Pages 线上核验：**合并后部署 workflow `39584315201` success。规范 Pages 首页、`/pocket/`、`/download/`、`/update/` 与 `/privacy.html` 均已由本机 TLS 校验的 HTTPS 请求确认 HTTP 200。`/download/` 显示公开版本 v1.0.34。GitHub Latest 仍为 v1.0.34，v1.0.40 仍为 Draft；没有正式发布或提前切换下载页。
+- **仍待外部验收：**真实 Firebase 注册/登录、用户名和同账号多设备同步、跨账号 UID 隔离与离线恢复；iPhone Safari PWA 实际选择照片/视频传输，校验桌面哈希/历史，并验收断网/恢复。不得以 CI、网页可访问或 debug 包替代这些验收。PWA 不保证锁屏后台持续传输、不静默扫描完整相册、不能写入任意手机路径；原始媒体不上传 Firebase。用户排除的 Android 真机、原生 iOS、正式签名/公证及商店发行仍不在本目标范围。
+
+
 审计日期：2026-10-21。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。历史矩阵保留当时证据，最新范围和线上状态以本节为准。
 
 
