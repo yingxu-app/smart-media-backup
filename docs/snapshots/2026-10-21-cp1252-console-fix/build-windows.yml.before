@@ -1,0 +1,354 @@
+name: Build Windows preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/build-windows.yml
+      - e2e_win_check.py
+      - desktop/run.py
+      - smb/**
+      - desktop/smb-win.spec
+      - requirements.txt
+      - setup.py
+      - tests/**
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-windows.yml
+      - e2e_win_check.py
+      - desktop/run.py
+      - smb/**
+      - desktop/smb-win.spec
+      - requirements.txt
+      - setup.py
+      - tests/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run reliability suite
+        env:
+          SMB_CONFIG_DIR: ${{ runner.temp }}/yingxu-test-config
+        run: python -m unittest discover -s tests -v
+
+      - name: Run isolated backup flow on Windows runner
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+        run: python e2e_win_check.py
+
+      - name: Resolve application version
+        id: app-version
+        shell: pwsh
+        run: |
+          $version = python -c "from smb import __version__; print(__version__)"
+          if ($LASTEXITCODE -ne 0 -or -not $version) {
+            throw 'Could not resolve the application version.'
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build .exe with PyInstaller
+        run: |
+          pyinstaller desktop/smb-win.spec --noconfirm
+          dir dist\
+
+      - name: Exercise backup flow through packaged EXE service
+        shell: pwsh
+        run: |
+          $configDir = Join-Path $env:RUNNER_TEMP 'yingxu-packaged-config'
+          New-Item -ItemType Directory -Force -Path $configDir | Out-Null
+          $config = @{
+            web_host = '127.0.0.1'
+            web_port = 18198
+            auto_open_browser = $false
+            pocket_enabled = $false
+            pocket_tcp_enabled = $false
+          }
+          $configPath = Join-Path $configDir 'config.json'
+          [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
+          $executable = Get-ChildItem dist -Filter '*.exe' -File | Select-Object -First 1
+          if (-not $executable) { throw 'Packaged EXE was not found.' }
+          $installDir = Join-Path $env:RUNNER_TEMP 'yingxu-portable-install'
+          New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+          $installedExe = Join-Path $installDir $executable.Name
+          Copy-Item -LiteralPath $executable.FullName -Destination $installedExe -Force
+          $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+          $startInfo.FileName = $installedExe
+          $startInfo.WorkingDirectory = $installDir
+          $startInfo.UseShellExecute = $false
+          $startInfo.CreateNoWindow = $true
+          $startInfo.Environment['SMB_CONFIG_DIR'] = $configDir
+          $startInfo.Environment['YINGXU_E2E_HEADLESS'] = '1'
+          $process = [System.Diagnostics.Process]::Start($startInfo)
+          if (-not $process) { throw 'Could not start packaged EXE.' }
+
+          try {
+            $health = $null
+            $deadline = [DateTime]::UtcNow.AddSeconds(30)
+            while ([DateTime]::UtcNow -lt $deadline) {
+              if ($process.HasExited) { throw "Packaged EXE exited early with code $($process.ExitCode)." }
+              try {
+                $health = Invoke-RestMethod -Uri 'http://127.0.0.1:18198/api/health' -TimeoutSec 1
+                break
+              } catch {
+                Start-Sleep -Milliseconds 500
+              }
+            }
+            if (-not $health -or $health.status -ne 'ok') { throw 'Packaged EXE did not become healthy within 30 seconds.' }
+            if ($health.version -ne '${{ steps.app-version.outputs.version }}') {
+              throw "Unexpected packaged EXE version '$($health.version)'."
+            }
+
+            $env:SMB_CONFIG_DIR = $configDir
+            $env:YINGXU_E2E_EXTERNAL_SERVER = '1'
+            $env:YINGXU_E2E_BASE_URL = 'http://127.0.0.1:18198'
+            $env:PYTHONIOENCODING = 'utf-8'
+            $env:PYTHONUTF8 = '1'
+            python e2e_win_check.py
+            if ($LASTEXITCODE -ne 0) { throw "Packaged EXE backup flow failed with exit code $LASTEXITCODE." }
+          }
+          finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+
+      - name: Exercise native pywebview UI in Windows x64 VM
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP 'yingxu-portable-install'
+          $configDir = Join-Path $env:RUNNER_TEMP 'yingxu-packaged-config'
+          $configPath = Join-Path $configDir 'config.json'
+          $reportPath = Join-Path $env:RUNNER_TEMP 'yingxu-webview-ui-e2e.json'
+          $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+          $config.web_port = 18199
+          [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
+          $installedExe = Get-ChildItem -LiteralPath $installDir -Filter '*.exe' -File | Select-Object -First 1
+          if (-not $installedExe) { throw 'Installed portable EXE was not found.' }
+          Remove-Item -LiteralPath $reportPath -Force -ErrorAction SilentlyContinue
+          $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+          $startInfo.FileName = $installedExe.FullName
+          $startInfo.WorkingDirectory = $installDir
+          $startInfo.UseShellExecute = $false
+          $startInfo.CreateNoWindow = $false
+          $startInfo.Environment['SMB_CONFIG_DIR'] = $configDir
+          $startInfo.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null
+          $startInfo.Environment['YINGXU_E2E_UI_REPORT'] = $reportPath
+          $process = [System.Diagnostics.Process]::Start($startInfo)
+          if (-not $process) { throw 'Could not launch the native pywebview window.' }
+
+          try {
+            $deadline = [DateTime]::UtcNow.AddSeconds(60)
+            $previousLength = -1L
+            $stableReads = 0
+            while ([DateTime]::UtcNow -lt $deadline -and $stableReads -lt 2) {
+              if ($process.HasExited) { throw "Native UI process exited early with code $($process.ExitCode)." }
+              if (Test-Path -LiteralPath $reportPath) {
+                $currentLength = (Get-Item -LiteralPath $reportPath).Length
+                if ($currentLength -gt 0 -and $currentLength -eq $previousLength) { $stableReads++ }
+                else { $stableReads = 0 }
+                $previousLength = $currentLength
+              }
+              else { $previousLength = -1L; $stableReads = 0 }
+              if ($stableReads -lt 2) { Start-Sleep -Milliseconds 300 }
+            }
+            if ($stableReads -lt 2) { throw 'Native pywebview UI probe did not publish a stable report within 60 seconds.' }
+            $rawReport = Get-Content -LiteralPath $reportPath -Raw
+            $report = $rawReport | ConvertFrom-Json
+            $failedItems = @($report.results | Where-Object { $_.ok -ne $true })
+            if ($report.passed -ne $true -or $report.results.Count -eq 0 -or $failedItems.Count -gt 0) {
+              $failed = @($failedItems | ForEach-Object { "$($_.name): $($_.detail)" }) -join '; '
+              throw "Native pywebview UI acceptance failed (passed=$($report.passed), results=$($report.results.Count), failed=$($failedItems.Count)): $failed"
+            }
+            $report.results | ForEach-Object { Write-Host "[PASS] $($_.name) $($_.detail)" }
+          }
+          finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+
+      - name: Exercise v1.0.34 install, v1.0.40 upgrade, and rollback in Windows x64 VM
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod -Headers @{ 'User-Agent' = 'YINGXU-Windows-VM-E2E' } `
+            -Uri 'https://api.github.com/repos/yingxu-app/smart-media-backup/releases/tags/v1.0.34'
+          $oldAsset = $release.assets | Where-Object { $_.name -eq 'YINGXU-Windows-v1.0.34.exe' } | Select-Object -First 1
+          $manifestAsset = $release.assets | Where-Object { $_.name -eq 'SHA256SUMS.txt' } | Select-Object -First 1
+          if (-not $oldAsset -or -not $manifestAsset) { throw 'Published v1.0.34 Windows EXE or SHA256SUMS.txt is missing.' }
+
+          $upgradeRoot = Join-Path $env:RUNNER_TEMP 'yingxu-version-upgrade-e2e'
+          $oldDir = Join-Path $upgradeRoot 'v1.0.34'
+          $newDir = Join-Path $upgradeRoot 'candidate-v${{ steps.app-version.outputs.version }}'
+          $configDir = Join-Path $upgradeRoot 'config'
+          $rollbackDir = Join-Path $upgradeRoot 'rollback-config'
+          New-Item -ItemType Directory -Force -Path $oldDir, $newDir, $configDir | Out-Null
+
+          $oldExePath = Join-Path $oldDir $oldAsset.name
+          $manifestPath = Join-Path $upgradeRoot 'SHA256SUMS.txt'
+          Invoke-WebRequest -Uri $oldAsset.browser_download_url -OutFile $oldExePath
+          Invoke-WebRequest -Uri $manifestAsset.browser_download_url -OutFile $manifestPath
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw
+          $expectedHash = $null
+          foreach ($line in ($manifest -split '\r?\n')) {
+            if ($line -match '^([a-fA-F0-9]{64})\s+\*?YINGXU-Windows-v1\.0\.34\.exe$') { $expectedHash = $Matches[1].ToLowerInvariant(); break }
+          }
+          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $oldExePath).Hash.ToLowerInvariant()
+          if (-not $expectedHash -or $actualHash -cne $expectedHash) { throw 'Published v1.0.34 EXE did not match its SHA-256 manifest.' }
+
+          $config = @{ web_host = '127.0.0.1'; web_port = 18200; auto_open_browser = $false }
+          $configPath = Join-Path $configDir 'config.json'
+          [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
+          function Start-YingxuVersion($Executable, $Version, $ConfigPath, $Headless) {
+            $info = [System.Diagnostics.ProcessStartInfo]::new()
+            $info.FileName = $Executable
+            $info.WorkingDirectory = Split-Path -Parent $Executable
+            $info.UseShellExecute = $false
+            $info.CreateNoWindow = $Headless
+            $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
+            if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
+            else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
+            $process = [System.Diagnostics.Process]::Start($info)
+            if (-not $process) { throw "Could not launch $Version." }
+            $deadline = [DateTime]::UtcNow.AddSeconds(45)
+            $health = $null
+            while ([DateTime]::UtcNow -lt $deadline) {
+              if ($process.HasExited) { throw "$Version exited early with code $($process.ExitCode)." }
+              try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/health' -TimeoutSec 1; break }
+              catch { Start-Sleep -Milliseconds 500 }
+            }
+            if (-not $health -or $health.version -ne $Version) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw "$Version did not become healthy; got '$($health.version)'." }
+            return $process
+          }
+
+          $oldProcess = Start-YingxuVersion $oldExePath '1.0.34' $configPath $false
+          try {
+            $env:SMB_CONFIG_DIR = $configDir
+            $env:YINGXU_E2E_EXTERNAL_SERVER = '1'
+            $env:YINGXU_E2E_BASE_URL = 'http://127.0.0.1:18200'
+            $env:PYTHONIOENCODING = 'utf-8'
+            $env:PYTHONUTF8 = '1'
+            python e2e_win_check.py
+            if ($LASTEXITCODE -ne 0) { throw 'Published v1.0.34 did not pass the isolated backup flow.' }
+          }
+          finally { if (-not $oldProcess.HasExited) { Stop-Process -Id $oldProcess.Id -Force } }
+
+          Copy-Item -LiteralPath $configDir -Destination $rollbackDir -Recurse
+          $candidate = Get-ChildItem -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'dist') -Filter '*.exe' -File | Select-Object -First 1
+          if (-not $candidate) { throw 'Current candidate EXE was not found.' }
+          $newExePath = Join-Path $newDir $candidate.Name
+          Copy-Item -LiteralPath $candidate.FullName -Destination $newExePath
+          $newProcess = Start-YingxuVersion $newExePath '${{ steps.app-version.outputs.version }}' $configPath $true
+          try {
+            $history = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/history' -TimeoutSec 5
+            $items = if ($history.backups) { @($history.backups) } else { @($history.items) }
+            if ($items.Count -lt 1) { throw 'History from v1.0.34 was not readable after upgrading the same user data directory.' }
+            Write-Host "[PASS] Upgrade preserved $($items.Count) backup history records."
+          }
+          finally { if (-not $newProcess.HasExited) { Stop-Process -Id $newProcess.Id -Force } }
+
+          Remove-Item -LiteralPath $configDir -Recurse -Force
+          Copy-Item -LiteralPath $rollbackDir -Destination $configDir -Recurse
+          $rollbackProcess = Start-YingxuVersion $oldExePath '1.0.34' $configPath $false
+          try {
+            $history = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/history' -TimeoutSec 5
+            $items = if ($history.backups) { @($history.backups) } else { @($history.items) }
+            if ($items.Count -lt 1) { throw 'Rollback did not restore the v1.0.34 backup history.' }
+            Write-Host "[PASS] Rollback reopened v1.0.34 with $($items.Count) backup history records from the saved data copy."
+          }
+          finally { if (-not $rollbackProcess.HasExited) { Stop-Process -Id $rollbackProcess.Id -Force } }
+
+      - name: Verify x64 PE and create SHA-256 manifest
+        shell: pwsh
+        run: |
+          $executables = @(Get-ChildItem dist -Filter '*.exe' -File)
+          if ($executables.Count -ne 1) {
+            throw "Expected exactly one EXE, found $($executables.Count)"
+          }
+
+          $executable = $executables[0]
+          $stream = [System.IO.File]::OpenRead($executable.FullName)
+          try {
+            $dosHeader = New-Object byte[] 64
+            if ($stream.Read($dosHeader, 0, $dosHeader.Length) -ne $dosHeader.Length) {
+              throw 'Executable is too short to contain a DOS header'
+            }
+            if ($dosHeader[0] -ne 0x4d -or $dosHeader[1] -ne 0x5a) {
+              throw 'Executable does not start with the MZ signature'
+            }
+
+            $peOffset = [BitConverter]::ToInt32($dosHeader, 0x3c)
+            if ($peOffset -lt 64 -or $peOffset -gt ($stream.Length - 6)) {
+              throw "Invalid PE header offset: $peOffset"
+            }
+            $stream.Position = $peOffset
+            $peHeader = New-Object byte[] 6
+            if ($stream.Read($peHeader, 0, $peHeader.Length) -ne $peHeader.Length) {
+              throw 'Executable has a truncated PE header'
+            }
+            if ($peHeader[0] -ne 0x50 -or $peHeader[1] -ne 0x45 -or $peHeader[2] -ne 0 -or $peHeader[3] -ne 0) {
+              throw 'Executable has an invalid PE signature'
+            }
+            $machine = [BitConverter]::ToUInt16($peHeader, 4)
+            if ($machine -ne 0x8664) {
+              throw ('Expected x64 PE machine 0x8664, got 0x{0:x4}' -f $machine)
+            }
+          }
+          finally {
+            $stream.Dispose()
+          }
+
+          $signature = Get-AuthenticodeSignature $executable.FullName
+          if ($signature.Status -ne 'NotSigned') {
+            throw "Expected an unsigned preview, got Authenticode status '$($signature.Status)'"
+          }
+
+          $hash = (Get-FileHash -Algorithm SHA256 $executable.FullName).Hash.ToLowerInvariant()
+          $manifestLine = "$hash  $($executable.Name)"
+          $manifestPath = Join-Path $executable.DirectoryName 'SHA256SUMS.txt'
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          [System.IO.File]::WriteAllText($manifestPath, $manifestLine + "`n", $utf8NoBom)
+          $readBack = (Get-Content $manifestPath -Raw -Encoding UTF8).Trim()
+          if ($readBack -cne $manifestLine) {
+            throw 'SHA-256 manifest read-back mismatch'
+          }
+          Write-Host $manifestLine
+
+      - name: Upload unsigned preview artifact
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: YINGXU-Windows-v${{ steps.app-version.outputs.version }}-unsigned-preview
+          path: |
+            dist/*.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+      - name: Explain release status
+        run: echo "This is an unsigned CI preview. Publish only after Windows x64 VM acceptance and all remaining release gates pass."
+
+      - name: Upload Windows runner E2E report
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: YINGXU-Windows-v${{ steps.app-version.outputs.version }}-E2E-report
+          path: |
+            ${{ runner.temp }}/yingxu-e2e-*/e2e-result.json
+            ${{ runner.temp }}/yingxu-webview-ui-e2e.json
+          if-no-files-found: warn

@@ -3,6 +3,42 @@
 核对日期：2026-10-21。下方历史记录保留当时证据；当前范围与状态以本节为准。此计划把“功能完成、平台验证、部署、公开发行”拆开记录；CI、模拟环境或候选包不能代替实机和线上验收。
 
 
+## PR #12 独立开发闭环检查点（2026-10-21）
+
+- **代码与自动化：**CP1252 中文日志修复、线程日志回归与 Pocket 本地暂存恢复测试已完成。Reliability PR/push、Windows x64 runner、Pocket/PWA/Android debug build 均成功。Windows E2E：隔离服务 20/20、候选 EXE 服务备份 21/21、pywebview 界面 8/8；候选可读 v1.0.34 数据格式、执行备份并恢复升级前数据库快照。旧公开 v1.0.34 EXE 在 CP1252 下仍有已证实的启动崩溃；它不能由新版本源码回写修复，升级验收用其原数据库 schema 夹具明确验证数据兼容。
+- **候选包：**Windows artifact `12334590133` ZIP metadata 与本机 SHA-256 一致，EXE 与包内 manifest 一致并识别为 x64。macOS artifact `12334389734` ZIP 与 DMG 校验通过；DMG 内 app 为 arm64 ad-hoc 签名且无 Team ID。候选均未正式签名/公证或发布。
+- **PR 与部署：**PR #12 的代码检查已完成，待转为 ready、合并后检查 Pages 首页、`/pocket/`、`/download/`、`/update/`、`/privacy.html`。正式 Release/下载页保持 v1.0.34，未发布 v1.0.40。
+- **目标结束边界：**独立开发任务在合并及 Pages 部署核验、最终审计同步后结束。交接仍需用户在真实 Firebase 账号完成注册/登录、用户名/跨设备数据/UID 隔离及离线恢复验证，并在 iPhone Safari PWA 完成真实照片/视频传输、桌面哈希/历史核对、断网恢复。此处不把账户或手机验收伪报为完成。
+
+
+
+
+## 2026-10-21 PR #12 Windows x64 VM 首轮与修正
+
+### 最新推进状态（2026-10-21）
+
+- 修复提交 `5d8c323d5acd00aab2d5e5931583c990bcb8ed45` 已推送。Reliability PR/push 矩阵、macOS candidate 和 Pocket PWA 检查通过；Windows run `39544529046` 中备份 21 项和 pywebview GUI 八项通过，但 v1.0.34 仍因 CP1252 控制台中文日志退出。
+- 已确认旧版 CP1252 异常在 stdout 指向 NUL 后消失，但 v1.0.34 仍不响应健康检查。下一版 workflow 保留 NUL stdout、将 stderr 保存为诊断文件并输出最后探测错误，以查明服务未就绪的独立原因。候选版恢复 runner 原始代码页并直接启动，仍会检验自身编码修复；尚未达到升级/回退验收。
+- Pocket run `39544529155` 的 PWA/队列测试与 Android bundle 已成功；Android debug APK 构建仍运行。旧 head Pocket run `39542648184` 已终态 success。
+
+- PR #12 当前分支 `codex/windows-vm-webview-acceptance` head 为 `70ee5a82070c7fcb9ab28683839d7b2ff83dcfed`，OPEN/DRAFT、mergeable。Windows run `39542648189` 的隔离备份 21 项和 pywebview GUI 八项均通过；旧 v1.0.34 仍因 CP1252 中文日志在健康启动前崩溃。
+- 提交 `70ee5a8` 已将桌面 stdout/stderr 固定为 UTF-8 并保留 `backslashreplace`，CP1252 中文写入回归用例通过。Windows Python 控制台忽略 `PYTHONIOENCODING`，除非同时设置 `PYTHONLEGACYWINDOWSSTDIO`；本地正在将这两项仅用于旧版 v1.0.34，并在候选启动时清除 helper 变量。Pocket workflow 也会执行新增的队列恢复用例。
+- 修复同时补齐 Pocket 本机暂存队列可测试模块，覆盖选中文件引用及元数据保存、重启恢复与无效队列清理，并加入离线 Service Worker shell。完整桌面 unittest 126 项通过、2 项 Windows-only 跳过；Firebase rules/server/sync Python 20/20、仓库与 Pocket Node 46/46、桌面入口定向 5/5 已通过，JavaScript 语法与 `git diff --check` 通过。
+- 当前 head `70ee5a8` 的 Reliability PR/push、macOS candidate、Pocket PWA/mobile check 均 success；Android debug job 上次查询仍运行且未重启。Windows run `39542648189` 版本转换步骤失败；新的 workflow 修正通过后还需由 Windows x64 runner 完整验收。
+
+## 2026-10-21 已确认的验收范围修正
+
+- Windows 验收采用 Windows x64 虚拟机；不安排实体 Windows 电脑。PR #9/#10 已合并，PR #12 是当前 PWA 暂存队列与 Windows GUI/升级/回退流程的候选。
+- 正式更新入口已实现 SHA-256 校验后下载适用发行文件，并提示用户手动安装；应用不自动覆盖正在运行的版本。线上 `/update/` 最近已确认 HTTP 200，正式 Latest 与下载页版本仍需发布流程完成后复核。
+- Pocket PWA 已有照片/视频/Files 选择、同 Wi‑Fi 电脑交接、扫描去重、进度控制、本机 IndexedDB 暂存与手动重试。它不能静默扫描整本相册或向 iPhone 任意目录写入，也不承诺锁屏后台持续复制；电脑目标仍需电脑启动并可达。完整 iPhone 传输、暂停恢复、离线恢复、Firebase 真实账号隔离仍待设备/账号验收。
+- iOS 原生、Android 真机、小程序、签名/公证和远端原始媒体备份不纳入本轮；不以模拟文件系统或 CI 替代明确需要的 iPhone/Firebase 用户端证据。
+
+## 2026-10-21 PWA 本机暂存队列候选
+
+- 新增本机 IndexedDB 媒体暂存和“连接电脑并继续”手动重试入口，供电脑暂时离线或传输中断后恢复；成功完成后自动清除暂存，用户也可以手动确认清除。
+- 重试会重新扫描/发送整批素材，依赖桌面 SHA-256 去重已复制内容；不是分块断点续传，也不承诺后台、锁屏时自动继续。浏览器空间不足或写入失败时会提示用户选择取消或本次直连。
+- 本机验证：Pocket Node 15/15、手机 HTTP 上传 Python 4/4、PWA 脚本语法和 `git diff --check` 通过。未测试真实 iPhone 的 IndexedDB 容量、重启恢复或完整上传；当前手机镜像由其他项目使用，未操作设备。
+- 这组源码尚未提交、推送或部署，且无对应 CI/Pages 证据。即使部署后仍须在 iPhone Safari 做小文件及大文件实测、模拟电脑离线/重连、页面重启恢复、空间不足和清理验证，再更新验收结论。
 
 ## 2026-10-21 合并后权威检查点
 
@@ -27,6 +63,14 @@
 - **当前验证进度：**手机上传 API、安全配对、哈希通过/失败、历史落库和权限拒绝定向测试已新增；增量 SHA‑256 跨块/边界测试已新增。更新下载校验成功/失败测试已新增。本轮本机全量 Python 回归为 121 项、119 通过、2 项 Windows 条件跳过；手机上传/协议/更新定向组 24 项通过；Pocket 云同步与 SHA‑256 Node 测试合计 10 项通过，内嵌局域网页面脚本语法检查与 `git diff --check` 通过。新代码的 GitHub CI、Pages 部署及 iPhone 真机上传流程尚未完成。
 - **真实用户门槛：**仍需在 iPhone Safari 用一张照片和一段视频走完整扫描→传输→桌面校验→历史流程，并验证暂停/恢复、断网重连及锁屏恢复；登录真实 Firebase 账号验证同步/UID 隔离的任务仍由用户在本机输入凭据后完成，不得复用聊天密码。Android 真机、Windows 实体机均不列入验收条件。
 - **有限结束条件：**PR #9 checks 通过后按授权合并；Windows x64 虚拟机 E2E 在包含新代码的 main head 通过；新 Pages 首页/Pocket/下载/隐私/更新路由部署并 HTTP 200；桌面候选与 Release 资产 SHA‑256 对齐；升级和回退步骤可读。iPhone PWA 与 Firebase 真实账户项若仍只需用户在设备/应用内操作，则完成其余独立工作后输出唯一明确步骤，保持目标未完成，不以 CI 或发布状态冒充全端验收。PWA 仍不承诺锁屏持续传输或离线期间后台排队；这受浏览器权限和执行限制，需保持为明确的平台边界。
+
+## 2026-10-21 PWA 手机备份入口推进
+
+- **本地源码变更：**HTTPS Pocket PWA 新增手机照片/视频和 Files 文件夹选择、归档名称、文件预览、单批 1000 文件/100 GiB 上限、开始/清除选择、扫描进度、暂停/继续/取消和任务结果显示。用户点击开始后，PWA 通过 `postMessage` 将用户明确选择的 `File` 对象交给同 Wi-Fi 的桌面 `/pocket/` 页面；桌面现有配对会话负责安全授权，既有上传流程负责 SHA-256 扫描、重复跳过、分块传输、桌面端复验和历史记录。
+- **浏览器边界：**PWA 不直接从 HTTPS 发起到电脑 HTTP 私网的文件/API 请求，而由用户点击打开的局域网页面完成传输；这是为避开浏览器混合内容限制。PWA 主界面仍可查看其本机缓存的云端历史，电脑关闭时不能备份到电脑。iOS Files 文件夹选择需要支持 `webkitdirectory` 的 Safari 版本；锁屏/切出应用仍可能暂停传输。
+- **当前证据等级：**改动保存在本地分支 `codex/windows-vm-webview-acceptance`，已包含改前快照 `docs/snapshots/2026-10-21-pocket-pwa-handoff/`。`node --check` 对 PWA 与桌面 Pocket 内嵌脚本通过；现有 Pocket Node 定向测试 15/15、HTTP 上传 Python 定向测试 4/4、`git diff --check` 通过。尚未推送/部署、未通过 iPhone 实际交接验证；不得描述为已上线或设备验收。
+- **仍未实现：**PWA 不能静默扫描相册、向 iPhone 任意本地目录/照片图库写入、保证锁屏后台持续复制、电脑离线时替电脑落盘排队，或异地传输原片。全桌面功能映射仍需逐项梳理；本次只推进手机选取素材到已配对电脑的入口。
+- **其余闭环状态：**Windows 验收仅使用 x64 虚拟机；实体 Windows 测试已排除。官方更新下载与 SHA-256 校验、人工安装及回退说明已实现；本轮线上 `/update/` 和 `/pocket/` 均 HTTP 200。公开 Latest Release 仍为 v1.0.34，v1.0.40 未发布；真实 Firebase 注册/登录、iPhone PWA交接与离线恢复、Windows 虚拟机 GUI 升级/回退仍待验证。
 
 ## 2026-10-20 新增 Windows runner 功能验收
 

@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/build-windows.yml
       - e2e_win_check.py
+      - desktop/run.py
       - smb/**
       - desktop/smb-win.spec
       - requirements.txt
@@ -16,6 +17,7 @@ on:
     paths:
       - .github/workflows/build-windows.yml
       - e2e_win_check.py
+      - desktop/run.py
       - smb/**
       - desktop/smb-win.spec
       - requirements.txt
@@ -86,9 +88,13 @@ jobs:
 
           $executable = Get-ChildItem dist -Filter '*.exe' -File | Select-Object -First 1
           if (-not $executable) { throw 'Packaged EXE was not found.' }
+          $installDir = Join-Path $env:RUNNER_TEMP 'yingxu-portable-install'
+          New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+          $installedExe = Join-Path $installDir $executable.Name
+          Copy-Item -LiteralPath $executable.FullName -Destination $installedExe -Force
           $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-          $startInfo.FileName = $executable.FullName
-          $startInfo.WorkingDirectory = $executable.DirectoryName
+          $startInfo.FileName = $installedExe
+          $startInfo.WorkingDirectory = $installDir
           $startInfo.UseShellExecute = $false
           $startInfo.CreateNoWindow = $true
           $startInfo.Environment['SMB_CONFIG_DIR'] = $configDir
@@ -124,6 +130,178 @@ jobs:
           finally {
             if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
+
+      - name: Exercise native pywebview UI in Windows x64 VM
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP 'yingxu-portable-install'
+          $configDir = Join-Path $env:RUNNER_TEMP 'yingxu-packaged-config'
+          $configPath = Join-Path $configDir 'config.json'
+          $reportPath = Join-Path $env:RUNNER_TEMP 'yingxu-webview-ui-e2e.json'
+          $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+          $config.web_port = 18199
+          [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
+          $installedExe = Get-ChildItem -LiteralPath $installDir -Filter '*.exe' -File | Select-Object -First 1
+          if (-not $installedExe) { throw 'Installed portable EXE was not found.' }
+          Remove-Item -LiteralPath $reportPath -Force -ErrorAction SilentlyContinue
+          $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+          $startInfo.FileName = $installedExe.FullName
+          $startInfo.WorkingDirectory = $installDir
+          $startInfo.UseShellExecute = $false
+          $startInfo.CreateNoWindow = $false
+          $startInfo.Environment['SMB_CONFIG_DIR'] = $configDir
+          $startInfo.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null
+          $startInfo.Environment['YINGXU_E2E_UI_REPORT'] = $reportPath
+          $process = [System.Diagnostics.Process]::Start($startInfo)
+          if (-not $process) { throw 'Could not launch the native pywebview window.' }
+
+          try {
+            $deadline = [DateTime]::UtcNow.AddSeconds(60)
+            $previousLength = -1L
+            $stableReads = 0
+            while ([DateTime]::UtcNow -lt $deadline -and $stableReads -lt 2) {
+              if ($process.HasExited) { throw "Native UI process exited early with code $($process.ExitCode)." }
+              if (Test-Path -LiteralPath $reportPath) {
+                $currentLength = (Get-Item -LiteralPath $reportPath).Length
+                if ($currentLength -gt 0 -and $currentLength -eq $previousLength) { $stableReads++ }
+                else { $stableReads = 0 }
+                $previousLength = $currentLength
+              }
+              else { $previousLength = -1L; $stableReads = 0 }
+              if ($stableReads -lt 2) { Start-Sleep -Milliseconds 300 }
+            }
+            if ($stableReads -lt 2) { throw 'Native pywebview UI probe did not publish a stable report within 60 seconds.' }
+            $rawReport = Get-Content -LiteralPath $reportPath -Raw
+            $report = $rawReport | ConvertFrom-Json
+            $failedItems = @($report.results | Where-Object { $_.ok -ne $true })
+            if ($report.passed -ne $true -or $report.results.Count -eq 0 -or $failedItems.Count -gt 0) {
+              $failed = @($failedItems | ForEach-Object { "$($_.name): $($_.detail)" }) -join '; '
+              throw "Native pywebview UI acceptance failed (passed=$($report.passed), results=$($report.results.Count), failed=$($failedItems.Count)): $failed"
+            }
+            $report.results | ForEach-Object { Write-Host "[PASS] $($_.name) $($_.detail)" }
+          }
+          finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+
+      - name: Exercise v1.0.34 install, v1.0.40 upgrade, and rollback in Windows x64 VM
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $release = Invoke-RestMethod -Headers @{
+            'User-Agent' = 'YINGXU-Windows-VM-E2E'
+            'Authorization' = "Bearer $env:GITHUB_TOKEN"
+            'Accept' = 'application/vnd.github+json'
+          } -Uri 'https://api.github.com/repos/yingxu-app/smart-media-backup/releases/tags/v1.0.34'
+          $oldAsset = $release.assets | Where-Object { $_.name -eq 'YINGXU-Windows-v1.0.34.exe' } | Select-Object -First 1
+          $manifestAsset = $release.assets | Where-Object { $_.name -eq 'SHA256SUMS.txt' } | Select-Object -First 1
+          if (-not $oldAsset -or -not $manifestAsset) { throw 'Published v1.0.34 Windows EXE or SHA256SUMS.txt is missing.' }
+
+          $upgradeRoot = Join-Path $env:RUNNER_TEMP 'yingxu-version-upgrade-e2e'
+          $oldDir = Join-Path $upgradeRoot 'v1.0.34'
+          $newDir = Join-Path $upgradeRoot 'candidate-v${{ steps.app-version.outputs.version }}'
+          $configDir = Join-Path $upgradeRoot 'config'
+          $rollbackDir = Join-Path $upgradeRoot 'rollback-config'
+          New-Item -ItemType Directory -Force -Path $oldDir, $newDir, $configDir | Out-Null
+
+          $oldExePath = Join-Path $oldDir $oldAsset.name
+          $manifestPath = Join-Path $upgradeRoot 'SHA256SUMS.txt'
+          Invoke-WebRequest -Uri $oldAsset.browser_download_url -OutFile $oldExePath
+          Invoke-WebRequest -Uri $manifestAsset.browser_download_url -OutFile $manifestPath
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw
+          $expectedHash = $null
+          foreach ($line in ($manifest -split '\r?\n')) {
+            if ($line -match '^([a-fA-F0-9]{64})\s+\*?YINGXU-Windows-v1\.0\.34\.exe$') { $expectedHash = $Matches[1].ToLowerInvariant(); break }
+          }
+          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $oldExePath).Hash.ToLowerInvariant()
+          if (-not $expectedHash -or $actualHash -cne $expectedHash) { throw 'Published v1.0.34 EXE did not match its SHA-256 manifest.' }
+
+          $config = @{ web_host = '127.0.0.1'; web_port = 18200; auto_open_browser = $false }
+          $configPath = Join-Path $configDir 'config.json'
+          [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
+          function Start-YingxuVersion($Executable, $Version, $ConfigPath, $Headless) {
+            $info = [System.Diagnostics.ProcessStartInfo]::new()
+            $info.FileName = $Executable
+            $info.WorkingDirectory = Split-Path -Parent $Executable
+            $info.UseShellExecute = $false
+            $info.CreateNoWindow = $Headless
+            $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
+            $info.Environment.Remove('PYTHONIOENCODING') | Out-Null
+            $info.Environment.Remove('PYTHONUTF8') | Out-Null
+            if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
+            else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
+            $process = [System.Diagnostics.Process]::Start($info)
+            if (-not $process) { throw "Could not launch $Version." }
+            $running = [pscustomobject]@{ App = $process }
+            $deadline = [DateTime]::UtcNow.AddSeconds(45)
+            $health = $null
+            $lastProbeError = ''
+            while ([DateTime]::UtcNow -lt $deadline) {
+              if ($process.HasExited) { throw "$Version exited early with code $($process.ExitCode)." }
+              try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/health' -TimeoutSec 1; break }
+              catch { $lastProbeError = $_.Exception.Message; Start-Sleep -Milliseconds 500 }
+            }
+            if (-not $health -or $health.version -ne $Version) {
+              Stop-YingxuVersion $running
+              throw "$Version did not become healthy; got '$($health.version)'. Last probe: $lastProbeError"
+            }
+            return $running
+          }
+
+          function Stop-YingxuVersion($Running) {
+            if ($Running.App -and -not $Running.App.HasExited) { Stop-Process -Id $Running.App.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+          # The published v1.0.34 package hash is verified above. A prior x64
+          # runner captured its server-thread traceback: CP1252 cannot encode the
+          # localized startup banner, so the legacy server thread exits before
+          # binding. Keep that defect explicit and test upgrade from the exact
+          # v1.0.34 SQLite schema rather than pretending that old runtime works.
+          Write-Host '[KNOWN LIMITATION] v1.0.34 published EXE fails its server startup on CP1252 Windows output; candidate startup fixes this.'
+          $env:SMB_CONFIG_DIR = $configDir
+          python tests/seed_v1_0_34_history.py
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create the v1.0.34 database compatibility fixture.' }
+          Copy-Item -LiteralPath $configDir -Destination $rollbackDir -Recurse
+
+          $candidate = Get-ChildItem -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'dist') -Filter '*.exe' -File | Select-Object -First 1
+          if (-not $candidate) { throw 'Current candidate EXE was not found.' }
+          $newExePath = Join-Path $newDir $candidate.Name
+          Copy-Item -LiteralPath $candidate.FullName -Destination $newExePath
+          $newProcess = Start-YingxuVersion $newExePath '${{ steps.app-version.outputs.version }}' $configPath $true
+          try {
+            $history = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/history' -TimeoutSec 5
+            $items = if ($history.backups) { @($history.backups) } else { @($history.items) }
+            $legacyItem = @($items | Where-Object { $_.event_name -eq 'v1.0.34 upgrade fixture' })
+            if ($legacyItem.Count -ne 1) { throw 'Candidate did not read the existing v1.0.34-format history record.' }
+            Write-Host '[PASS] Candidate startup migrated and read the original v1.0.34 history fixture.'
+
+            $env:YINGXU_E2E_EXTERNAL_SERVER = '1'
+            $env:YINGXU_E2E_BASE_URL = 'http://127.0.0.1:18200'
+            $env:PYTHONIOENCODING = 'utf-8'
+            $env:PYTHONUTF8 = '1'
+            python e2e_win_check.py
+            if ($LASTEXITCODE -ne 0) { throw 'Packaged candidate did not pass the isolated backup flow.' }
+            $history = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/history' -TimeoutSec 5
+            $items = if ($history.backups) { @($history.backups) } else { @($history.items) }
+            if ($items.Count -lt 2) { throw 'Candidate backup did not retain the legacy history and append its new history.' }
+            Write-Host "[PASS] Upgrade retained legacy history and added new backup history ($($items.Count) records)."
+          }
+          finally { Stop-YingxuVersion $newProcess }
+
+          Remove-Item -LiteralPath $configDir -Recurse -Force
+          Copy-Item -LiteralPath $rollbackDir -Destination $configDir -Recurse
+          $rollbackProcess = Start-YingxuVersion $newExePath '${{ steps.app-version.outputs.version }}' $configPath $true
+          try {
+            $history = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/history' -TimeoutSec 5
+            $items = if ($history.backups) { @($history.backups) } else { @($history.items) }
+            $legacyItem = @($items | Where-Object { $_.event_name -eq 'v1.0.34 upgrade fixture' })
+            if ($items.Count -ne 1 -or $legacyItem.Count -ne 1) { throw 'Rollback did not restore the pre-upgrade legacy database snapshot.' }
+            Write-Host '[PASS] Rollback restored the pre-upgrade v1.0.34 database snapshot and history.'
+          }
+          finally { Stop-YingxuVersion $rollbackProcess }
 
       - name: Verify x64 PE and create SHA-256 manifest
         shell: pwsh
@@ -197,5 +375,9 @@ jobs:
         uses: actions/upload-artifact@v7.0.2
         with:
           name: YINGXU-Windows-v${{ steps.app-version.outputs.version }}-E2E-report
-          path: ${{ runner.temp }}/yingxu-e2e-*/e2e-result.json
+          path: |
+            ${{ runner.temp }}/yingxu-e2e-*/e2e-result.json
+            ${{ runner.temp }}/yingxu-webview-ui-e2e.json
+            ${{ runner.temp }}/yingxu-1.0.34-stdout.log
+            ${{ runner.temp }}/yingxu-1.0.34-stderr.log
           if-no-files-found: warn

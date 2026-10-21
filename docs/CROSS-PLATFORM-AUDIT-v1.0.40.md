@@ -3,6 +3,44 @@
 审计日期：2026-10-21。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。历史矩阵保留当时证据，最新范围和线上状态以本节为准。
 
 
+## PR #12 独立开发验收最新检查点（2026-10-21，代码 head `ed7ee84`）
+
+- PR #12 当前代码 head `ed7ee84ef27088b7e546c71f6ebc96bf6330c800`。Reliability PR `39574987576`、push `39574979508`、Windows preview `39574987782`、Pocket `39574987610` 均 success。Pocket Android debug build 与 artifact 上传成功；artifact `12334986479` 为 94,609,018 bytes，GitHub metadata SHA-256 `2ca4dd665dc3a45ad3db92402d81e02a8eb00305c100cf880d3e50ab832d7cf7`。这是 debug 构建证据，不是 Android 真机验收。
+- Windows x64 runner E2E `39574987782` 的隔离备份 20/20、打包 v1.0.40 服务备份 21/21、pywebview 原生窗口 8/8 通过。覆盖扫描、文件复制、SHA-256、重复跳过、报告/历史、源素材不变及 GUI 导航。
+- 旧公开 v1.0.34 EXE 的真实启动诊断确认 `yingxu-local-server` 线程因 CP1252 `UnicodeEncodeError` 在中文启动横幅处退出；该冻结 EXE 不接受外部 UTF-8 环境覆盖。新桌面入口在 CP1252 下重配 stdout/stderr，增加线程日志回归；桌面候选通过 CP1252 runner 的打包服务/GUI验收。升级 E2E 用与 v1.0.34 完全一致的 SQLite 表结构夹具，验证候选读取旧历史、追加备份记录并恢复升级前数据快照。故历史 v1.0.34 在 CP1252 环境中的服务器启动缺陷仍是已知限制，不能写作已由新版本修复旧二进制。
+- Windows unsigned preview artifact `12334590133` metadata 与本机 ZIP SHA-256 一致：`97518540056dbaa930ed7655ed65998a7707155a7fe2a5a7431221bf345701a2`。包内 x64 PE EXE 为 28,207,009 bytes，SHA-256 `1db962cd56419026623d56c53a352ba2dedfcde7ff45c9635db0d7d963f70e86`，与包内 `SHA256SUMS.txt` 一致；本机 `file` 识别为 PE32+ x86-64。未签名，尚非正式发布。
+- macOS candidate `39574988177` 第一次仅因 GitHub blob storage DNS `ENOTFOUND` 在上传步骤失败；只重跑 macOS 失败 workflow 一次后成功，测试、构建、DMG 打包此前均通过。artifact `12334389734` metadata 与本机 ZIP SHA-256 一致：`3c88d85b57e68cb2f7b330014d981210fba26a33a5c4c6eac1bcded6f207c08c`；DMG SHA-256 `123e537f4622e41ffb3de794e6ed03d64c50604bb52efdddb8b6ba8ff035b27f` 与清单一致，`hdiutil verify` 为 VALID。app 为 arm64 ad-hoc 签名、无 Team ID；用户已排除正式签名/公证。
+- 本轮本机桌面入口定向测试 6/6 通过（含 CP1252 下服务线程中文日志）；v1.0.34 SQLite fixture 通过当前数据库迁移后读取。Pocket JS/CNG/check、lint/typecheck 和 Android debug 构建均以该 head 终态成功。
+- **不代表完成：**PR #12 仍需转为 ready 并按授权合并，之后核验 Pages 部署；正式 Latest Release 仍为 v1.0.34，v1.0.40 继续保持候选/Draft。真实 Firebase 注册登录、同账号同步与 UID 隔离仍未实测；iPhone Safari PWA 文件传输/恢复仍待手机操作。PWA 不保证锁屏持续传输，不静默扫描整张相册、不写任意手机目录，原始媒体不上传 Firebase。
+
+
+
+## 2026-10-21 PR #12 CI 与 Windows 虚拟机编码修正
+
+### 最新进展（runs `39544529046`、`39545231559`、`39545905105`）
+
+- PR #12 修复提交 `5d8c323d5acd00aab2d5e5931583c990bcb8ed45` 已推送。Reliability PR/push 六项矩阵、macOS candidate 和 Pocket PWA 检查均通过；macOS artifact `12320464791` metadata SHA-256 为 `63602f8e1e9e27a25b5840d8ee101718fa5f01d6c745942cc030b94b547aa0b9`。
+- Windows run `39544529046` 的备份 21 项、打包 EXE 服务及 pywebview GUI 八项均通过；旧 v1.0.34 仍在 CP1252 标准输出流中输出中文后退出，安装/升级/回退步骤失败。环境编码覆盖未改变该冻结包的实际流编码。
+- Windows run `39545231559` 进一步确认只改控制台输出代码页无效：旧 EXE 继承的是标准输出管道，Python 对管道使用系统 ANSI code page。官方 Python 文档说明 Windows 的 NUL 字符设备采用启动时控制台代码页（[Python 3.11 `sys` 文档](https://docs.python.org/3.11/library/sys.html#sys.stdin)）。run `39545905105` 的 NUL stdout 消除了 CP1252 `UnicodeEncodeError`，但旧版仍未通过健康检查；这说明编码崩溃已规避，旧服务的实际启动原因仍需 stderr 证据。
+- 当前 workflow 保持旧版通过 `cmd.exe` + UTF-8 控制台 + NUL stdout 启动，stderr 写入诊断日志，并在健康失败时输出最后探测错误及日志；按父进程/映像路径定位旧 EXE。候选仍直接继承原 CP1252 runner 流，验证自身 UTF-8 安全入口。该诊断版待新 Windows run。
+- 桌面入口 UTF-8 重配置及 CP1252 回归用例已由本机测试通过。完整安装、备份、历史读取、升级和回退仍以 Windows x64 runner 实测为准。
+- Pocket run `39544529155` 的 PWA、队列恢复测试、lint/typecheck 与 Android bundle export 已成功，Android debug APK build 仍运行。旧 head run `39542648184` 的 Android debug build 已终态 success。
+
+- PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 的工作分支为 `codex/windows-vm-webview-acceptance`，修复提交 `70ee5a82070c7fcb9ab28683839d7b2ff83dcfed`，PR OPEN/DRAFT、mergeable。
+- Windows run `39542648189` 的隔离备份 21 项与 pywebview GUI 八项探针均通过。旧 v1.0.34 仍在 CP1252 stderr 输出中文并崩溃，Python 编码环境变量没有改变附着控制台的代码页，因此安装/升级/回退步骤失败。
+- 桌面入口已重配置 stdout/stderr 为 UTF-8 与 `backslashreplace`；CP1252 `TextIOWrapper` 中文写入回归用例通过。本机 Windows workflow 修正正在准备：Windows Python 控制台会忽略 `PYTHONIOENCODING`，除非同时设置 `PYTHONLEGACYWINDOWSSTDIO`（[Python 3.11 文档](https://docs.python.org/3.11/using/cmdline.html#envvar-PYTHONIOENCODING)）；旧版测试会组合这两项，候选启动时清除 helper 变量以检验自身修复。Pocket workflow 也将纳入新增的暂存队列测试。
+- 本机桌面入口定向 unittest 5/5 通过；完整桌面 Python suite 126 项通过、2 项 Windows-only 跳过。Firebase rules/server/sync Python 测试 20/20 通过；仓库与 Pocket Node 全部测试 46/46 通过，含新增手机暂存队列恢复/无效记录清理检查。覆盖 UID 子树、匿名访问拒绝、凭据不落盘、离线缓存/恢复、桌面重连队列、进度及取消。测试未使用真实账号。
+- PWA 新增可单测的本机暂存队列建档/恢复逻辑，并加入 Pocket 页面与 Service Worker 离线应用壳；变更后全 Node suite、Pocket JavaScript 语法检查和 `git diff --check` 通过。真实 iPhone IndexedDB 配额、页面重启恢复与完整文件传输仍待设备验收。
+- 对 `70ee5a8` 的 Reliability PR/push、macOS candidate 和 Pocket PWA/mobile check job success；Pocket Android debug build 最近查询仍为 in_progress，未取消或重启。Windows run `39542648189` 终态 failure，等待修正后的 x64 VM workflow 验收。
+- 验收范围按用户确认：Windows 只做 x64 虚拟机；iPhone 仅用 Safari PWA；Android 真机、小程序、原生 iOS、正式签名/公证排除。PWA 已实现手机素材选择、桌面交接、本机 IndexedDB 暂存与手动重试；完整 iPhone 传输/恢复和 Firebase 真实账号隔离仍待验收。
+
+## 2026-10-21 PWA 本机媒体队列候选（未部署）
+
+- PWA 在开始电脑备份前，将用户所选 File/Blob、文件相对路径、归档名和目标电脑地址保存到本机 IndexedDB；电脑未连接、传输失败或任务未完成时，可手动点击“连接电脑并继续”，不必重新打开文件选择器。成功完成后自动清除本次暂存媒体；用户也可在界面明确确认后手动清除。
+- 浏览器会先估算本机可用存储；预计空间不足或 IndexedDB 写入失败时，要求用户选择取消或仅本次直连，并明确告知直连中断后需重新选择。浏览器若在媒体传输中退出，恢复后会从头重发整批所选素材；桌面端 SHA-256 去重已成功文件。它不是分块断点续传，也不保证锁屏/后台自动重试。
+- 本地验证：PWA JavaScript 语法通过；Pocket Node 定向测试 15/15；手机 HTTP 上传 Python 定向测试 4/4；`git diff --check` 通过。测试覆盖既有云同步、进度、SHA-256 和上传 API，不覆盖真实 iPhone Safari 的大文件 IndexedDB 配额、PWA 重启恢复或手机到桌面的完整传输。
+- 改动目前只在本地分支 `codex/windows-vm-webview-acceptance`，未提交、未推送、未部署。已有改前快照 `docs/snapshots/2026-10-21-pocket-offline-queue/`。手机真实测试暂缓，因当前 iPhone 镜像被其他项目占用。
+- 因本机 IndexedDB 暂存原始媒体，用户在任务完成前应保护设备账户并可主动清除暂存；原始媒体仍不上传 Firebase。离线恢复、空间不足、浏览器清理站点数据和设备切换后的实际行为均待 iPhone 实测。
 
 ## 2026-10-21 合并后权威检查点
 

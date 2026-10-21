@@ -10,6 +10,7 @@ on:
       - "smb/static/pocket/**"
       - "smb/templates/pocket.html"
       - "tests/pocket-cloud-sync.test.cjs"
+      - "tests/pocket-phone-queue.test.cjs"
       - "tests/pocket-sha256.test.cjs"
       - "tests/test_pocket_http_upload.py"
       - "tests/test_pocket_tcp.py"
@@ -24,6 +25,7 @@ on:
       - "smb/static/pocket/**"
       - "smb/templates/pocket.html"
       - "tests/pocket-cloud-sync.test.cjs"
+      - "tests/pocket-phone-queue.test.cjs"
       - "tests/pocket-sha256.test.cjs"
       - "tests/test_pocket_http_upload.py"
       - "tests/test_pocket_tcp.py"
@@ -62,7 +64,7 @@ jobs:
           node --check site/pocket/app.js
           node --check site/pocket/cloud-sync.js
           node --check site/pocket/sw.js
-          node --test tests/pocket-cloud-sync.test.cjs
+          node --test tests/pocket-cloud-sync.test.cjs tests/pocket-phone-queue.test.cjs
           node --test tests/pocket-sha256.test.cjs
           python -m unittest tests.test_pocket_http_upload tests.test_pocket_tcp -v
           node -e "JSON.parse(require('node:fs').readFileSync('site/pocket/manifest.webmanifest', 'utf8'))"
