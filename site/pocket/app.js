@@ -15,6 +15,7 @@
   let handoffReady = false;
   let handoffQueueSaved = false;
   let handoffEventName = "";
+  let phoneTransferActive = false;
   const MAX_PHONE_FILES = 1000;
 
   function setMessage(id, message, isError = false) {
@@ -264,8 +265,9 @@
   function updatePhoneQueueActions() {
     const hasQueue = Boolean(phoneQueue?.files?.length);
     byId("phoneQueueActions").classList.toggle("hidden", !hasQueue);
-    byId("resumePhoneQueueButton").disabled = Boolean(handoffWindow && !handoffWindow.closed && handoffTimer);
-    byId("clearPhoneQueueButton").disabled = Boolean(handoffWindow && !handoffWindow.closed && handoffTimer);
+    const transferBusy = handoffReady || phoneTransferActive || Boolean(handoffWindow && !handoffWindow.closed && handoffTimer);
+    byId("resumePhoneQueueButton").disabled = transferBusy;
+    byId("clearPhoneQueueButton").disabled = transferBusy;
   }
 
   async function persistPhoneQueue(address, eventName) {
@@ -345,12 +347,15 @@
           files: selectedPhoneFiles.map(item => ({ file: item.file, relativePath: item.relativePath, kind: item.kind })),
         }, event.origin);
         handoffReady = true;
+        updatePhoneQueueActions();
         setMessage("desktopMessage", "已连接电脑协作页，正在扫描并校验所选素材…");
       } catch (_) {
         byId("phoneBackupButton").disabled = false;
         setMessage("desktopMessage", "浏览器没有允许交接文件。请在电脑协作页直接重新选择素材。", true);
       }
     } else if (data.type === "YINGXU_POCKET_ACCEPTED") {
+      phoneTransferActive = true;
+      updatePhoneQueueActions();
       byId("phoneBackupControls").classList.remove("hidden");
       byId("clearPhoneFilesButton").disabled = true;
       setMessage("desktopMessage", "电脑已接收文件清单，正在执行重复检查和备份。");
@@ -361,6 +366,8 @@
       byId("pausePhoneBackupButton").textContent = String(data.message || "").includes("已暂停") ? "继续" : "暂停";
       setMessage("desktopMessage", String(data.message || "电脑正在处理手机备份…"), Boolean(data.error));
     } else if (data.type === "YINGXU_POCKET_FINISHED") {
+      handoffReady = false;
+      phoneTransferActive = false;
       byId("phoneBackupControls").classList.add("hidden");
       byId("phoneBackupButton").disabled = false;
       byId("clearPhoneFilesButton").disabled = false;
@@ -370,7 +377,7 @@
       if (data.status === "completed" && handoffQueueSaved) {
         clearPhoneQueue({ clearSelection: true }).catch(() => setMessage("desktopMessage", "备份已完成，但浏览器未能清除本机暂存媒体。请点击“清除本机暂存”后再退出。", true));
       }
-      else updatePhoneQueueActions();
+      updatePhoneQueueActions();
     }
   }
 
@@ -413,12 +420,15 @@
       window.addEventListener("message", handleDesktopMessage);
       handoffOrigin = base.origin;
       handoffReady = false;
+      phoneTransferActive = false;
       handoffQueueSaved = Boolean(resume && phoneQueue);
       handoffEventName = resume && phoneQueue?.eventName
         ? phoneQueue.eventName : byId("phoneEventName").value.trim() || "手机备份";
       if (!resume && phoneQueue?.files?.length && !window.confirm("本机已有未完成的手机备份任务。开始新任务会替换该暂存任务，是否继续？")) return;
       handoffWindow = window.open("about:blank", "yingxuPocketDesktop");
       if (!handoffWindow) throw new Error("浏览器拦截了电脑协作页。请允许此 PWA 打开局域网页面后重试。");
+      phoneTransferActive = true;
+      updatePhoneQueueActions();
       byId("phoneBackupButton").disabled = true;
       if (!resume) {
         try {
@@ -429,7 +439,9 @@
           if (!directOnly) {
             handoffWindow.close();
             handoffWindow = null;
+            phoneTransferActive = false;
             byId("phoneBackupButton").disabled = false;
+            updatePhoneQueueActions();
             return;
           }
           handoffQueueSaved = false;
@@ -443,6 +455,7 @@
         if (!handoffWindow || handoffWindow.closed) {
           clearInterval(handoffTimer);
           handoffTimer = 0;
+          phoneTransferActive = false;
           byId("phoneBackupButton").disabled = false;
           setMessage("desktopMessage", handoffQueueSaved ? "电脑页已关闭；文件仍暂存在本机，可稍后重试连接。"
             : "电脑协作页已关闭。电脑需保持运行并与手机位于同一 Wi‑Fi。", true);
@@ -452,6 +465,7 @@
         if (++attempts > 600) {
           clearInterval(handoffTimer);
           handoffTimer = 0;
+          phoneTransferActive = false;
           byId("phoneBackupButton").disabled = false;
           setMessage("desktopMessage", handoffQueueSaved ? "电脑暂不可用；任务已保存在本机。打开电脑后点击“连接电脑并继续”。"
             : "尚未连接电脑，请稍后重试或重新选择素材。", handoffQueueSaved);
@@ -460,9 +474,15 @@
         }
         try { handoffWindow.postMessage({ type: "YINGXU_POCKET_PING" }, base.origin); } catch (_) {}
       }, 500);
+      updatePhoneQueueActions();
       setMessage("desktopMessage", handoffQueueSaved ? "任务已保存在本机；正在连接电脑。页面就绪后会自动继续。"
         : "正在尝试直连电脑；电脑需保持运行并与手机处于同一 Wi‑Fi。");
-    } catch (error) { setMessage("desktopMessage", error.message || "地址格式无效。", true); }
+    } catch (error) {
+      phoneTransferActive = false;
+      updatePhoneQueueActions();
+      byId("phoneBackupButton").disabled = false;
+      setMessage("desktopMessage", error.message || "地址格式无效。", true);
+    }
   }
 
   byId("phoneMediaFiles").addEventListener("change", () => { selectedPhoneFiles = readSelectedFiles(); renderSelectedFiles(); });
