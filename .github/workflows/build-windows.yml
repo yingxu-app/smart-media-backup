@@ -278,7 +278,7 @@ jobs:
                   [void][YingxuLegacyConsole]::ShowWindow([YingxuLegacyConsole]::GetConsoleWindow(), 0)
                   $originalConsoleCodePage = [YingxuLegacyConsole]::GetConsoleOutputCP()
                 }
-                $consoleOutput = [YingxuLegacyConsole]::CreateFile('CONOUT$', 0xC0000000, 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
+                $consoleOutput = [YingxuLegacyConsole]::CreateFile('CONOUT$', [uint32]::Parse('3221225472'), 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
                 if ($consoleOutput -eq [IntPtr](-1)) { throw 'Could not open the legacy console output handle.' }
                 if (-not [YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 1)) { throw 'Could not make the legacy console output inheritable.' }
                 if (-not [YingxuLegacyConsole]::SetConsoleOutputCP(65001)) { throw 'Could not set UTF-8 output for the legacy console.' }
