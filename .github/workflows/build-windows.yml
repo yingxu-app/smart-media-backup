@@ -272,7 +272,7 @@ jobs:
                 $originalStdout = [YingxuLegacyConsole]::GetStdHandle(-11)
                 $originalStderr = [YingxuLegacyConsole]::GetStdHandle(-12)
                 $originalConsoleCodePage = [YingxuLegacyConsole]::GetConsoleOutputCP()
-                if ([YingxuLegacyConsole]::GetConsoleWindow() -eq [IntPtr]::Zero) {
+                if (-not $originalConsoleCodePage) {
                   if (-not [YingxuLegacyConsole]::AllocConsole()) { throw 'Could not allocate the legacy UTF-8 console.' }
                   $allocatedConsole = $true
                   [void][YingxuLegacyConsole]::ShowWindow([YingxuLegacyConsole]::GetConsoleWindow(), 0)
