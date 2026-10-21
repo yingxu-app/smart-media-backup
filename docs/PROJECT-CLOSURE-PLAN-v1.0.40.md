@@ -6,10 +6,10 @@
 
 ## 2026-10-21 PR #12 Windows x64 VM 首轮与修正
 
-- PR #12 当前 head 为 `5f1f74a9d5dd4475bbd92f57e8f69b1f43659e02`，OPEN/DRAFT、mergeable。首轮 Pocket run `39532108875` 成功，PWA 检查通过；Android debug artifact `12316761659` 元数据 digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，不代表 Android 设备验收。
-- Windows run `39534308614` 的打包服务与 21 项隔离备份通过；首次 UI 探针错用了非首页容器。首页独立模板实际工作区为 `div#mainContent.main`。提交 `5273663` 修复选择器后，Windows run `39538775467` 的产物报告显示八项 UI 检查全部通过，但 PowerShell 读取步骤仍判失败，因此安装/升级/回退未运行。
-- 本机新候选改为原子写探针 JSON，并等待 runner 读取到稳定文件；PowerShell 会显式校验结果数量和失败项。定向 unittest 4/4、Python 编译、workflow YAML 解析和 `git diff --check` 通过；候选尚未推送。
-- Pocket run `39538775433` 的 PWA job 已成功；最近可读状态中 Android debug build 仍运行，未重启。
+- PR #12 当前分支 `codex/windows-vm-webview-acceptance` head 为 `7a69c7add6654dba731a89b09304916328cc9ef5`，OPEN/DRAFT、mergeable。Windows run `39540877703` 的隔离备份 21 项和 pywebview GUI 八项均通过；版本验收在 v1.0.34 健康启动前因 CP1252 中文日志崩溃失败。
+- 本地已修正桌面启动输出流，固定为 UTF-8 并保留 `backslashreplace`；CP1252 中文写入回归用例纳入测试。Windows workflow 对 v1.0.34 测试进程单独设置 UTF-8 兼容环境，当前候选进程不设置该变量，以验证应用自身修复。以上改动尚未提交/推送，需由新 Windows x64 VM workflow 完整验收。
+- 修复同时补齐 Pocket 本机暂存队列可测试模块，覆盖选中文件引用及元数据保存、重启恢复与无效队列清理，并加入离线 Service Worker shell。完整桌面 unittest 126 项通过、2 项 Windows-only 跳过；Firebase rules/server/sync Python 20/20、仓库与 Pocket Node 46/46、桌面入口定向 5/5 已通过，JavaScript 语法与 `git diff --check` 通过。
+- 当前 head Pocket run `39540877621` 的 PWA/mobile check job success，Android debug build 上次查询仍运行且未重启。修复提交前的 Windows run `39540877703` 终态 failure；需推送改动后由新 Windows x64 workflow 验收。
 
 ## 2026-10-21 已确认的验收范围修正
 

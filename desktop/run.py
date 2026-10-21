@@ -28,8 +28,11 @@ def _make_console_output_encoding_safe() -> None:
         if stream is None or not hasattr(stream, "reconfigure"):
             continue
         try:
-            stream.reconfigure(errors="backslashreplace")
-        except (OSError, ValueError):
+            # Frozen Windows builds may inherit CP1252 from the parent console.
+            # The server runs in a background thread and emits localized logs;
+            # fixing only the error handler still leaves Chinese unencodable.
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except (OSError, ValueError, LookupError):
             pass
 
 

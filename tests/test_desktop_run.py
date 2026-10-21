@@ -1,5 +1,6 @@
 import unittest
 import json
+import io
 import tempfile
 from unittest.mock import patch
 from pathlib import Path
@@ -9,9 +10,11 @@ from desktop.run import _make_console_output_encoding_safe, _write_json_atomical
 
 class ReconfigurableStream:
     def __init__(self):
+        self.encoding = "cp1252"
         self.errors = None
 
-    def reconfigure(self, *, errors):
+    def reconfigure(self, *, encoding, errors):
+        self.encoding = encoding
         self.errors = errors
 
 
@@ -23,8 +26,22 @@ class DesktopRunConsoleEncodingTests(unittest.TestCase):
         with patch("sys.stdout", stdout), patch("sys.stderr", stderr):
             _make_console_output_encoding_safe()
 
-        self.assertEqual(stdout.errors, "backslashreplace")
-        self.assertEqual(stderr.errors, "backslashreplace")
+        for stream in (stdout, stderr):
+            self.assertEqual(stream.encoding, "utf-8")
+            self.assertEqual(stream.errors, "backslashreplace")
+
+    def test_localized_output_is_writable_after_cp1252_stream_is_reconfigured(self):
+        raw = io.BytesIO()
+        stream = io.TextIOWrapper(raw, encoding="cp1252")
+        try:
+            with patch("sys.stdout", stream), patch("sys.stderr", stream):
+                _make_console_output_encoding_safe()
+                print("服务线程：影序已启动", file=stream)
+
+            stream.flush()
+            self.assertIn("服务线程：影序已启动", raw.getvalue().decode("utf-8"))
+        finally:
+            stream.detach()
 
     def test_missing_or_non_reconfigurable_streams_are_ignored(self):
         with patch("sys.stdout", None), patch("sys.stderr", object()):

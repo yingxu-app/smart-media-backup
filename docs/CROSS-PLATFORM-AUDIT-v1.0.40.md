@@ -6,11 +6,12 @@
 
 ## 2026-10-21 PR #12 CI 与 Windows 虚拟机编码修正
 
-- PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 为 OPEN/DRAFT、mergeable。首轮 Pocket run `39532108875` 成功；Android debug artifact `12316761659` 元数据 digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，只代表 CI 包体，不代表 Android 设备验收。
-- Windows run `39534308614` 的打包服务与 21 项隔离备份断言通过，但 UI 探针误用了其他页面的 `main.main-content`；首页独立模板的工作区实际是 `div#mainContent.main`。
-- 提交 `5273663` 修正选择器后，Windows run `39538775467` 的报告显示八项 UI 检查全部为 true（标题、导航、主工作区可见、历史/设置导航），但 PowerShell 读取步骤仍把它判失败，安装/升级/回退没有运行。该 run 的 21 项隔离备份断言通过。
-- 本机新候选用原子方式发布 JSON 探针报告，runner 等文件长度稳定后再解析，并明确输出失败数量；定向测试 4/4、Python 编译、workflow YAML 解析和 `git diff --check` 通过。该修复尚未提交/推送。
-- Pocket run `39538775433` 的 PWA job success；最近一次可读状态中 Android debug job 仍在构建，未取消或重启。
+- PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 的工作分支为 `codex/windows-vm-webview-acceptance`，head `7a69c7add6654dba731a89b09304916328cc9ef5`，PR OPEN/DRAFT、mergeable，工作树在本轮修改前 clean。
+- Windows run `39540877703` 中，隔离备份 21 项与 pywebview GUI 八项探针均通过。其版本升级步骤在启动公开 v1.0.34 时失败：旧冻结包的服务线程向 CP1252 stderr 输出中文，触发 `UnicodeEncodeError`，健康接口未就绪，因此本轮安装/升级/回退没有完成。
+- 修复已在本地实现、尚待提交：桌面入口启动时将 stdout/stderr 同时重配置为 UTF-8 与 `backslashreplace`；CP1252 `TextIOWrapper` 中文写入回归用例通过。Windows workflow 仅给旧版 v1.0.34 测试进程设置 `PYTHONIOENCODING=utf-8` 与 `PYTHONUTF8=1`，候选版不依赖该兼容环境。
+- 本机桌面入口定向 unittest 5/5 通过；完整桌面 Python suite 126 项通过、2 项 Windows-only 跳过。Firebase rules/server/sync Python 测试 20/20 通过；仓库与 Pocket Node 全部测试 46/46 通过，含新增手机暂存队列恢复/无效记录清理检查。覆盖 UID 子树、匿名访问拒绝、凭据不落盘、离线缓存/恢复、桌面重连队列、进度及取消。测试未使用真实账号。
+- PWA 新增可单测的本机暂存队列建档/恢复逻辑，并加入 Pocket 页面与 Service Worker 离线应用壳；变更后全 Node suite、Pocket JavaScript 语法检查和 `git diff --check` 通过。真实 iPhone IndexedDB 配额、页面重启恢复与完整文件传输仍待设备验收。
+- Pocket run `39540877621` 的 PWA 与 mobile check job success；Android debug build 在最近一次查询仍为 in_progress，未取消或重启。当前修复提交前的 Windows run `39540877703` 终态 failure，故本地修正需进入新 Windows x64 workflow 重新验收。
 - 验收范围按用户确认：Windows 只做 x64 虚拟机；iPhone 仅用 Safari PWA；Android 真机、小程序、原生 iOS、正式签名/公证排除。PWA 已实现手机素材选择、桌面交接、本机 IndexedDB 暂存与手动重试；完整 iPhone 传输/恢复和 Firebase 真实账号隔离仍待验收。
 
 ## 2026-10-21 PWA 本机媒体队列候选（未部署）

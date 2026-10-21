@@ -224,6 +224,14 @@ jobs:
             $info.UseShellExecute = $false
             $info.CreateNoWindow = $Headless
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
+            # The published v1.0.34 frozen build predates the in-app UTF-8
+            # console fix. Keep its install/upgrade/rollback smoke test alive
+            # under CP1252 Windows consoles; the current candidate is tested
+            # without these compatibility overrides.
+            if ($Version -eq '1.0.34') {
+              $info.Environment['PYTHONIOENCODING'] = 'utf-8'
+              $info.Environment['PYTHONUTF8'] = '1'
+            }
             if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
             else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
             $process = [System.Diagnostics.Process]::Start($info)

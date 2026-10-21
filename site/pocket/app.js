@@ -271,7 +271,7 @@
   }
 
   async function persistPhoneQueue(address, eventName) {
-    const totalBytes = selectedPhoneFiles.reduce((sum, item) => sum + item.file.size, 0);
+    const totalBytes = selectedPhoneFiles.reduce((sum, item) => sum + (Number(item.file.size) || 0), 0);
     if (navigator.storage?.estimate) {
       const estimate = await navigator.storage.estimate();
       const available = Number(estimate.quota) - Number(estimate.usage || 0);
@@ -279,21 +279,7 @@
         throw new Error("手机浏览器可用存储空间不足以暂存这批素材。请释放空间后重试。");
       }
     }
-    const candidate = {
-      version: 1,
-      createdAt: Date.now(),
-      desktopAddress: address,
-      eventName,
-      totalBytes,
-      files: selectedPhoneFiles.map(item => ({
-        file: item.file,
-        relativePath: item.relativePath,
-        kind: item.kind,
-        name: item.file.name,
-        size: item.file.size,
-        lastModified: item.file.lastModified,
-      })),
-    };
+    const candidate = YingxuPhoneQueue.createPhoneQueue(selectedPhoneFiles, address, eventName);
     await client.store.set("phoneBackupQueue", candidate);
     phoneQueue = candidate;
     handoffQueueSaved = true;
@@ -317,15 +303,14 @@
   async function loadPhoneQueue() {
     const saved = await client.store.get("phoneBackupQueue");
     if (!saved || !Array.isArray(saved.files) || !saved.files.length) return;
-    phoneQueue = saved;
-    handoffQueueSaved = true;
-    selectedPhoneFiles = saved.files
-      .filter(item => item?.file && typeof item.file.slice === "function" && typeof item.relativePath === "string")
-      .map(item => ({ file: item.file, relativePath: item.relativePath, kind: item.kind, status: "待连接电脑" }));
-    if (!selectedPhoneFiles.length) {
+    const restored = YingxuPhoneQueue.restorePhoneQueue(saved);
+    if (!restored) {
       await clearPhoneQueue({ clearSelection: true });
       return;
     }
+    phoneQueue = restored.queue;
+    handoffQueueSaved = true;
+    selectedPhoneFiles = restored.selectedFiles;
     byId("desktopAddress").value = saved.desktopAddress || "";
     byId("phoneEventName").value = saved.eventName || "";
     renderSelectedFiles();
