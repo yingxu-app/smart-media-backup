@@ -23,6 +23,7 @@ from .config import CONFIG_DIR
 BAIDU_AUTH_URL = "https://openapi.baidu.com/oauth/2.0/authorize"
 BAIDU_TOKEN_URL = "https://openapi.baidu.com/oauth/2.0/token"
 BAIDU_API_BASE = "https://pan.baidu.com/rest/2.0/xpan/file"
+BAIDU_QUOTA_URL = "https://pan.baidu.com/api/quota"
 
 # Token 存储路径
 TOKEN_PATH = CONFIG_DIR / "baidu_token.json"
@@ -211,16 +212,31 @@ class BaiduPan:
 
     def get_quota(self) -> dict:
         """获取网盘容量信息"""
-        result = self._api_get({"method": "info"})
-        if result:
-            quota = result.get("quota", 0)
-            used = result.get("used", 0)
-            return {
-                "total": quota,
-                "used": used,
-                "free": quota - used,
-            }
-        return {"total": 0, "used": 0, "free": 0}
+        if not self._ensure_token():
+            return {"error": "请先授权百度网盘后再查询容量"}
+        try:
+            response = requests.get(
+                BAIDU_QUOTA_URL,
+                params={
+                    "access_token": self.access_token,
+                    "checkfree": 1,
+                    "checkexpire": 1,
+                },
+                timeout=15,
+            )
+            response.raise_for_status()
+            result = response.json()
+            if not isinstance(result, dict) or result.get("errno", 0) != 0:
+                return {"error": "百度网盘未能返回容量信息"}
+            total = int(result["total"])
+            used = int(result["used"])
+            # The API's `free` field is the free-tier allowance, not unused space.
+            free = max(0, total - used)
+            if min(total, used, free) < 0:
+                return {"error": "百度网盘返回的容量数据无效"}
+            return {"total": total, "used": used, "free": free}
+        except (requests.RequestException, ValueError, KeyError, TypeError):
+            return {"error": "查询百度网盘容量失败，请检查网络或稍后重试"}
 
     def upload_file(self, local_path: str, remote_dir: str,
                     progress_callback: Optional[Callable] = None) -> bool:
