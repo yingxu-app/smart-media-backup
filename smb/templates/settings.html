@@ -100,6 +100,8 @@
         <button class="btn-secondary" onclick="authorizeBaidu()" id="btnBaiduAuth">🔗 授权百度网盘</button>
     </div>
     <div id="baiduStatus" class="save-msg" style="margin-top:12px;display:none;"></div>
+    <div id="baiduQuota" class="save-msg" style="margin-top:12px;display:none;" aria-live="polite"></div>
+    <button class="btn-secondary" id="btnBaiduQuota" onclick="loadBaiduQuota()" style="display:none;margin-top:8px;">↻ 刷新容量信息</button>
     <div id="baiduAuthPanel" style="display:none;margin-top:16px;padding:16px;background:var(--bg);border-radius:8px;">
         <p style="margin-bottom:8px;">第 1 步：点击下方按钮，登录你自己的百度账号并同意授权</p>
         <button class="btn-secondary" onclick="openBaiduAuthUrl()" id="btnOpenAuth">🔗 打开授权页面</button>
@@ -523,12 +525,34 @@ function loadBaiduStatus() {
                 st.style.display = "block";
                 st.innerHTML = "✅ 已授权百度网盘";
                 st.style.color = "#4ade80";
+                document.getElementById("btnBaiduQuota").style.display = "inline-flex";
+                loadBaiduQuota();
             } else if (s.configured) {
                 st.style.display = "block";
                 st.innerHTML = "⚠️ 已配置，尚未授权";
                 st.style.color = "#fbbf24";
             }
         });
+}
+
+function loadBaiduQuota() {
+    const output = document.getElementById("baiduQuota");
+    const button = document.getElementById("btnBaiduQuota");
+    output.style.display = "block";
+    output.textContent = "正在查询网盘容量…";
+    button.disabled = true;
+    fetch("/api/baidu/quota")
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || "容量查询失败");
+            output.textContent = `总容量 ${formatSize(data.total)} · 已用 ${formatSize(data.used)} · 可用 ${formatSize(data.free)}`;
+            output.style.color = "var(--text-dim)";
+        })
+        .catch(error => {
+            output.textContent = error.message || "查询百度网盘容量失败，请稍后重试。";
+            output.style.color = "#fbbf24";
+        })
+        .finally(() => { button.disabled = false; });
 }
 
 function saveBaiduSettings() {
@@ -588,6 +612,7 @@ function exchangeBaiduCode() {
             st.innerHTML = "✅ 授权成功！备份完成后将自动上传到百度网盘";
             st.style.color = "#4ade80";
             document.getElementById("baiduAuthPanel").style.display = "none";
+            loadBaiduStatus();
         } else {
             st.innerHTML = "❌ 授权失败，请检查授权码是否正确";
             st.style.color = "#ff4444";

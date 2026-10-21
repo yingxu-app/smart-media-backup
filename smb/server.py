@@ -1111,6 +1111,8 @@ def api_baidu_quota():
     """网盘容量信息"""
     from .baidu import baidu
     quota = baidu.get_quota()
+    if quota.get("error"):
+        return jsonify(quota), 502
     return jsonify(quota)
 
 
