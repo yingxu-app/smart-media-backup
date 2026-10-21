@@ -246,6 +246,8 @@ jobs:
             $info.WorkingDirectory = Split-Path -Parent $Executable
             $info.UseShellExecute = $false
             $info.CreateNoWindow = $Headless
+            $info.RedirectStandardError = $Version -eq '1.0.34'
+            if ($info.RedirectStandardError) { $info.StandardErrorEncoding = [System.Text.Encoding]::Default }
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
             $legacyConsole = $Version -eq '1.0.34'
             if (-not $legacyConsole) {
@@ -262,6 +264,7 @@ jobs:
             $consoleOutput = [IntPtr]::Zero
             $allocatedConsole = $false
             $originalConsoleCodePage = 0
+            $legacyStderrTask = $null
             try {
               if ($legacyConsole) {
                 # GitHub Actions gives PowerShell pipe-backed stdout/stderr.
@@ -282,10 +285,10 @@ jobs:
                 if ($consoleOutput -eq [IntPtr](-1)) { throw 'Could not open the legacy console output handle.' }
                 if (-not [YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 1)) { throw 'Could not make the legacy console output inheritable.' }
                 if (-not [YingxuLegacyConsole]::SetConsoleOutputCP(65001)) { throw 'Could not set UTF-8 output for the legacy console.' }
-                if (-not [YingxuLegacyConsole]::SetStdHandle(-11, $consoleOutput) -or
-                    -not [YingxuLegacyConsole]::SetStdHandle(-12, $consoleOutput)) { throw 'Could not attach the legacy process to the UTF-8 console.' }
+                if (-not [YingxuLegacyConsole]::SetStdHandle(-11, $consoleOutput)) { throw 'Could not attach legacy stdout to the UTF-8 console.' }
               }
               $process = [System.Diagnostics.Process]::Start($info)
+              $legacyStderrTask = if ($legacyConsole) { $process.StandardError.ReadToEndAsync() } else { $null }
             }
             finally {
               if ($legacyConsole) {
@@ -312,6 +315,10 @@ jobs:
             }
             if (-not $health -or $health.version -ne $Version) {
               Stop-YingxuVersion $running
+              if ($legacyStderrTask) {
+                $legacyStderr = $legacyStderrTask.GetAwaiter().GetResult()
+                if ($legacyStderr) { Write-Host "[$Version stderr]`n$legacyStderr" }
+              }
               throw "$Version did not become healthy; got '$($health.version)'. Last probe: $lastProbeError"
             }
             return $running
