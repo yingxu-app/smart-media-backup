@@ -220,8 +220,14 @@ jobs:
           if (-not ('YingxuLegacyConsole' -as [type])) {
             Add-Type -TypeDefinition @"
           using System;
+          using System.Text;
           using System.Runtime.InteropServices;
           public static class YingxuLegacyConsole {
+            [StructLayout(LayoutKind.Sequential)] public struct Coord { public short X; public short Y; }
+            [StructLayout(LayoutKind.Sequential)] public struct SmallRect { public short Left; public short Top; public short Right; public short Bottom; }
+            [StructLayout(LayoutKind.Sequential)] public struct BufferInfo {
+              public Coord Size; public Coord CursorPosition; public ushort Attributes; public SmallRect Window; public Coord MaximumWindowSize;
+            }
             [DllImport("kernel32.dll", SetLastError=true)] public static extern bool AllocConsole();
             [DllImport("kernel32.dll", SetLastError=true)] public static extern bool FreeConsole();
             [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
@@ -230,12 +236,24 @@ jobs:
             [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
             public static extern IntPtr CreateFile(string name, uint access, uint share, IntPtr security,
               uint creation, uint flags, IntPtr template);
-            [DllImport("kernel32.dll", SetLastError=true)]
-            public static extern bool SetHandleInformation(IntPtr handle, uint mask, uint flags);
+            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetHandleInformation(IntPtr handle, uint mask, uint flags);
+            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool GetConsoleScreenBufferInfo(IntPtr handle, out BufferInfo info);
+            [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+            public static extern bool ReadConsoleOutputCharacter(IntPtr handle, StringBuilder text, uint length, Coord start, out uint read);
             [DllImport("kernel32.dll", SetLastError=true)] public static extern bool CloseHandle(IntPtr handle);
             [DllImport("kernel32.dll")] public static extern uint GetConsoleOutputCP();
             [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetConsoleOutputCP(uint codePage);
             [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr window, int command);
+            public static string ReadConsoleText(IntPtr handle) {
+              BufferInfo info;
+              if (!GetConsoleScreenBufferInfo(handle, out info)) return "<console buffer unavailable>";
+              uint length = (uint)(info.Size.X * info.Size.Y);
+              if (length == 0) return "";
+              StringBuilder text = new StringBuilder((int)length);
+              uint read;
+              if (!ReadConsoleOutputCharacter(handle, text, length, new Coord { X = 0, Y = 0 }, out read)) return "<console read failed>";
+              return text.ToString(0, (int)read).TrimEnd('\0', ' ', '\r', '\n');
+            }
           }
           "@
           }
@@ -248,7 +266,6 @@ jobs:
             $info.CreateNoWindow = $Headless
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
             $legacyConsole = $Version -eq '1.0.34'
-            $legacyStderrPath = Join-Path $env:RUNNER_TEMP 'legacy-v1.0.34-stderr.log'
             if (-not $legacyConsole) {
               # The old-version E2E also sets these variables for its Python
               # helper in this PowerShell process. Do not let them mask the
@@ -261,7 +278,6 @@ jobs:
             $originalStdout = [IntPtr]::Zero
             $originalStderr = [IntPtr]::Zero
             $consoleOutput = [IntPtr]::Zero
-            $legacyStderrHandle = [IntPtr]::Zero
             $allocatedConsole = $false
             $originalConsoleCodePage = 0
             try {
@@ -282,39 +298,35 @@ jobs:
                 }
                 $consoleOutput = [YingxuLegacyConsole]::CreateFile('CONOUT$', [uint32]::Parse('3221225472'), 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
                 if ($consoleOutput -eq [IntPtr](-1)) { throw 'Could not open the legacy console output handle.' }
-                if (-not [YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 1)) { throw 'Could not make the legacy console output inheritable.' }
+                if (-not [YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 1)) { throw 'Could not make the legacy console handle inheritable.' }
                 if (-not [YingxuLegacyConsole]::SetConsoleOutputCP(65001)) { throw 'Could not set UTF-8 output for the legacy console.' }
                 if (-not [YingxuLegacyConsole]::SetStdHandle(-11, $consoleOutput)) { throw 'Could not attach legacy stdout to the UTF-8 console.' }
-                # Use an inheritable file handle for stderr instead of a pipe.
-                # The old frozen app may spawn a helper that keeps an inherited
-                # pipe open after its main process exits, making ReadToEnd hang.
-                $legacyStderrHandle = [YingxuLegacyConsole]::CreateFile($legacyStderrPath, [uint32]::Parse('1073741824'), 3, [IntPtr]::Zero, 2, 0, [IntPtr]::Zero)
-                if ($legacyStderrHandle -eq [IntPtr](-1)) { throw 'Could not open the legacy stderr log.' }
-                if (-not [YingxuLegacyConsole]::SetHandleInformation($legacyStderrHandle, 1, 1)) { throw 'Could not make the legacy stderr log inheritable.' }
-                if (-not [YingxuLegacyConsole]::SetStdHandle(-12, $legacyStderrHandle)) { throw 'Could not attach legacy stderr to its log file.' }
+                if (-not [YingxuLegacyConsole]::SetStdHandle(-12, $consoleOutput)) { throw 'Could not attach legacy stderr to the UTF-8 console.' }
               }
               $process = [System.Diagnostics.Process]::Start($info)
+              if ($legacyConsole) { [void][YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 0) }
             }
             finally {
               if ($legacyConsole) {
                 [void][YingxuLegacyConsole]::SetStdHandle(-11, $originalStdout)
                 [void][YingxuLegacyConsole]::SetStdHandle(-12, $originalStderr)
-                if ($legacyStderrHandle -ne [IntPtr]::Zero -and $legacyStderrHandle -ne [IntPtr](-1)) {
-                  [void][YingxuLegacyConsole]::SetHandleInformation($legacyStderrHandle, 1, 0)
-                  [void][YingxuLegacyConsole]::CloseHandle($legacyStderrHandle)
+                if (-not $process) {
+                  if ($consoleOutput -ne [IntPtr]::Zero -and $consoleOutput -ne [IntPtr](-1)) {
+                    [void][YingxuLegacyConsole]::CloseHandle($consoleOutput)
+                  }
+                  if ($originalConsoleCodePage) { [void][YingxuLegacyConsole]::SetConsoleOutputCP($originalConsoleCodePage) }
+                  if ($allocatedConsole) { [void][YingxuLegacyConsole]::FreeConsole() }
                 }
-                if ($consoleOutput -ne [IntPtr]::Zero -and $consoleOutput -ne [IntPtr](-1)) {
-                  [void][YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 0)
-                  [void][YingxuLegacyConsole]::CloseHandle($consoleOutput)
-                }
-                if ($originalConsoleCodePage) { [void][YingxuLegacyConsole]::SetConsoleOutputCP($originalConsoleCodePage) }
-                if ($allocatedConsole) { [void][YingxuLegacyConsole]::FreeConsole() }
               }
             }
             if (-not $process) { throw "Could not launch $Version." }
             $launcher = $process
             $deadline = [DateTime]::UtcNow.AddSeconds(45)
-            $running = [pscustomobject]@{ App = $process; Launcher = $launcher }
+            $running = [pscustomobject]@{
+              App = $process; Launcher = $launcher; LegacyConsole = $legacyConsole
+              ConsoleOutput = $consoleOutput; AllocatedConsole = $allocatedConsole
+              OriginalConsoleCodePage = $originalConsoleCodePage
+            }
             $health = $null
             $lastProbeError = ''
             while ([DateTime]::UtcNow -lt $deadline) {
@@ -324,10 +336,6 @@ jobs:
             }
             if (-not $health -or $health.version -ne $Version) {
               Stop-YingxuVersion $running
-              if ($legacyConsole -and (Test-Path $legacyStderrPath)) {
-                $legacyStderr = Get-Content -Path $legacyStderrPath -Raw -ErrorAction SilentlyContinue
-                if ($legacyStderr) { Write-Host "[$Version stderr]`n$legacyStderr" }
-              }
               throw "$Version did not become healthy; got '$($health.version)'. Last probe: $lastProbeError"
             }
             return $running
@@ -337,6 +345,15 @@ jobs:
             if ($Running.App -and -not $Running.App.HasExited) { Stop-Process -Id $Running.App.Id -Force -ErrorAction SilentlyContinue }
             if ($Running.Launcher -and $Running.Launcher.Id -ne $Running.App.Id -and -not $Running.Launcher.HasExited) {
               Stop-Process -Id $Running.Launcher.Id -Force -ErrorAction SilentlyContinue
+            }
+            if ($Running.LegacyConsole) {
+              $consoleText = [YingxuLegacyConsole]::ReadConsoleText($Running.ConsoleOutput)
+              if ($consoleText) { Write-Host "[1.0.34 console]`n$consoleText" }
+              if ($Running.ConsoleOutput -ne [IntPtr]::Zero -and $Running.ConsoleOutput -ne [IntPtr](-1)) {
+                [void][YingxuLegacyConsole]::CloseHandle($Running.ConsoleOutput)
+              }
+              if ($Running.OriginalConsoleCodePage) { [void][YingxuLegacyConsole]::SetConsoleOutputCP($Running.OriginalConsoleCodePage) }
+              if ($Running.AllocatedConsole) { [void][YingxuLegacyConsole]::FreeConsole() }
             }
           }
 
