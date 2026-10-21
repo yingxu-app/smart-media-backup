@@ -231,19 +231,24 @@ jobs:
 
           function Start-YingxuVersion($Executable, $Version, $ConfigPath, $Headless) {
             $info = [System.Diagnostics.ProcessStartInfo]::new()
-            $info.FileName = $Executable
             $info.WorkingDirectory = Split-Path -Parent $Executable
             $info.UseShellExecute = $false
             $info.CreateNoWindow = $Headless
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
-            # The published v1.0.34 frozen build predates the in-app UTF-8
-            # console fix and ignores environment-level encoding overrides.
-            # Run that legacy baseline under a UTF-8 console code page; restore
-            # the runner's original code page before testing the candidate.
-            if ($Version -eq '1.0.34') {
+            $legacyConsole = $Version -eq '1.0.34'
+            # The published v1.0.34 frozen build predates the in-app UTF-8 fix
+            # and ignores environment-level encoding overrides. Run it in the
+            # inherited UTF-8 console with its streams attached to NUL; Python
+            # uses the console output code page for NUL character devices.
+            # The candidate keeps the runner's original streams and code page.
+            if ($legacyConsole) {
               if (-not [YingxuConsoleCodePage]::SetConsoleOutputCP(65001)) { throw 'Could not set UTF-8 console mode for v1.0.34.' }
+              $info.FileName = $env:ComSpec
+              $info.Arguments = "/d /s /c `"`"$Executable`" 1>NUL 2>NUL`""
+              $info.CreateNoWindow = $false
             } else {
               if (-not [YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)) { throw 'Could not restore the runner console code page for the candidate.' }
+              $info.FileName = $Executable
               # The old-version E2E also sets these variables for its Python
               # helper in this PowerShell process. Do not let them mask the
               # candidate's own CP1252-safe startup behavior.
@@ -252,17 +257,39 @@ jobs:
             }
             if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
             else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
-            $process = [System.Diagnostics.Process]::Start($info)
-            if (-not $process) { throw "Could not launch $Version." }
+            $launcher = [System.Diagnostics.Process]::Start($info)
+            if (-not $launcher) { throw "Could not launch $Version." }
+            $process = $launcher
             $deadline = [DateTime]::UtcNow.AddSeconds(45)
+            if ($legacyConsole) {
+              $expectedPath = [System.IO.Path]::GetFullPath($Executable)
+              $process = $null
+              while ([DateTime]::UtcNow -lt $deadline -and -not $process) {
+                if ($launcher.HasExited) { throw "$Version launcher exited early with code $($launcher.ExitCode)." }
+                $child = Get-CimInstance -ClassName Win32_Process -Filter "ParentProcessId = $($launcher.Id)" |
+                  Where-Object { $_.ExecutablePath -and $_.ExecutablePath.Equals($expectedPath, [System.StringComparison]::OrdinalIgnoreCase) } |
+                  Select-Object -First 1
+                if ($child) { $process = Get-Process -Id $child.ProcessId -ErrorAction SilentlyContinue }
+                if (-not $process) { Start-Sleep -Milliseconds 250 }
+              }
+              if (-not $process) { Stop-Process -Id $launcher.Id -Force -ErrorAction SilentlyContinue; throw "Could not locate the launched $Version process." }
+            }
+            $running = [pscustomobject]@{ App = $process; Launcher = $launcher }
             $health = $null
             while ([DateTime]::UtcNow -lt $deadline) {
               if ($process.HasExited) { throw "$Version exited early with code $($process.ExitCode)." }
               try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/health' -TimeoutSec 1; break }
               catch { Start-Sleep -Milliseconds 500 }
             }
-            if (-not $health -or $health.version -ne $Version) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw "$Version did not become healthy; got '$($health.version)'." }
-            return $process
+            if (-not $health -or $health.version -ne $Version) { Stop-YingxuVersion $running; throw "$Version did not become healthy; got '$($health.version)'." }
+            return $running
+          }
+
+          function Stop-YingxuVersion($Running) {
+            if ($Running.App -and -not $Running.App.HasExited) { Stop-Process -Id $Running.App.Id -Force -ErrorAction SilentlyContinue }
+            if ($Running.Launcher -and $Running.Launcher.Id -ne $Running.App.Id -and -not $Running.Launcher.HasExited) {
+              Stop-Process -Id $Running.Launcher.Id -Force -ErrorAction SilentlyContinue
+            }
           }
 
           $oldProcess = Start-YingxuVersion $oldExePath '1.0.34' $configPath $false
@@ -276,7 +303,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Published v1.0.34 did not pass the isolated backup flow.' }
           }
           finally {
-            if (-not $oldProcess.HasExited) { Stop-Process -Id $oldProcess.Id -Force }
+            Stop-YingxuVersion $oldProcess
             [void][YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)
           }
 
@@ -292,7 +319,7 @@ jobs:
             if ($items.Count -lt 1) { throw 'History from v1.0.34 was not readable after upgrading the same user data directory.' }
             Write-Host "[PASS] Upgrade preserved $($items.Count) backup history records."
           }
-          finally { if (-not $newProcess.HasExited) { Stop-Process -Id $newProcess.Id -Force } }
+          finally { Stop-YingxuVersion $newProcess }
 
           Remove-Item -LiteralPath $configDir -Recurse -Force
           Copy-Item -LiteralPath $rollbackDir -Destination $configDir -Recurse
@@ -304,7 +331,7 @@ jobs:
             Write-Host "[PASS] Rollback reopened v1.0.34 with $($items.Count) backup history records from the saved data copy."
           }
           finally {
-            if (-not $rollbackProcess.HasExited) { Stop-Process -Id $rollbackProcess.Id -Force }
+            Stop-YingxuVersion $rollbackProcess
             [void][YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)
           }
 
