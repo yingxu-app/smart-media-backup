@@ -174,6 +174,97 @@ jobs:
             if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
 
+      - name: Exercise v1.0.34 install, v1.0.40 upgrade, and rollback in Windows x64 VM
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod -Headers @{ 'User-Agent' = 'YINGXU-Windows-VM-E2E' } `
+            -Uri 'https://api.github.com/repos/yingxu-app/smart-media-backup/releases/tags/v1.0.34'
+          $oldAsset = $release.assets | Where-Object { $_.name -eq 'YINGXU-Windows-v1.0.34.exe' } | Select-Object -First 1
+          $manifestAsset = $release.assets | Where-Object { $_.name -eq 'SHA256SUMS.txt' } | Select-Object -First 1
+          if (-not $oldAsset -or -not $manifestAsset) { throw 'Published v1.0.34 Windows EXE or SHA256SUMS.txt is missing.' }
+
+          $upgradeRoot = Join-Path $env:RUNNER_TEMP 'yingxu-version-upgrade-e2e'
+          $oldDir = Join-Path $upgradeRoot 'v1.0.34'
+          $newDir = Join-Path $upgradeRoot 'candidate-v${{ steps.app-version.outputs.version }}'
+          $configDir = Join-Path $upgradeRoot 'config'
+          $rollbackDir = Join-Path $upgradeRoot 'rollback-config'
+          New-Item -ItemType Directory -Force -Path $oldDir, $newDir, $configDir | Out-Null
+
+          $oldExePath = Join-Path $oldDir $oldAsset.name
+          $manifestPath = Join-Path $upgradeRoot 'SHA256SUMS.txt'
+          Invoke-WebRequest -Uri $oldAsset.browser_download_url -OutFile $oldExePath
+          Invoke-WebRequest -Uri $manifestAsset.browser_download_url -OutFile $manifestPath
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw
+          $expectedHash = $null
+          foreach ($line in ($manifest -split '\r?\n')) {
+            if ($line -match '^([a-fA-F0-9]{64})\s+\*?YINGXU-Windows-v1\.0\.34\.exe$') { $expectedHash = $Matches[1].ToLowerInvariant(); break }
+          }
+          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $oldExePath).Hash.ToLowerInvariant()
+          if (-not $expectedHash -or $actualHash -cne $expectedHash) { throw 'Published v1.0.34 EXE did not match its SHA-256 manifest.' }
+
+          $config = @{ web_host = '127.0.0.1'; web_port = 18200; auto_open_browser = $false }
+          $configPath = Join-Path $configDir 'config.json'
+          [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
+          function Start-YingxuVersion($Executable, $Version, $ConfigPath, $Headless) {
+            $info = [System.Diagnostics.ProcessStartInfo]::new()
+            $info.FileName = $Executable
+            $info.WorkingDirectory = Split-Path -Parent $Executable
+            $info.UseShellExecute = $false
+            $info.CreateNoWindow = $Headless
+            $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
+            if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
+            else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
+            $process = [System.Diagnostics.Process]::Start($info)
+            if (-not $process) { throw "Could not launch $Version." }
+            $deadline = [DateTime]::UtcNow.AddSeconds(45)
+            $health = $null
+            while ([DateTime]::UtcNow -lt $deadline) {
+              if ($process.HasExited) { throw "$Version exited early with code $($process.ExitCode)." }
+              try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/health' -TimeoutSec 1; break }
+              catch { Start-Sleep -Milliseconds 500 }
+            }
+            if (-not $health -or $health.version -ne $Version) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw "$Version did not become healthy; got '$($health.version)'." }
+            return $process
+          }
+
+          $oldProcess = Start-YingxuVersion $oldExePath '1.0.34' $configPath $false
+          try {
+            $env:SMB_CONFIG_DIR = $configDir
+            $env:YINGXU_E2E_EXTERNAL_SERVER = '1'
+            $env:YINGXU_E2E_BASE_URL = 'http://127.0.0.1:18200'
+            $env:PYTHONIOENCODING = 'utf-8'
+            $env:PYTHONUTF8 = '1'
+            python e2e_win_check.py
+            if ($LASTEXITCODE -ne 0) { throw 'Published v1.0.34 did not pass the isolated backup flow.' }
+          }
+          finally { if (-not $oldProcess.HasExited) { Stop-Process -Id $oldProcess.Id -Force } }
+
+          Copy-Item -LiteralPath $configDir -Destination $rollbackDir -Recurse
+          $candidate = Get-ChildItem -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'dist') -Filter '*.exe' -File | Select-Object -First 1
+          if (-not $candidate) { throw 'Current candidate EXE was not found.' }
+          $newExePath = Join-Path $newDir $candidate.Name
+          Copy-Item -LiteralPath $candidate.FullName -Destination $newExePath
+          $newProcess = Start-YingxuVersion $newExePath '${{ steps.app-version.outputs.version }}' $configPath $true
+          try {
+            $history = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/history' -TimeoutSec 5
+            $items = if ($history.backups) { @($history.backups) } else { @($history.items) }
+            if ($items.Count -lt 1) { throw 'History from v1.0.34 was not readable after upgrading the same user data directory.' }
+            Write-Host "[PASS] Upgrade preserved $($items.Count) backup history records."
+          }
+          finally { if (-not $newProcess.HasExited) { Stop-Process -Id $newProcess.Id -Force } }
+
+          Remove-Item -LiteralPath $configDir -Recurse -Force
+          Copy-Item -LiteralPath $rollbackDir -Destination $configDir -Recurse
+          $rollbackProcess = Start-YingxuVersion $oldExePath '1.0.34' $configPath $false
+          try {
+            $history = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/history' -TimeoutSec 5
+            $items = if ($history.backups) { @($history.backups) } else { @($history.items) }
+            if ($items.Count -lt 1) { throw 'Rollback did not restore the v1.0.34 backup history.' }
+            Write-Host "[PASS] Rollback reopened v1.0.34 with $($items.Count) backup history records from the saved data copy."
+          }
+          finally { if (-not $rollbackProcess.HasExited) { Stop-Process -Id $rollbackProcess.Id -Force } }
+
       - name: Verify x64 PE and create SHA-256 manifest
         shell: pwsh
         run: |
