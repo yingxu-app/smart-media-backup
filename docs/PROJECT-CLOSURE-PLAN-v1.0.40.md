@@ -6,9 +6,17 @@
 
 ## 2026-10-21 PR #12 Windows x64 VM 首轮与修正
 
-- PR #12 已推送为草稿。Pocket run `39532108875` 成功终态：PWA 检查通过；Android debug artifact `12316761659` 元数据 digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，不代表 Android 设备验收。
-- Windows run `39532108863` 的打包服务备份通过，原生 pywebview UI 步骤失败，升级/回退随之跳过。日志明确显示中文日志输出到 cp1252 时触发 `UnicodeEncodeError`，本地服务线程退出，UI 探针未得到报告。
-- 本机修复 `desktop/run.py`：stdout/stderr 使用 `backslashreplace`，避免控制台不支持字符中断服务；新增两个回归测试。定向测试 2/2、Python 编译和 `git diff --check` 通过。该修复尚未推送，需在 PR 新 head 上重新运行 Windows x64 VM 流程。
+- PR #12 当前 head 为 `5f1f74a9d5dd4475bbd92f57e8f69b1f43659e02`，OPEN/DRAFT、mergeable。首轮 Pocket run `39532108875` 成功，PWA 检查通过；Android debug artifact `12316761659` 元数据 digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，不代表 Android 设备验收。
+- Windows run `39534308614` 的打包服务启动与 21 项隔离备份断言通过，原生 pywebview UI 步骤仍失败，安装/升级/回退因此跳过。前一轮 cp1252 中文日志崩溃已修复；本轮日志显示工作区选择器返回 false，但源码 `smb/templates/base.html` 确实包含 `<main class="main-content">`，因此这是 UI 探针误判，不是已证实的产品页面缺失。
+- 本机已将探针改为回传工作区元素存在、尺寸和文本长度，要求元素可见且有内容；Windows 专项测试 2/2、Python 编译和 `git diff --check` 通过。该探针修复尚未提交/推送，也尚未由 Windows x64 VM 验证。
+- 最近一次可成功读取的 GitHub 状态为 Pocket run `39534308861` 的 PWA job success、Android debug job仍在构建；之后 GitHub API 查询遇到 EOF，当前终态待复查。没有取消或重启该 run。
+
+## 2026-10-21 已确认的验收范围修正
+
+- Windows 验收采用 Windows x64 虚拟机；不安排实体 Windows 电脑。PR #9/#10 已合并，PR #12 是当前 PWA 暂存队列与 Windows GUI/升级/回退流程的候选。
+- 正式更新入口已实现 SHA-256 校验后下载适用发行文件，并提示用户手动安装；应用不自动覆盖正在运行的版本。线上 `/update/` 最近已确认 HTTP 200，正式 Latest 与下载页版本仍需发布流程完成后复核。
+- Pocket PWA 已有照片/视频/Files 选择、同 Wi‑Fi 电脑交接、扫描去重、进度控制、本机 IndexedDB 暂存与手动重试。它不能静默扫描整本相册或向 iPhone 任意目录写入，也不承诺锁屏后台持续复制；电脑目标仍需电脑启动并可达。完整 iPhone 传输、暂停恢复、离线恢复、Firebase 真实账号隔离仍待设备/账号验收。
+- iOS 原生、Android 真机、小程序、签名/公证和远端原始媒体备份不纳入本轮；不以模拟文件系统或 CI 替代明确需要的 iPhone/Firebase 用户端证据。
 
 ## 2026-10-21 PWA 本机暂存队列候选
 

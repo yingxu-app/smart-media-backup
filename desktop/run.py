@@ -48,7 +48,16 @@ def _run_windows_ui_probe(window, base_url: str, report_path: str) -> None:
               navLabels: Array.from(document.querySelectorAll('.sidebar-nav .nav-label'))
                 .map(node => node.textContent.trim()),
               activeNav: document.querySelector('.sidebar-nav .nav-item.active')?.getAttribute('href') || '',
-              mainVisible: Boolean(document.querySelector('.main-content')),
+              mainMetrics: (() => {
+                const main = document.querySelector('main.main-content');
+                const rect = main?.getBoundingClientRect();
+                return {
+                  found: Boolean(main),
+                  width: rect?.width || 0,
+                  height: rect?.height || 0,
+                  textLength: (main?.innerText || '').trim().length,
+                };
+              })(),
             }))()"""
         )
 
@@ -72,7 +81,14 @@ def _run_windows_ui_probe(window, base_url: str, report_path: str) -> None:
         if initial:
             record(initial.get("title") == "影序 YINGXU", "窗口显示影序标题", str(initial.get("title")))
             record(initial.get("navLabels") == expected, "侧边栏四个主要页面可见", str(initial.get("navLabels")))
-            record(initial.get("mainVisible") is True, "主工作区已渲染", str(initial.get("mainVisible")))
+            main = initial.get("mainMetrics") or {}
+            main_visible = (
+                main.get("found") is True
+                and main.get("width", 0) > 0
+                and main.get("height", 0) > 0
+                and main.get("textLength", 0) > 0
+            )
+            record(main_visible, "主工作区已渲染", json.dumps(main, ensure_ascii=False))
 
             for route, label in (("/history", "归档记录"), ("/settings", "偏好设置")):
                 window.evaluate_js(

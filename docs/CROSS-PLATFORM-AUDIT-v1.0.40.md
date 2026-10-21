@@ -6,10 +6,11 @@
 
 ## 2026-10-21 PR #12 CI 与 Windows 虚拟机编码修正
 
-- PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 已推送为草稿。原始 head `cfdaedc3c3928e112a8d9a76fa66d3633f5b695a` 的 Pocket run `39532108875` 已终态 success，PWA 检查通过；Android debug artifact `12316761659` 元数据大小 94,609,014 bytes、digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，仅是 CI debug 包，不代表 Android 设备验收。
-- 同 head 的 Windows preview run `39532108863`：打包服务备份通过；原生 pywebview UI 步骤失败，后面的安装/升级/回退被跳过。日志根因为服务启动线程在 Windows cp1252 输出中文时抛 `UnicodeEncodeError`，服务线程退出，导致 UI 探针没有生成报告。
-- 修复已在本机工作树：桌面入口为 stdout/stderr 配置 `backslashreplace`，避免不支持的 Windows 代码页让日志输出杀死服务线程；新增两个回归测试。本机测试 2/2 通过，Python 编译与 `git diff --check` 通过。修复尚未提交/推送，Windows x64 VM 尚未用修复后的 head 复验。
-- 当前 PR head 的 Pocket/Android run 已成功终态；未重启。下一个 CI 只会由修复提交产生。
+- PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 为 OPEN/DRAFT、mergeable。首轮 Pocket run `39532108875` 成功；Android debug artifact `12316761659` 元数据 digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，只代表 CI 包体，不代表 Android 设备验收。
+- Windows run `39534308614` 的打包服务与 21 项隔离备份断言通过，但 UI 探针失败并跳过后续安装/升级/回退。早先 cp1252 中文输出问题已修复；新日志显示探针未能确认工作区可见，源模板则确实包含 `<main class="main-content">`。本机已将探针改为回传工作区存在、尺寸和文本长度，并校验可见且有内容；Windows x64 VM 复验尚未完成。
+- Windows 探针对应的定向测试 2/2、Python 编译与 `git diff --check` 通过。修复尚未提交/推送。
+- Pocket run `39534308861` 的 PWA job 成功；最近一次可读状态中 Android debug job 仍在构建。之后 GitHub API 间歇 EOF，终态待复查；未取消或重启该 run。
+- 验收范围按用户确认：Windows 只做 x64 虚拟机；iPhone 仅用 Safari PWA；Android 真机、小程序、原生 iOS、正式签名/公证排除。PWA 已实现手机素材选择、桌面交接、本机 IndexedDB 暂存与手动重试；完整 iPhone 传输/恢复和 Firebase 真实账号隔离仍待验收。
 
 ## 2026-10-21 PWA 本机媒体队列候选（未部署）
 
