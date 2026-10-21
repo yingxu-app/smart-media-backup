@@ -1,6 +1,19 @@
 # 影序全端闭环状态审计 v1.0.40
 
-审计日期：2026-10-20。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。历史矩阵保留当时证据，最新范围和线上状态以本节为准。
+审计日期：2026-10-21。本文把源码、CI、候选包体、安装运行、公开发布和真机验收分别记录；候选构建不等于正式发行。历史矩阵保留当时证据，最新范围和线上状态以本节为准。
+
+
+
+## 2026-10-21 合并后权威检查点
+
+- **主线与 PR：**PR #9、#10 均已合并。main 当前为 `8cf922635dd9b7b860e56da21982ef1909ef95a4`。本地已合并功能分支 HEAD `674cbf281c9841388da0605b4861c7e422219dd4` 与 main 文件树一致。
+- **合并后 CI：**Pocket run `39495319370` 终态 success，PWA job 与 Android debug APK build 成功；Reliability run `39495319472` 六个 OS/Python 组合全成功；Windows preview `39495319292` 与 Pages deploy `39495319529` success。Dependabot dynamic run `39495338732` 因 `/mobile` 的 uuid 更新检查失败，单独跟踪，不代表产品构建或 Pocket 失败。
+- **Windows x64 VM：**Windows-hosted runner 对打包 EXE 执行模拟素材卡备份，21/21 项通过，覆盖扫描、复制、SHA-256、历史/报告、重复跳过和来源保护。该证据不是实体 Windows 测试；仍需补虚拟机图形界面中的解压/启动、升级与回退流程。按用户决策不安排 Windows 实体机测试。
+- **Pages：**首页、`/pocket/`、`/download/`、`/privacy.html`、`/update/` 目前全部 HTTP 200；线上更新说明已显示校验、手动安装和回退步骤。路由可访问不代表 iPhone 离线或媒体传输已验收。
+- **Firebase 只读健康探测：**虚构 `example.invalid` 邮箱的 sign-in 请求返回 `INVALID_LOGIN_CREDENTIALS`，证明 Auth Web API 与邮箱/密码入口可响应；未认证的 RTDB 用户路径请求返回 HTTP 401 `Permission denied`。没有创建账号或使用真实密码，因此真实账号登录、多端同步和 UID 隔离仍待实测。
+- **Draft 资产整理：**v1.0.40 仍为 Draft，target 为合并 main。macOS DMG SHA-256 `65a22d7c0671f98362e5888cf10c02f0783b2d1ced9967d4779a2dae5e79d18e`、Windows EXE SHA-256 `257b461d2aa1cb6e5b1b6eda2c9b9f0e1d54046d65eed125dbb42043e8787e1a`；移除了与候选包不匹配的旧 `SHA256SUMS.txt`，当前 Release 正文指向版本化清单 `YINGXU-v1.0.40-SHA256SUMS.txt`（SHA-256 `31882371dd6110fc4af0c97af4db090acdfa4750d94cf00e38a72443e6269637`）。公开 Latest 与下载页版本仍为 v1.0.34，未提前发布。
+- **待完成门槛：**用真实账号完成注册/用户名、登录、同账号进度与云端历史、账号隔离和断网恢复；iPhone Safari PWA 选取照片/视频传至已配对桌面并核对桌面哈希与历史，验证离线缓存/联网恢复；Windows x64 VM 补图形界面运行、升级/回退。真实 iPhone/PWA 与 Firebase 证明前，v1.0.40 继续保持 Draft。
+- **PWA 能力边界：**当前手机端可选择照片、RAW、视频或 Files 项目，经同 Wi‑Fi 配对上传至桌面。它不提供完整原生相册静默扫描、锁屏持续传输、离线期间桌面队列续传、任意手机目录写入或异地原始媒体云备份；这些不得写成已完成能力。iOS 原生、Android 真机、小程序、代码签名/公证均在用户排除范围之外。
 
 ## 2026-10-20 当前范围与线上复核
 

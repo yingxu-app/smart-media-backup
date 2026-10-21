@@ -190,7 +190,7 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
       - name: Explain release status
-        run: echo "This is an unsigned CI preview. Publish only after Windows real-device acceptance."
+        run: echo "This is an unsigned CI preview. Publish only after Windows x64 VM acceptance and all remaining release gates pass."
 
       - name: Upload Windows runner E2E report
         if: always()
