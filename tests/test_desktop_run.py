@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+from pathlib import Path
 
 from desktop.run import _make_console_output_encoding_safe
 
@@ -26,6 +27,14 @@ class DesktopRunConsoleEncodingTests(unittest.TestCase):
     def test_missing_or_non_reconfigurable_streams_are_ignored(self):
         with patch("sys.stdout", None), patch("sys.stderr", object()):
             _make_console_output_encoding_safe()
+
+    def test_windows_ui_probe_targets_the_standalone_dashboard_workspace(self):
+        root = Path(__file__).resolve().parents[1]
+        probe = (root / "desktop" / "run.py").read_text(encoding="utf-8")
+        dashboard = (root / "smb" / "templates" / "dashboard.html").read_text(encoding="utf-8")
+
+        self.assertIn("document.querySelector('#mainContent.main')", probe)
+        self.assertIn('<div class="main" id="mainContent">', dashboard)
 
 
 if __name__ == "__main__":

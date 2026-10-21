@@ -7,8 +7,8 @@
 ## 2026-10-21 PR #12 Windows x64 VM 首轮与修正
 
 - PR #12 当前 head 为 `5f1f74a9d5dd4475bbd92f57e8f69b1f43659e02`，OPEN/DRAFT、mergeable。首轮 Pocket run `39532108875` 成功，PWA 检查通过；Android debug artifact `12316761659` 元数据 digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，不代表 Android 设备验收。
-- Windows run `39534308614` 的打包服务启动与 21 项隔离备份断言通过，原生 pywebview UI 步骤仍失败，安装/升级/回退因此跳过。前一轮 cp1252 中文日志崩溃已修复；本轮日志显示工作区选择器返回 false，但源码 `smb/templates/base.html` 确实包含 `<main class="main-content">`，因此这是 UI 探针误判，不是已证实的产品页面缺失。
-- 本机已将探针改为回传工作区元素存在、尺寸和文本长度，要求元素可见且有内容；Windows 专项测试 2/2、Python 编译和 `git diff --check` 通过。该探针修复尚未提交/推送，也尚未由 Windows x64 VM 验证。
+- Windows run `39534308614` 的打包服务启动与 21 项隔离备份断言通过，原生 pywebview UI 步骤仍失败，安装/升级/回退因此跳过。失败报告显示窗口文档中找不到工作区；检查发现复制新内容页是独立模板 `dashboard.html`，使用 `div#mainContent.main`，而不是其他页面的 `main.main-content`。
+- 已推送的提交 `dfa111f` 添加了元素尺寸/文本诊断，但选择器仍指向错误模板；本机现已改为检查 `#mainContent.main` 并新增模板/探针一致性回归测试，尚待本机复测和新 Windows x64 VM 验证。
 - 最近一次可成功读取的 GitHub 状态为 Pocket run `39534308861` 的 PWA job success、Android debug job仍在构建；之后 GitHub API 查询遇到 EOF，当前终态待复查。没有取消或重启该 run。
 
 ## 2026-10-21 已确认的验收范围修正

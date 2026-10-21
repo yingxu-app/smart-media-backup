@@ -49,7 +49,7 @@ def _run_windows_ui_probe(window, base_url: str, report_path: str) -> None:
                 .map(node => node.textContent.trim()),
               activeNav: document.querySelector('.sidebar-nav .nav-item.active')?.getAttribute('href') || '',
               mainMetrics: (() => {
-                const main = document.querySelector('main.main-content');
+                const main = document.querySelector('#mainContent.main');
                 const rect = main?.getBoundingClientRect();
                 return {
                   found: Boolean(main),
