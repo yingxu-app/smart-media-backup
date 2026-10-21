@@ -7,9 +7,10 @@
 ## 2026-10-21 PR #12 CI 与 Windows 虚拟机编码修正
 
 - PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 为 OPEN/DRAFT、mergeable。首轮 Pocket run `39532108875` 成功；Android debug artifact `12316761659` 元数据 digest `c52918009e1c97c06a6d7c222afbf66be37825fcea23bc93a8f3017e1cb87e3f`，只代表 CI 包体，不代表 Android 设备验收。
-- Windows run `39534308614` 的打包服务与 21 项隔离备份断言通过，但 UI 探针失败并跳过后续安装/升级/回退。早先 cp1252 中文输出问题已修复；之后检查发现首页使用独立模板，其工作区是 `div#mainContent.main`，而探针误用了其他页面的 `main.main-content` 选择器。
-- 本机已把探针选择器改为 `#mainContent.main`，并新增静态回归测试确保它与首页模板一致；定向测试、Python 编译与 `git diff --check` 待复跑。前一个提交 `dfa111f` 已推送，但修复后的选择器尚未提交/推送。
-- Pocket run `39534308861` 的 PWA job 成功；最近一次可读状态中 Android debug job 仍在构建。之后 GitHub API 间歇 EOF，终态待复查；未取消或重启该 run。
+- Windows run `39534308614` 的打包服务与 21 项隔离备份断言通过，但 UI 探针误用了其他页面的 `main.main-content`；首页独立模板的工作区实际是 `div#mainContent.main`。
+- 提交 `5273663` 修正选择器后，Windows run `39538775467` 的报告显示八项 UI 检查全部为 true（标题、导航、主工作区可见、历史/设置导航），但 PowerShell 读取步骤仍把它判失败，安装/升级/回退没有运行。该 run 的 21 项隔离备份断言通过。
+- 本机新候选用原子方式发布 JSON 探针报告，runner 等文件长度稳定后再解析，并明确输出失败数量；定向测试 4/4、Python 编译、workflow YAML 解析和 `git diff --check` 通过。该修复尚未提交/推送。
+- Pocket run `39538775433` 的 PWA job success；最近一次可读状态中 Android debug job 仍在构建，未取消或重启。
 - 验收范围按用户确认：Windows 只做 x64 虚拟机；iPhone 仅用 Safari PWA；Android 真机、小程序、原生 iOS、正式签名/公证排除。PWA 已实现手机素材选择、桌面交接、本机 IndexedDB 暂存与手动重试；完整 iPhone 传输/恢复和 Firebase 真实账号隔离仍待验收。
 
 ## 2026-10-21 PWA 本机媒体队列候选（未部署）

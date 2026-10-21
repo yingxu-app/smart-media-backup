@@ -158,15 +158,26 @@ jobs:
 
           try {
             $deadline = [DateTime]::UtcNow.AddSeconds(60)
-            while (-not (Test-Path -LiteralPath $reportPath) -and [DateTime]::UtcNow -lt $deadline) {
+            $previousLength = -1L
+            $stableReads = 0
+            while ([DateTime]::UtcNow -lt $deadline -and $stableReads -lt 2) {
               if ($process.HasExited) { throw "Native UI process exited early with code $($process.ExitCode)." }
-              Start-Sleep -Milliseconds 500
+              if (Test-Path -LiteralPath $reportPath) {
+                $currentLength = (Get-Item -LiteralPath $reportPath).Length
+                if ($currentLength -gt 0 -and $currentLength -eq $previousLength) { $stableReads++ }
+                else { $stableReads = 0 }
+                $previousLength = $currentLength
+              }
+              else { $previousLength = -1L; $stableReads = 0 }
+              if ($stableReads -lt 2) { Start-Sleep -Milliseconds 300 }
             }
-            if (-not (Test-Path -LiteralPath $reportPath)) { throw 'Native pywebview UI probe produced no report within 60 seconds.' }
-            $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
-            if (-not $report.passed) {
-              $failed = @($report.results | Where-Object { -not $_.ok } | ForEach-Object { "$($_.name): $($_.detail)" }) -join '; '
-              throw "Native pywebview UI acceptance failed: $failed"
+            if ($stableReads -lt 2) { throw 'Native pywebview UI probe did not publish a stable report within 60 seconds.' }
+            $rawReport = Get-Content -LiteralPath $reportPath -Raw
+            $report = $rawReport | ConvertFrom-Json
+            $failedItems = @($report.results | Where-Object { $_.ok -ne $true })
+            if ($report.passed -ne $true -or $report.results.Count -eq 0 -or $failedItems.Count -gt 0) {
+              $failed = @($failedItems | ForEach-Object { "$($_.name): $($_.detail)" }) -join '; '
+              throw "Native pywebview UI acceptance failed (passed=$($report.passed), results=$($report.results.Count), failed=$($failedItems.Count)): $failed"
             }
             $report.results | ForEach-Object { Write-Host "[PASS] $($_.name) $($_.detail)" }
           }

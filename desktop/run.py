@@ -33,6 +33,16 @@ def _make_console_output_encoding_safe() -> None:
             pass
 
 
+def _write_json_atomically(path: Path, payload: dict) -> None:
+    temporary_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temporary_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+
+
 def _run_windows_ui_probe(window, base_url: str, report_path: str) -> None:
     """Exercise the real pywebview window only in the Windows VM E2E job."""
     results = []
@@ -113,8 +123,7 @@ def _run_windows_ui_probe(window, base_url: str, report_path: str) -> None:
     finally:
         path = Path(report_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"passed": bool(results) and all(r["ok"] for r in results), "results": results},
-                                   ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json_atomically(path, {"passed": bool(results) and all(r["ok"] for r in results), "results": results})
 
 
 def main():

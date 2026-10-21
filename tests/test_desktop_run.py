@@ -1,8 +1,10 @@
 import unittest
+import json
+import tempfile
 from unittest.mock import patch
 from pathlib import Path
 
-from desktop.run import _make_console_output_encoding_safe
+from desktop.run import _make_console_output_encoding_safe, _write_json_atomically
 
 
 class ReconfigurableStream:
@@ -35,6 +37,16 @@ class DesktopRunConsoleEncodingTests(unittest.TestCase):
 
         self.assertIn("document.querySelector('#mainContent.main')", probe)
         self.assertIn('<div class="main" id="mainContent">', dashboard)
+
+    def test_ui_probe_report_is_published_atomically_as_complete_json(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ui-report.json"
+            payload = {"passed": True, "results": [{"ok": True, "name": "window"}]}
+
+            _write_json_atomically(path, payload)
+
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), payload)
+            self.assertEqual(list(Path(directory).iterdir()), [path])
 
 
 if __name__ == "__main__":
