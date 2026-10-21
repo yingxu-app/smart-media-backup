@@ -217,189 +217,55 @@ jobs:
           $configPath = Join-Path $configDir 'config.json'
           [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
 
-          if (-not ('YingxuLegacyConsole' -as [type])) {
-            Add-Type -TypeDefinition @"
-          using System;
-          using System.Text;
-          using System.Runtime.InteropServices;
-          public static class YingxuLegacyConsole {
-            [StructLayout(LayoutKind.Sequential)] public struct Coord { public short X; public short Y; }
-            [StructLayout(LayoutKind.Sequential)] public struct SmallRect { public short Left; public short Top; public short Right; public short Bottom; }
-            [StructLayout(LayoutKind.Sequential)] public struct BufferInfo {
-              public Coord Size; public Coord CursorPosition; public ushort Attributes; public SmallRect Window; public Coord MaximumWindowSize;
-            }
-            [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] public struct StartupInfo {
-              public int Size; public string Reserved; public string Desktop; public string Title;
-              public int X; public int Y; public int XSize; public int YSize; public int XCountChars; public int YCountChars;
-              public int FillAttribute; public int Flags; public short ShowWindow; public short Reserved2Size;
-              public IntPtr Reserved2; public IntPtr StdInput; public IntPtr StdOutput; public IntPtr StdError;
-            }
-            [StructLayout(LayoutKind.Sequential)] public struct ProcessInfo {
-              public IntPtr Process; public IntPtr Thread; public uint ProcessId; public uint ThreadId;
-            }
-            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool AllocConsole();
-            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool FreeConsole();
-            [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
-            [DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int standardHandle);
-            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetStdHandle(int standardHandle, IntPtr handle);
-            [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
-            public static extern IntPtr CreateFile(string name, uint access, uint share, IntPtr security,
-              uint creation, uint flags, IntPtr template);
-            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetHandleInformation(IntPtr handle, uint mask, uint flags);
-            [DllImport("kernel32.dll", EntryPoint="CreateProcessW", CharSet=CharSet.Unicode, SetLastError=true)]
-            public static extern bool CreateProcess(string appName, StringBuilder commandLine, IntPtr processAttributes,
-              IntPtr threadAttributes, bool inheritHandles, uint creationFlags, IntPtr environment,
-              string currentDirectory, ref StartupInfo startupInfo, out ProcessInfo processInfo);
-            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool GetConsoleScreenBufferInfo(IntPtr handle, out BufferInfo info);
-            [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
-            public static extern bool ReadConsoleOutputCharacter(IntPtr handle, StringBuilder text, uint length, Coord start, out uint read);
-            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool CloseHandle(IntPtr handle);
-            [DllImport("kernel32.dll")] public static extern uint GetConsoleOutputCP();
-            [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetConsoleOutputCP(uint codePage);
-            [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr window, int command);
-            public static string ReadConsoleText(IntPtr handle) {
-              BufferInfo info;
-              if (!GetConsoleScreenBufferInfo(handle, out info)) return "<console buffer unavailable>";
-              uint length = (uint)(info.Size.X * info.Size.Y);
-              if (length == 0) return "";
-              StringBuilder text = new StringBuilder((int)length);
-              uint read;
-              if (!ReadConsoleOutputCharacter(handle, text, length, new Coord { X = 0, Y = 0 }, out read)) return "<console read failed>";
-              return text.ToString(0, (int)read).TrimEnd('\0', ' ', '\r', '\n');
-            }
-          }
-          "@
-          }
-
           function Start-YingxuVersion($Executable, $Version, $ConfigPath, $Headless) {
-            $info = [System.Diagnostics.ProcessStartInfo]::new()
-            $info.FileName = $Executable
-            $info.WorkingDirectory = Split-Path -Parent $Executable
-            $info.UseShellExecute = $false
-            $info.CreateNoWindow = $Headless
-            $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
-            $legacyConsole = $Version -eq '1.0.34'
-            if ($legacyConsole) {
-              # The published frozen build reads this standard Python setting
-              # before its startup banner. The runner's redirected handles are
-              # CP1252, so UTF-8 with backslash replacement keeps diagnostics
-              # writable while we exercise the old data format and upgrade.
-              $info.Environment['PYTHONIOENCODING'] = 'utf-8:backslashreplace'
-              $info.Environment['PYTHONUTF8'] = '1'
+            $legacy = $Version -eq '1.0.34'
+            $configDirForProcess = Split-Path -Parent $ConfigPath
+            $stdoutPath = Join-Path $env:RUNNER_TEMP ("yingxu-" + $Version + "-stdout.log")
+            $stderrPath = Join-Path $env:RUNNER_TEMP ("yingxu-" + $Version + "-stderr.log")
+            Remove-Item -LiteralPath $stdoutPath, $stderrPath -Force -ErrorAction SilentlyContinue
+
+            if ($legacy) {
+              # The published frozen build uses CP1252 for redirected streams
+              # on this runner and crashes on its Chinese startup banner.
+              # Force Python's standard UTF-8 stream handling for this E2E so
+              # the old release can be exercised against its existing data.
+              $saved = @{}
+              foreach ($name in @('SMB_CONFIG_DIR', 'PYTHONIOENCODING', 'PYTHONUTF8', 'YINGXU_E2E_HEADLESS')) {
+                $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+              }
+              try {
+                $env:SMB_CONFIG_DIR = $configDirForProcess
+                $env:PYTHONIOENCODING = 'utf-8:backslashreplace'
+                $env:PYTHONUTF8 = '1'
+                if ($Headless) { $env:YINGXU_E2E_HEADLESS = '1' }
+                else { Remove-Item Env:YINGXU_E2E_HEADLESS -ErrorAction SilentlyContinue }
+                $process = Start-Process -FilePath $Executable -WorkingDirectory (Split-Path -Parent $Executable) `
+                  -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+              }
+              finally {
+                foreach ($name in $saved.Keys) {
+                  if ($null -eq $saved[$name]) { Remove-Item ("Env:" + $name) -ErrorAction SilentlyContinue }
+                  else { [Environment]::SetEnvironmentVariable($name, $saved[$name], 'Process') }
+                }
+              }
             }
-            if (-not $legacyConsole) {
-              # The old-version E2E also sets these variables for its Python
-              # helper in this PowerShell process. Do not let them mask the
-              # candidate's own CP1252-safe startup behavior.
+            else {
+              $info = [System.Diagnostics.ProcessStartInfo]::new()
+              $info.FileName = $Executable
+              $info.WorkingDirectory = Split-Path -Parent $Executable
+              $info.UseShellExecute = $false
+              $info.CreateNoWindow = $Headless
+              $info.Environment['SMB_CONFIG_DIR'] = $configDirForProcess
               $info.Environment.Remove('PYTHONIOENCODING') | Out-Null
               $info.Environment.Remove('PYTHONUTF8') | Out-Null
+              if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
+              else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
+              $process = [System.Diagnostics.Process]::Start($info)
             }
-            if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
-            else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
-            $originalStdout = [IntPtr]::Zero
-            $originalStderr = [IntPtr]::Zero
-            $originalStdin = [IntPtr]::Zero
-            $consoleOutput = [IntPtr]::Zero
-            $consoleInput = [IntPtr]::Zero
-            $allocatedConsole = $false
-            $originalConsoleCodePage = 0
-            try {
-              if ($legacyConsole) {
-                # GitHub Actions gives PowerShell pipe-backed stdout/stderr.
-                # The published frozen v1.0.34 build uses the ANSI code page
-                # for a pipe and crashes while printing its Chinese banner.
-                # Give only this legacy process a hidden UTF-8 console; keep
-                # the current candidate on the runner pipes to test its fix.
-                $originalStdout = [YingxuLegacyConsole]::GetStdHandle(-11)
-                $originalStderr = [YingxuLegacyConsole]::GetStdHandle(-12)
-                $originalStdin = [YingxuLegacyConsole]::GetStdHandle(-10)
-                $originalConsoleCodePage = [YingxuLegacyConsole]::GetConsoleOutputCP()
-                if (-not $originalConsoleCodePage) {
-                  if (-not [YingxuLegacyConsole]::AllocConsole()) { throw 'Could not allocate the legacy UTF-8 console.' }
-                  $allocatedConsole = $true
-                  [void][YingxuLegacyConsole]::ShowWindow([YingxuLegacyConsole]::GetConsoleWindow(), 0)
-                  $originalConsoleCodePage = [YingxuLegacyConsole]::GetConsoleOutputCP()
-                }
-                $consoleOutput = [YingxuLegacyConsole]::CreateFile('CONOUT$', [uint32]::Parse('3221225472'), 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
-                if ($consoleOutput -eq [IntPtr](-1)) { throw 'Could not open the legacy console output handle.' }
-                if (-not [YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 1)) { throw 'Could not make the legacy console handle inheritable.' }
-                $consoleInput = [YingxuLegacyConsole]::CreateFile('CONIN$', [uint32]::Parse('3221225472'), 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
-                if ($consoleInput -eq [IntPtr](-1)) { throw 'Could not open the legacy console input handle.' }
-                if (-not [YingxuLegacyConsole]::SetHandleInformation($consoleInput, 1, 1)) { throw 'Could not make the legacy console input handle inheritable.' }
-                if (-not [YingxuLegacyConsole]::SetConsoleOutputCP(65001)) { throw 'Could not set UTF-8 output for the legacy console.' }
-                if (-not [YingxuLegacyConsole]::SetStdHandle(-11, $consoleOutput)) { throw 'Could not attach legacy stdout to the UTF-8 console.' }
-                if (-not [YingxuLegacyConsole]::SetStdHandle(-12, $consoleOutput)) { throw 'Could not attach legacy stderr to the UTF-8 console.' }
-                if (-not [YingxuLegacyConsole]::SetStdHandle(-10, $consoleInput)) { throw 'Could not attach legacy stdin to the console.' }
-              }
-              if ($legacyConsole) {
-                # Process.Start may replace inherited handles with runner pipes.
-                # Use CreateProcess with STARTF_USESTDHANDLES so the frozen
-                # Python build receives the real console and Python selects
-                # its console-safe UTF-8 streams.
-                $previousConfigDir = $env:SMB_CONFIG_DIR
-                $hadHeadless = Test-Path Env:YINGXU_E2E_HEADLESS
-                $previousHeadless = $env:YINGXU_E2E_HEADLESS
-                try {
-                  $env:SMB_CONFIG_DIR = $info.Environment['SMB_CONFIG_DIR']
-                  if ($Headless) { $env:YINGXU_E2E_HEADLESS = '1' }
-                  else { Remove-Item Env:YINGXU_E2E_HEADLESS -ErrorAction SilentlyContinue }
-                  $startupInfo = [YingxuLegacyConsole+StartupInfo]::new()
-                  $startupInfo.Size = [System.Runtime.InteropServices.Marshal]::SizeOf([type][YingxuLegacyConsole+StartupInfo])
-                  $startupInfo.Flags = 0x100
-                  $startupInfo.StdInput = $consoleInput
-                  $startupInfo.StdOutput = $consoleOutput
-                  $startupInfo.StdError = $consoleOutput
-                  $processInfo = [YingxuLegacyConsole+ProcessInfo]::new()
-                  $commandLine = [System.Text.StringBuilder]::new('"' + $Executable + '"')
-                  if (-not [YingxuLegacyConsole]::CreateProcess($Executable, $commandLine, [IntPtr]::Zero, [IntPtr]::Zero, $true, 0, [IntPtr]::Zero, (Split-Path -Parent $Executable), [ref]$startupInfo, [ref]$processInfo)) {
-                    throw "CreateProcess failed for $Version with Win32 error $([System.Runtime.InteropServices.Marshal]::GetLastWin32Error())."
-                  }
-                  try { $process = [System.Diagnostics.Process]::GetProcessById([int]$processInfo.ProcessId) }
-                  finally {
-                    [void][YingxuLegacyConsole]::CloseHandle($processInfo.Thread)
-                    [void][YingxuLegacyConsole]::CloseHandle($processInfo.Process)
-                  }
-                }
-                finally {
-                  if ($null -ne $previousConfigDir) { $env:SMB_CONFIG_DIR = $previousConfigDir }
-                  else { Remove-Item Env:SMB_CONFIG_DIR -ErrorAction SilentlyContinue }
-                  if ($hadHeadless) { $env:YINGXU_E2E_HEADLESS = $previousHeadless }
-                  else { Remove-Item Env:YINGXU_E2E_HEADLESS -ErrorAction SilentlyContinue }
-                  [void][YingxuLegacyConsole]::SetHandleInformation($consoleOutput, 1, 0)
-                  [void][YingxuLegacyConsole]::SetHandleInformation($consoleInput, 1, 0)
-                }
-              }
-              else { $process = [System.Diagnostics.Process]::Start($info) }
-            }
-            finally {
-              if ($legacyConsole) {
-                [void][YingxuLegacyConsole]::SetStdHandle(-11, $originalStdout)
-                [void][YingxuLegacyConsole]::SetStdHandle(-12, $originalStderr)
-                [void][YingxuLegacyConsole]::SetStdHandle(-10, $originalStdin)
-                if ($consoleInput -ne [IntPtr]::Zero -and $consoleInput -ne [IntPtr](-1)) {
-                  [void][YingxuLegacyConsole]::SetHandleInformation($consoleInput, 1, 0)
-                  [void][YingxuLegacyConsole]::CloseHandle($consoleInput)
-                }
-                if (-not $process) {
-                  if ($consoleOutput -ne [IntPtr]::Zero -and $consoleOutput -ne [IntPtr](-1)) {
-                    [void][YingxuLegacyConsole]::CloseHandle($consoleOutput)
-                  }
-                  if ($consoleInput -ne [IntPtr]::Zero -and $consoleInput -ne [IntPtr](-1)) {
-                    [void][YingxuLegacyConsole]::CloseHandle($consoleInput)
-                  }
-                  if ($originalConsoleCodePage) { [void][YingxuLegacyConsole]::SetConsoleOutputCP($originalConsoleCodePage) }
-                  if ($allocatedConsole) { [void][YingxuLegacyConsole]::FreeConsole() }
-                }
-              }
-            }
+
             if (-not $process) { throw "Could not launch $Version." }
-            $launcher = $process
+            $running = [pscustomobject]@{ App = $process; Legacy = $legacy; Stdout = $stdoutPath; Stderr = $stderrPath }
             $deadline = [DateTime]::UtcNow.AddSeconds(45)
-            $running = [pscustomobject]@{
-              App = $process; Launcher = $launcher; LegacyConsole = $legacyConsole
-              ConsoleOutput = $consoleOutput; AllocatedConsole = $allocatedConsole
-              OriginalConsoleCodePage = $originalConsoleCodePage
-            }
             $health = $null
             $lastProbeError = ''
             while ([DateTime]::UtcNow -lt $deadline) {
@@ -408,9 +274,13 @@ jobs:
               catch { $lastProbeError = $_.Exception.Message; Start-Sleep -Milliseconds 500 }
             }
             if (-not $health -or $health.version -ne $Version) {
-              if ($legacyConsole) {
-                $consoleText = [YingxuLegacyConsole]::ReadConsoleText($running.ConsoleOutput)
-                if ($consoleText) { Write-Host "[1.0.34 console]`n$consoleText" }
+              if ($legacy) {
+                foreach ($log in @($stdoutPath, $stderrPath)) {
+                  if (Test-Path -LiteralPath $log) {
+                    $text = Get-Content -LiteralPath $log -Raw -ErrorAction SilentlyContinue
+                    if ($text) { Write-Host "[1.0.34 $(Split-Path -Leaf $log)]`n$text" }
+                  }
+                }
                 $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
                   Where-Object { $_.LocalPort -in @(8080, 18200) } |
                   Select-Object LocalAddress, LocalPort, OwningProcess)
@@ -424,17 +294,13 @@ jobs:
 
           function Stop-YingxuVersion($Running) {
             if ($Running.App -and -not $Running.App.HasExited) { Stop-Process -Id $Running.App.Id -Force -ErrorAction SilentlyContinue }
-            if ($Running.Launcher -and $Running.Launcher.Id -ne $Running.App.Id -and -not $Running.Launcher.HasExited) {
-              Stop-Process -Id $Running.Launcher.Id -Force -ErrorAction SilentlyContinue
-            }
-            if ($Running.LegacyConsole) {
-              $consoleText = [YingxuLegacyConsole]::ReadConsoleText($Running.ConsoleOutput)
-              if ($consoleText) { Write-Host "[1.0.34 console]`n$consoleText" }
-              if ($Running.ConsoleOutput -ne [IntPtr]::Zero -and $Running.ConsoleOutput -ne [IntPtr](-1)) {
-                [void][YingxuLegacyConsole]::CloseHandle($Running.ConsoleOutput)
+            if ($Running.Legacy) {
+              foreach ($log in @($Running.Stdout, $Running.Stderr)) {
+                if (Test-Path -LiteralPath $log) {
+                  $text = Get-Content -LiteralPath $log -Raw -ErrorAction SilentlyContinue
+                  if ($text) { Write-Host "[1.0.34 $(Split-Path -Leaf $log)]`n$text" }
+                }
               }
-              if ($Running.OriginalConsoleCodePage) { [void][YingxuLegacyConsole]::SetConsoleOutputCP($Running.OriginalConsoleCodePage) }
-              if ($Running.AllocatedConsole) { [void][YingxuLegacyConsole]::FreeConsole() }
             }
           }
 
