@@ -16,6 +16,21 @@ from pathlib import Path
 from .config import CONFIG_DIR
 
 AI_SETTINGS_PATH = CONFIG_DIR / "ai_settings.json"
+AI_KEYRING_SERVICE = "com.yingxuapp.smartmediabackup.ai"
+CLOUD_PROVIDER_PRESETS = {
+    "qwen": {
+        "model": "qwen3-vl-flash",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    },
+    "deepseek": {
+        "model": "deepseek-flash",
+        "base_url": "https://api.deepseek.com",
+    },
+    "openrouter": {
+        "model": "openrouter/free",
+        "base_url": "https://openrouter.ai/api/v1",
+    },
+}
 
 
 def _safe_console_print(message: str) -> None:
@@ -38,8 +53,10 @@ class AINamer:
         self.ollama_model = "llava"   # Ollama 视觉模型
         self.ollama_url = "http://localhost:11434"
         self.openai_key = ""
-        self.openai_model = "gpt-4o-mini"
-        self.openai_base = "https://api.openai.com/v1"
+        self.openai_model = "qwen3-vl-flash"
+        self.openai_base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        self.cloud_provider = "qwen"
+        self.cloud_key_providers = set()
         self._load()
 
     def _load(self):
@@ -49,22 +66,99 @@ class AINamer:
                 self.backend = d.get("backend", "disabled")
                 self.ollama_model = d.get("ollama_model", "llava")
                 self.ollama_url = d.get("ollama_url", "http://localhost:11434")
-                self.openai_key = d.get("openai_key", "")
-                self.openai_model = d.get("openai_model", "gpt-4o-mini")
-                self.openai_base = d.get("openai_base", "https://api.openai.com/v1")
+                legacy_key = d.get("openai_key", "")
+                configured_base = str(d.get("openai_base", "https://api.openai.com/v1")).lower()
+                inferred_provider = (
+                    "qwen" if "dashscope" in configured_base else
+                    "deepseek" if "deepseek" in configured_base else
+                    "openrouter" if "openrouter" in configured_base else "custom"
+                )
+                configured_provider = d.get("cloud_provider", inferred_provider)
+                # Keep old custom credentials available for migration, but new setup
+                # is intentionally limited to the three supported product providers.
+                provider_is_supported = configured_provider in CLOUD_PROVIDER_PRESETS
+                self.cloud_provider = configured_provider if provider_is_supported else "qwen"
+                self.openai_base = CLOUD_PROVIDER_PRESETS[self.cloud_provider]["base_url"]
+                self.openai_model = (
+                    d.get("openai_model") or CLOUD_PROVIDER_PRESETS[self.cloud_provider]["model"]
+                    if provider_is_supported else CLOUD_PROVIDER_PRESETS["qwen"]["model"]
+                )
+                self.cloud_key_providers = set(d.get("cloud_key_providers", []))
+                legacy_keys = d.get("cloud_keys", {})
+                if not isinstance(legacy_keys, dict):
+                    legacy_keys = {}
+                if legacy_key:
+                    legacy_key_provider = configured_provider if provider_is_supported else inferred_provider
+                    legacy_keys.setdefault(legacy_key_provider, legacy_key)
+                migrated_keys = False
+                migration_failed = False
+                for provider, key in legacy_keys.items():
+                    if not key:
+                        continue
+                    if provider not in {"qwen", "deepseek", "openrouter", "custom"}:
+                        migration_failed = True
+                        continue
+                    try:
+                        self._keyring().set_password(AI_KEYRING_SERVICE, provider, key)
+                        self.cloud_key_providers.add(provider)
+                        migrated_keys = True
+                    except Exception:
+                        # Keep the legacy file intact until every key is safely stored.
+                        migration_failed = True
+                        if provider == self.cloud_provider:
+                            self.openai_key = key
+                self.openai_key = self.get_cloud_key(self.cloud_provider) or self.openai_key
+                if self.openai_key:
+                    self.cloud_key_providers.add(self.cloud_provider)
+                if migrated_keys and not migration_failed:
+                    # Remove migrated credentials from the old plaintext JSON config.
+                    d.pop("openai_key", None)
+                    d.pop("cloud_keys", None)
+                    d["cloud_key_providers"] = sorted(self.cloud_key_providers)
+                    AI_SETTINGS_PATH.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
             except (json.JSONDecodeError, OSError):
                 pass
 
     def save(self):
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        if self.openai_key:
+            self.set_cloud_key(self.cloud_provider, self.openai_key)
         AI_SETTINGS_PATH.write_text(json.dumps({
             "backend": self.backend,
             "ollama_model": self.ollama_model,
             "ollama_url": self.ollama_url,
-            "openai_key": self.openai_key,
             "openai_model": self.openai_model,
             "openai_base": self.openai_base,
+            "cloud_provider": self.cloud_provider,
+            "cloud_key_providers": sorted(self.cloud_key_providers),
         }, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    @staticmethod
+    def _keyring():
+        import keyring
+        return keyring
+
+    def get_cloud_key(self, provider: str) -> str:
+        try:
+            return self._keyring().get_password(AI_KEYRING_SERVICE, provider) or ""
+        except Exception:
+            return ""
+
+    def set_cloud_key(self, provider: str, key: str) -> None:
+        if not key:
+            return
+        self._keyring().set_password(AI_KEYRING_SERVICE, provider, key)
+        self.cloud_key_providers.add(provider)
+
+    def use_cloud_provider(self, provider: str) -> None:
+        if provider not in CLOUD_PROVIDER_PRESETS:
+            raise ValueError("不支持的云端模型服务")
+        self.cloud_provider = provider
+        self.openai_key = self.get_cloud_key(provider)
+        if self.openai_key:
+            self.cloud_key_providers.add(provider)
+        self.openai_base = CLOUD_PROVIDER_PRESETS[provider]["base_url"]
+        self.openai_model = CLOUD_PROVIDER_PRESETS[provider]["model"]
 
     def is_enabled(self) -> bool:
         return self.backend != "disabled"
@@ -201,6 +295,37 @@ class AINamer:
             _safe_console_print(f"[AI命名] OpenAI 请求失败: {e}")
 
         return None
+
+    def test_cloud_vision(self) -> None:
+        """Test auth and image input with a generated 1x1 image, never user media."""
+        if not self.openai_key:
+            raise ValueError("请先在设置中保存此服务的 API Key")
+        try:
+            from openai import OpenAI
+            from PIL import Image
+            import io
+        except ImportError as exc:
+            raise RuntimeError("缺少云端视觉调用依赖，请更新影序安装包") from exc
+
+        image = Image.new("RGB", (1, 1), color=(0, 0, 0))
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        image_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
+        client = OpenAI(api_key=self.openai_key, base_url=self.openai_base)
+        response = client.chat.completions.create(
+            model=self.openai_model,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "This is an API connection test. Reply only OK."},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}", "detail": "low"}},
+                ],
+            }],
+            max_tokens=8,
+            timeout=25,
+        )
+        if not response.choices or not (response.choices[0].message.content or "").strip():
+            raise RuntimeError("服务已响应，但模型没有返回内容")
 
 
 # 全局单例

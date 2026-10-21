@@ -27,7 +27,7 @@ class WasteReviewer:
     """照片废片筛选器"""
 
     HARD_LABELS = {"过曝", "过暗", "模糊", "黑图", "白图"}
-    SOFT_LABELS = {"闭眼", "主体被挡", "构图差", "重复"}
+    SOFT_LABELS = {"闭眼", "主体被挡", "构图差"}
     WASTE_LABELS = HARD_LABELS | SOFT_LABELS
 
     def __init__(self):
@@ -173,7 +173,7 @@ class WasteReviewer:
 
         # 兜底：关键词解析
         label = "正常"
-        for candidate in ["过曝", "过暗", "模糊", "闭眼", "主体被挡", "构图差", "重复", "黑图", "白图"]:
+        for candidate in ["过曝", "过暗", "模糊", "闭眼", "主体被挡", "构图差", "黑图", "白图"]:
             if candidate in reply:
                 label = candidate
                 break
@@ -212,7 +212,8 @@ class WasteReviewer:
 
         prompt = (
             "请判断这张照片是否属于废片。"
-            "可选标签只有这些：正常、过曝、过暗、模糊、闭眼、主体被挡、构图差、重复、黑图、白图。"
+            "可选标签只有这些：正常、过曝、过暗、模糊、闭眼、主体被挡、构图差、黑图、白图。"
+            "不要判断照片是否与其他照片重复，因为你一次只会收到一张照片。"
             "如果判断为废片，请返回最贴切的单一标签。"
             "请严格输出 JSON，格式为："
             "{\"label\":\"...\",\"confidence\":0.0-1.0,\"reason\":\"...\"}。"

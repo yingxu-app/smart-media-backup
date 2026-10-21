@@ -1125,22 +1125,76 @@ def api_ai_status():
         "backend": ai_namer.backend,
         "ollama_model": ai_namer.ollama_model,
         "openai_model": ai_namer.openai_model,
+        "openai_base": ai_namer.openai_base,
+        "cloud_provider": ai_namer.cloud_provider,
+        "cloud_key_providers": sorted(ai_namer.cloud_key_providers),
     })
 
 
 @app.route("/api/ai/settings", methods=["POST"])
 def api_ai_settings():
     """保存 AI 命名配置"""
-    from .ai_namer import ai_namer
+    from .ai_namer import ai_namer, CLOUD_PROVIDER_PRESETS
+    if request.remote_addr not in {"127.0.0.1", "::1"}:
+        return jsonify({"error": "AI 密钥设置只能在这台电脑本机修改"}), 403
     data = request.get_json(silent=True) or {}
-    ai_namer.backend = data.get("backend", ai_namer.backend)
+    if not isinstance(data, dict):
+        return jsonify({"error": "AI 设置格式无效"}), 400
+    provider = data.get("cloud_provider", ai_namer.cloud_provider)
+    if provider not in CLOUD_PROVIDER_PRESETS:
+        return jsonify({"error": "不支持的云端模型服务"}), 400
+    backend = data.get("backend", ai_namer.backend)
+    if backend not in {"disabled", "ollama", "openai"}:
+        return jsonify({"error": "不支持的 AI 后端"}), 400
+    model = data.get("openai_model", CLOUD_PROVIDER_PRESETS[provider]["model"])
+    if not isinstance(model, str):
+        return jsonify({"error": "模型名称格式无效"}), 400
+
+    ai_namer.backend = backend
     ai_namer.ollama_model = data.get("ollama_model", ai_namer.ollama_model)
     ai_namer.ollama_url = data.get("ollama_url", ai_namer.ollama_url)
-    ai_namer.openai_key = data.get("openai_key", ai_namer.openai_key)
-    ai_namer.openai_model = data.get("openai_model", ai_namer.openai_model)
-    ai_namer.openai_base = data.get("openai_base", ai_namer.openai_base)
-    ai_namer.save()
+    key = data.get("openai_key", "")
+    if isinstance(key, str) and key.strip():
+        try:
+            ai_namer.set_cloud_key(provider, key.strip())
+        except Exception:
+            return jsonify({"error": "无法保存 API Key 到系统凭据库，请检查系统钥匙串/凭据管理器"}), 500
+    ai_namer.use_cloud_provider(provider)
+    ai_namer.openai_model = model.strip() or CLOUD_PROVIDER_PRESETS[provider]["model"]
+    # Provider endpoints are fixed so a locally supplied key cannot be sent to an
+    # arbitrary URL through a mistyped or manipulated settings form.
+    ai_namer.openai_base = CLOUD_PROVIDER_PRESETS[provider]["base_url"]
+    try:
+        ai_namer.save()
+    except Exception:
+        return jsonify({"error": "无法保存 AI 设置或写入系统凭据库，请检查本机钥匙串/凭据管理器"}), 500
     return jsonify({"status": "ok"})
+
+
+@app.route("/api/ai/test", methods=["POST"])
+def api_ai_test():
+    """Test the configured cloud model with a generated 1x1 image only."""
+    from .ai_namer import ai_namer
+    if request.remote_addr not in {"127.0.0.1", "::1"}:
+        return jsonify({"error": "AI 模型测试只能在这台电脑本机发起"}), 403
+    if ai_namer.backend != "openai":
+        return jsonify({"error": "请先启用云端模型 API 并保存设置"}), 400
+    try:
+        ai_namer.test_cloud_vision()
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        status = getattr(exc, "status_code", None)
+        if status in (401, 403):
+            message = "API Key 无效、模型无权限，或免费额度已停止"
+        elif status == 429:
+            message = "请求频率或免费额度已达到当前限制"
+        elif status and status >= 500:
+            message = "模型服务暂时不可用，请稍后再试"
+        else:
+            message = "连接失败，请检查 API 地址、支持图片输入的模型名称和网络"
+        return jsonify({"error": message}), 502
+    return jsonify({"ok": True, "message": f"{ai_namer.cloud_provider} 图像模型连接成功；仅发送了内置测试图片"})
 
 
 # ====== API ======

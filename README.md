@@ -26,6 +26,7 @@
 | 中断恢复 | 取消或目标不可用时记录部分完成状态、失败原因与报告路径，重新执行可继续处理未完成文件。 |
 | 历史与报告 | 保留成功、跳过、失败、校验数量、来源卡、每个目标结果，并导出 JSON、CSV、Markdown 报告。 |
 | 本地优先 | 素材和历史默认留在本机；百度网盘为可选项，未配置时不会影响本地备份。 |
+| AI 视觉建议 | 可选 Ollama 本地模型或千问、DeepSeek、OpenRouter 云端视觉服务，用于事件命名和废片建议；云端 API Key 由用户自行配置并保存在系统凭据库。完全/相似重复仍由本地哈希识别。配置见 [AI 模型服务说明](docs/AI-MODEL-SETUP.md)。 |
 | 影序 Pocket | 同一 Wi-Fi 下用手机查看桌面备份进度、历史并填写拍摄信息；无需安装原生 App。 |
 | iOS Pocket | 按最新决定只维护 Safari PWA，不开发原生 iOS App。当前新增独立 HTTPS PWA 源码候选，可登录 Firebase 查看云端进度和历史；尚未部署或在 iPhone 上验收。 |
 | Android Pocket | EAS Android preview APK 已生成并校验；目前没有 Android 测试设备，真机验收和公开发行暂缓。 |

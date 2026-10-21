@@ -1,0 +1,847 @@
+{% extends "base.html" %}
+{% set active_page = "settings" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>04 偏好设置</h2>
+</div>
+
+<div class="card settings-form">
+    <div class="form-row">
+        <label for="sWebPort">Web 服务端口</label>
+        <input type="number" id="sWebPort" value="8080" min="1024" max="65535">
+    </div>
+    <div class="form-row">
+        <label for="sAutoBrowser">启动时自动打开浏览器</label>
+        <label class="toggle">
+            <input type="checkbox" id="sAutoBrowser" checked>
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    <div class="form-row">
+        <label for="sVerify">校验方式</label>
+        <select id="sVerify">
+            <option value="sha256">SHA256 (推荐)</option>
+            <option value="skip">跳过校验 (更快速)</option>
+        </select>
+        <small class="setting-help">SHA-256 会逐个比对原卡与备份文件，确认内容一致；更慢但更稳。选择“跳过”只是不做比对，不会删除原卡素材。</small>
+    </div>
+    <div class="form-row">
+        <label>已备份文件总数</label>
+        <span id="totalBackups" class="setting-value">—</span>
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveSettings()">💾 保存设置</button>
+        <button class="btn-secondary" onclick="resetSettings()" style="margin-left:8px;">🔄 恢复默认</button>
+    </div>
+    <div id="saveMsg" class="save-msg" style="display:none;"></div>
+</div>
+
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>⬆️ 软件更新</h3></div>
+    <p class="pocket-copy">检查影序 GitHub 正式发行版。发现新版本后，影序可下载并校验安装包 SHA-256，再由你按系统步骤安装。</p>
+    <div class="form-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn-primary" id="checkUpdateButton" onclick="checkForUpdates()">检查更新</button>
+        <a class="btn-secondary" id="updateReleaseLink" href="https://github.com/yingxu-app/smart-media-backup/releases/latest" target="_blank" rel="noopener noreferrer" style="display:none;text-decoration:none;">打开官方发行页</a>
+    </div>
+    <div id="updateCheckMessage" class="save-msg" style="display:none;" aria-live="polite"></div>
+    <p class="pocket-copy">影序不会自动覆盖正在运行的应用。建议先结束备份任务，下载并校验新包，再按步骤保存旧版本与历史数据副本后安装。</p>
+    <a class="btn-secondary" href="https://yingxu-app.github.io/smart-media-backup/update/" target="_blank" rel="noopener noreferrer" style="display:inline-flex;text-decoration:none;">查看升级与回退步骤 ↗</a>
+</div>
+
+<!-- Cross-device metadata sync -->
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>🔄 影序账号与设备同步</h3></div>
+    <p class="pocket-copy">登录后同步备份进度和归档信息。原始照片、视频与电脑本地路径不会上传。</p>
+    <div class="form-row">
+        <label for="firebaseEmail">邮箱</label>
+        <input type="email" id="firebaseEmail" autocomplete="username" placeholder="name@example.com" style="flex:1;">
+    </div>
+    <div class="form-row">
+        <label for="firebaseDisplayName">用户名（注册时必填）</label>
+        <input type="text" id="firebaseDisplayName" autocomplete="nickname" maxlength="40" placeholder="例如：影序用户" style="flex:1;">
+        <small class="setting-help">已有账号可填写此项并登录，以同步或修正账号昵称；留空则保留现有昵称。</small>
+    </div>
+    <div class="form-row">
+        <label for="firebasePassword">密码</label>
+        <input type="password" id="firebasePassword" autocomplete="current-password" placeholder="只用于本次 Firebase 登录" style="flex:1;">
+    </div>
+    <div class="form-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-primary" onclick="firebaseLogin(false)">登录并同步</button>
+        <button class="btn-secondary" onclick="firebaseLogin(true)">注册账号并同步</button>
+        <button class="btn-secondary" onclick="firebaseLogout()">退出同步账号</button>
+    </div>
+    <div id="firebaseSyncMsg" class="save-msg" style="display:none;"></div>
+    <div id="firebaseLive" class="history-list" style="margin-top:12px;" aria-live="polite"></div>
+</div>
+
+<!-- 百度网盘设置 -->
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>☁️ 百度网盘</h3></div>
+    <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:16px;">
+        这是可选功能。开启后，备份完成的副本才会上传；原卡素材始终留在本机。需要先在 <a href="https://pan.baidu.com/union/home" target="_blank" style="color:var(--accent);">百度网盘开放平台</a> 创建应用并取得凭证。
+    </p>
+    <div class="form-row">
+        <label for="bdApiKey">API Key (App Key)</label>
+        <input type="text" id="bdApiKey" placeholder="填写你的百度网盘 App Key">
+        <small class="setting-help">App Key 相当于“应用编号”，不是你的百度账号密码。</small>
+    </div>
+    <div class="form-row">
+        <label for="bdSecretKey">Secret Key</label>
+        <input type="password" id="bdSecretKey" placeholder="填写你的 Secret Key">
+        <small class="setting-help">Secret Key 只保存在这台电脑；不要截图或发送给他人。</small>
+    </div>
+    <div class="form-row">
+        <label for="bdAppId">App ID (选填)</label>
+        <input type="text" id="bdAppId" placeholder="应用 ID">
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveBaiduSettings()">💾 保存凭证</button>
+        <button class="btn-secondary" onclick="authorizeBaidu()" id="btnBaiduAuth">🔗 授权百度网盘</button>
+    </div>
+    <div id="baiduStatus" class="save-msg" style="margin-top:12px;display:none;"></div>
+    <div id="baiduAuthPanel" style="display:none;margin-top:16px;padding:16px;background:var(--bg);border-radius:8px;">
+        <p style="margin-bottom:8px;">第 1 步：点击下方按钮，登录你自己的百度账号并同意授权</p>
+        <button class="btn-secondary" onclick="openBaiduAuthUrl()" id="btnOpenAuth">🔗 打开授权页面</button>
+        <p style="margin:12px 0 8px;">第 2 步：授权完成后，把页面显示的授权码粘贴到这里，再点确认</p>
+        <div style="display:flex;gap:8px;">
+            <input type="text" id="bdAuthCode" placeholder="粘贴授权码" style="flex:1;">
+            <button class="btn-primary" onclick="exchangeBaiduCode()">确认</button>
+        </div>
+    </div>
+</div>
+
+<!-- AI 自动命名设置 -->
+<div class="card settings-form" style="margin-top:16px;">
+    <div class="card-header"><h3>🤖 AI 自动命名</h3></div>
+    <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:16px;">
+        可选的命名建议功能。不开启时仍会离线读取拍摄日期和设备，不影响正常备份。
+    </p>
+    <div class="form-row">
+        <label>启用 AI 命名</label>
+        <label class="toggle">
+            <input type="checkbox" id="aiEnabled">
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    <div class="form-row">
+        <label for="aiBackend">后端</label>
+        <select id="aiBackend">
+            <option value="ollama">Ollama (本地，免费)</option>
+            <option value="openai">OpenAI 兼容 API</option>
+        </select>
+        <small class="setting-help">本地 Ollama 免费但需要另装模型（通常数 GB）；在线 API 可能产生费用。首次使用建议保持关闭，确认需要时再开启。</small>
+    </div>
+    <div id="aiOllamaSettings">
+        <div class="form-row">
+            <label for="aiOllamaModel">Ollama 模型</label>
+            <input type="text" id="aiOllamaModel" value="llava">
+        </div>
+        <div class="form-row">
+            <label for="aiOllamaUrl">Ollama 地址</label>
+            <input type="text" id="aiOllamaUrl" value="http://localhost:11434">
+        </div>
+    </div>
+    <div id="aiOpenaiSettings" style="display:none;">
+        <div class="form-row">
+            <label for="aiOpenaiKey">API Key</label>
+            <input type="password" id="aiOpenaiKey" placeholder="sk-...">
+        </div>
+        <div class="form-row">
+            <label for="aiOpenaiModel">模型</label>
+            <input type="text" id="aiOpenaiModel" value="gpt-4o-mini">
+        </div>
+        <div class="form-row">
+            <label for="aiOpenaiBase">API 地址</label>
+            <input type="text" id="aiOpenaiBase" value="https://api.openai.com/v1">
+        </div>
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveAISettings()">💾 保存 AI 设置</button>
+    </div>
+    <div id="aiSaveMsg" class="save-msg" style="display:none;"></div>
+</div>
+
+<!-- 高级设置 -->
+<div class="card" style="margin-top:16px;">
+    <h4 style="margin-bottom:12px;">⚙️ 高级设置</h4>
+    <div class="form-row">
+        <label>🔁 Webhook 通知</label>
+        <input type="url" id="webhookUrl" placeholder="https://example.com/webhook" style="flex:1;">
+        <small class="setting-help">只有你使用自动化工具、企业机器人或自己的服务器时才需要。普通用户留空即可。</small>
+    </div>
+    <div class="form-row">
+        <label>🐢 限速 (MB/s)</label>
+        <input type="number" id="maxSpeed" min="0" value="0" style="width:120px;">
+        <small style="color:var(--muted);">0=不限速</small>
+    </div>
+    <div class="form-row">
+        <label>🎯 相似照片去重</label>
+        <select id="phashThreshold" style="width:120px;">
+            <option value="0">关闭</option>
+            <option value="5">严格</option>
+            <option value="8">中等</option>
+            <option value="12">宽松</option>
+            <option value="20">很宽松</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label>📂 默认目录层级</label>
+        <div style="flex:1;">
+            <div id="sortOrderList" class="sort-order-list"></div>
+            <small style="color:var(--muted);">工作台可在每次备份前单独调整；这里设置默认顺序。</small>
+        </div>
+    </div>
+    <div class="form-actions">
+        <button class="btn-primary" onclick="saveAdvancedSettings()">💾 保存</button>
+    </div>
+    <div id="advSaveMsg" class="save-msg" style="display:none;"></div>
+</div>
+
+<!-- 远程同步 -->
+<div class="card" style="margin-top:16px;">
+    <h4 style="margin-bottom:12px;">🔄 跨电脑同步</h4>
+    <div class="form-row">
+        <label>另一台电脑的地址</label>
+        <div style="display:flex;gap:8px;flex:1;">
+            <input type="text" id="syncUrl" placeholder="http://192.168.1.100:8080" style="flex:1;">
+            <button class="btn-secondary" onclick="syncPull()">📥 拉取</button>
+            <button class="btn-secondary" onclick="syncExport()">📤 导出</button>
+        </div>
+    </div>
+    <div id="syncMsg" class="save-msg" style="display:none;"></div>
+    <small style="color:var(--muted);">两台电脑需在同一网络且另一台也打开影序。输入另一台显示的地址后，可导出或拉取“历史记录”；不会自动传输原始照片。</small>
+</div>
+
+<!-- 影序 Pocket -->
+<div class="card pocket-setup" style="margin-top:16px;">
+    <div class="card-header"><h3>📱 影序 Pocket</h3></div>
+    <p class="pocket-copy">让手机在同一 Wi‑Fi 下查看桌面备份进度、归档记录，并提前填写事件、地点和设备。原始照片不会传到手机，也不会上传到影序服务器。</p>
+    <div class="pocket-actions">
+        <button class="btn-primary" onclick="createPocketPairing()">生成 6 位配对码</button>
+        <a class="btn-secondary pocket-open" href="/pocket/" target="_blank">本机预览</a>
+    </div>
+    <div id="pocketPairing" class="pocket-pairing" style="display:none;">
+        <div><span class="pocket-caption">手机访问地址</span><strong id="pocketUrl">—</strong></div>
+        <div><span class="pocket-caption">10 分钟有效配对码</span><strong id="pocketCode" class="pocket-code">—</strong></div>
+        <div id="pocketTcpPairing" style="display:none;"><span class="pocket-caption">Pocket App TCP 地址</span><strong id="pocketTcpUrl">—</strong></div>
+    </div>
+    <small class="setting-help">iPhone：Safari 打开地址并配对后，可点“分享 → 添加到主屏幕”。此网页不能像原生 App 一样读取手机全部照片或在后台自动复制。</small>
+    <div class="form-row pocket-tcp-row">
+        <label for="pocketTcpEnabled">Pocket 手机 App 局域网协作</label>
+        <label class="toggle">
+            <input type="checkbox" id="pocketTcpEnabled" onchange="savePocketTcpSetting()">
+            <span class="toggle-slider"></span>
+        </label>
+        <small class="setting-help">默认关闭。开启后在端口 18080 启动 Pocket 专用 TCP 服务，接受配对手机的状态、历史、拍摄备注及电脑备份控制；手机原片只可写入电脑已配置目标下的“影序手机备份”目录，并逐文件校验，不开放任意桌面路径。连接不使用 TLS，只应在可信局域网使用，切勿转发到公网。手机 App 使用此处生成的配对码。</small>
+        <div id="pocketTcpStatus" class="save-msg" style="display:none;"></div>
+    </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+    <h4 style="margin-bottom:12px;">📊 存储概览</h4>
+    <canvas id="storageChart" height="200"></canvas>
+</div>
+
+<div class="card" style="margin-top:16px;text-align:center;color:var(--text-dim);font-size:0.85em;">
+    影序 YINGXU v1.0.40<br>
+    By nanyu-lu
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    loadSettings();
+    loadStorageChart();
+    loadBaiduStatus();
+    loadAIStatus();
+    loadPocketTcpSettings();
+    loadFirebaseSettings();
+    loadFirebaseLive();
+    window.setInterval(loadPocketTcpSettings, 3000);
+    window.setInterval(loadFirebaseLive, 3000);
+});
+
+function loadSettings() {
+    fetch("/api/status")
+        .then(r => r.json())
+        .then(data => {
+            if (data.version) {
+                // load from localStorage for now
+                const saved = localStorage.getItem("smb_settings");
+                if (saved) {
+                    const s = JSON.parse(saved);
+                    document.getElementById("sWebPort").value = s.web_port || 8080;
+                    document.getElementById("sAutoBrowser").checked = s.auto_browser !== false;
+                    document.getElementById("sVerify").value = s.verify || "sha256";
+                }
+            }
+        });
+
+    // 备份总数
+    fetch("/api/history?limit=1000")
+        .then(r => r.json())
+        .then(payload => {
+            const records = payload.items || [];
+            const total = records.reduce((sum, r) => sum + (r.total_files || 0), 0);
+            document.getElementById("totalBackups").textContent = total + " 个";
+        });
+}
+
+function saveSettings() {
+    const settings = {
+        web_port: parseInt(document.getElementById("sWebPort").value),
+        auto_browser: document.getElementById("sAutoBrowser").checked,
+        verify: document.getElementById("sVerify").value,
+    };
+    localStorage.setItem("smb_settings", JSON.stringify(settings));
+
+    const msg = document.getElementById("saveMsg");
+    msg.style.display = "block";
+    msg.textContent = "✅ 设置已保存（重启后生效）";
+    msg.style.color = "#4ade80";
+    setTimeout(() => msg.style.display = "none", 3000);
+}
+
+function resetSettings() {
+    localStorage.removeItem("smb_settings");
+    document.getElementById("sWebPort").value = 8080;
+    document.getElementById("sAutoBrowser").checked = true;
+    document.getElementById("sVerify").value = "sha256";
+    document.getElementById("saveMsg").style.display = "block";
+    document.getElementById("saveMsg").textContent = "🔄 已恢复默认设置";
+    document.getElementById("saveMsg").style.color = "#fbbf24";
+    setTimeout(() => document.getElementById("saveMsg").style.display = "none", 3000);
+}
+
+async function checkForUpdates() {
+    const button = document.getElementById("checkUpdateButton");
+    const message = document.getElementById("updateCheckMessage");
+    const releaseLink = document.getElementById("updateReleaseLink");
+    button.disabled = true;
+    button.textContent = "正在检查…";
+    message.style.display = "block";
+    message.style.color = "var(--text-dim)";
+    message.textContent = "正在查询影序正式发行版本…";
+    releaseLink.style.display = "none";
+    try {
+        const response = await fetch("/api/updates/latest", {cache:"no-store"});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "暂时无法检查更新，请稍后重试。");
+        releaseLink.href = result.release_url;
+        if (result.update_available && result.assets.length) {
+            const asset = result.assets[0];
+            releaseLink.href = `/api/updates/download?asset=${encodeURIComponent(asset.name)}`;
+            releaseLink.removeAttribute("target");
+            releaseLink.removeAttribute("rel");
+            releaseLink.textContent = "下载并校验安装包";
+            message.textContent = `发现 ${result.platform} 新版本 v${result.latest_version}（当前 v${result.current_version}）。下载前会校验官方 SHA-256；安装和回退按步骤手动完成。`;
+            message.style.color = "#4ade80";
+            releaseLink.style.display = "inline-flex";
+        } else if (result.update_available) {
+            message.textContent = `发现 v${result.latest_version}，但该版本暂未提供 ${result.platform} 安装包。`;
+            message.style.color = "#fbbf24";
+            releaseLink.href = result.release_url;
+            releaseLink.textContent = "查看官方发行页";
+            releaseLink.target = "_blank";
+            releaseLink.style.display = "inline-flex";
+        } else if (result.latest_version && result.current_version && result.latest_version !== result.current_version) {
+            message.textContent = `当前 v${result.current_version}，高于公开发行版 v${result.latest_version}；目前没有可更新的正式版本。`;
+            message.style.color = "#fbbf24";
+            releaseLink.href = result.release_url;
+            releaseLink.textContent = "查看官方发行页";
+            releaseLink.target = "_blank";
+        } else {
+            message.textContent = `当前已是最新正式版本 v${result.current_version}。`;
+            message.style.color = "#4ade80";
+            releaseLink.href = result.release_url;
+            releaseLink.textContent = "查看官方发行页";
+            releaseLink.target = "_blank";
+        }
+    } catch (error) {
+        message.textContent = error.message || "暂时无法检查更新，请检查网络后重试。";
+        message.style.color = "#e74c3c";
+    } finally {
+        button.disabled = false;
+        button.textContent = "检查更新";
+    }
+}
+
+function firebaseMessage(text, failed = false) {
+    const msg = document.getElementById("firebaseSyncMsg");
+    msg.style.display = "block";
+    msg.textContent = text;
+    msg.style.color = failed ? "#e74c3c" : "#4ade80";
+}
+
+function loadFirebaseSettings() {
+    fetch("/api/firebase/settings").then(r => r.json()).then(data => {
+        document.getElementById("firebaseEmail").value = data.email || "";
+        document.getElementById("firebaseDisplayName").value = data.display_name || "";
+        if (data.signed_in) firebaseMessage(`已登录：${data.display_name || data.email || "影序账号"}`);
+    }).catch(() => firebaseMessage("无法读取同步设置。", true));
+}
+
+async function firebaseLogin(createAccount = false) {
+    const email = document.getElementById("firebaseEmail").value.trim();
+    const displayName = document.getElementById("firebaseDisplayName").value.trim();
+    const passwordInput = document.getElementById("firebasePassword");
+    const password = passwordInput.value;
+    try {
+        if (createAccount && !displayName) throw new Error("注册时请填写用户名。");
+        const endpoint = createAccount ? "register" : "login";
+        const response = await fetch(`/api/firebase/${endpoint}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, password, display_name:displayName})});
+        const result = await response.json();
+        if (!response.ok || result.error) throw new Error(result.error || "Firebase 登录失败，请稍后重试。");
+        passwordInput.value = "";
+        const account = {signed_in:true, email:result.email, display_name:result.display_name};
+        refreshFirebaseAccountBadge(account);
+        firebaseMessage(`${createAccount ? "账号已创建并登录" : "已登录"}：${result.display_name || result.email}；正在同步本机历史。`);
+        await loadFirebaseLive();
+    } catch (error) { firebaseMessage(error.message || "Firebase 登录失败。", true); }
+}
+
+async function firebaseLogout() {
+    try {
+        const result = await fetch("/api/firebase/logout", {method:"POST"}).then(r => r.json());
+        if (result.error) throw new Error(result.error);
+        document.getElementById("firebaseLive").replaceChildren();
+        refreshFirebaseAccountBadge({signed_in:false});
+        firebaseMessage("已退出同步账号；本机备份和历史不受影响。");
+    } catch (error) { firebaseMessage(error.message || "退出登录失败。", true); }
+}
+
+let firebaseLiveLoading = false;
+async function loadFirebaseLive() {
+    if (firebaseLiveLoading) return;
+    firebaseLiveLoading = true;
+    try {
+        const response = await fetch("/api/firebase/live");
+        const result = await response.json();
+        const host = document.getElementById("firebaseLive");
+        if (response.status === 401) {
+            host.textContent = "登录影序云同步账号后，可在此查看其他设备的实时备份进度。";
+            return;
+        }
+        if (!response.ok || result.error) throw new Error(result.error || "读取实时进度失败");
+        host.replaceChildren();
+        const active = (result.items || []).filter(item => ["scanning", "copying", "verifying", "paused", "queued"].includes(String(item.status)));
+        if (active.length === 0) {
+            host.textContent = result.error || (result.updatedAt ? "当前没有其他设备正在备份。" : "正在连接云端实时进度…");
+            return;
+        }
+        active.forEach(item => {
+            const row = document.createElement("div");
+            row.className = "history-row";
+            const title = document.createElement("strong");
+            title.textContent = `${item.deviceName || "影序设备"} · ${item.eventName || "备份任务"}`;
+            const detail = document.createElement("small");
+            const current = item.currentFile ? ` · 当前：${item.currentFile}` : "";
+            detail.textContent = `${item.status} · ${item.processedFiles || 0}/${item.totalFiles || 0} 项 · 已校验 ${item.verifiedFiles || 0} · 失败 ${item.failedFiles || 0}${current}`;
+            row.append(title, detail);
+            host.append(row);
+        });
+    } catch (error) {
+        document.getElementById("firebaseLive").textContent = error.message || "云端实时进度暂不可用。";
+    } finally {
+        firebaseLiveLoading = false;
+    }
+}
+
+function loadStorageChart() {
+    fetch("/api/volumes")
+        .then(r => r.json())
+        .then(volumes => {
+            const ctx = document.getElementById("storageChart").getContext("2d");
+            const labels = volumes.map(v => v.name || v.mount_point);
+            const used = volumes.map(v => v.size_used || 0);
+            const free = volumes.map(v => (v.size_total || 0) - (v.size_used || 0));
+
+            new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: used,
+                        backgroundColor: ["#4ade80", "#60a5fa", "#fbbf24", "#f472b6", "#a78bfa"],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: "bottom", labels: { color: "#94a3b8" } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                    const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                                    return ctx.label + ": " + formatSize(ctx.raw) + " (" + pct + "%)";
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+}
+
+function formatSize(bytes) {
+    if (!bytes) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let i = 0, s = bytes;
+    while (s >= 1024 && i < units.length-1) { s /= 1024; i++; }
+    return s.toFixed(i > 0 ? 1 : 0) + " " + units[i];
+}
+
+// ====== 百度网盘 ======
+
+function loadBaiduStatus() {
+    fetch("/api/baidu/status")
+        .then(r => r.json())
+        .then(s => {
+            if (s.configured) {
+                document.getElementById("bdApiKey").value = s.api_key || "";
+                document.getElementById("btnBaiduAuth").disabled = false;
+            }
+            const st = document.getElementById("baiduStatus");
+            if (s.authorized) {
+                st.style.display = "block";
+                st.innerHTML = "✅ 已授权百度网盘";
+                st.style.color = "#4ade80";
+            } else if (s.configured) {
+                st.style.display = "block";
+                st.innerHTML = "⚠️ 已配置，尚未授权";
+                st.style.color = "#fbbf24";
+            }
+        });
+}
+
+function saveBaiduSettings() {
+    const apiKey = document.getElementById("bdApiKey").value.trim();
+    const secretKey = document.getElementById("bdSecretKey").value.trim();
+    const appId = document.getElementById("bdAppId").value.trim();
+    if (!apiKey || !secretKey) {
+        alert("请填写 API Key 和 Secret Key");
+        return;
+    }
+    fetch("/api/baidu/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({api_key: apiKey, secret_key: secretKey, app_id: appId})
+    })
+    .then(r => r.json())
+    .then(d => {
+        const st = document.getElementById("baiduStatus");
+        st.style.display = "block";
+        st.innerHTML = "✅ 凭证已保存";
+        st.style.color = "#4ade80";
+        document.getElementById("btnBaiduAuth").disabled = false;
+        setTimeout(() => st.style.display = "none", 3000);
+    });
+}
+
+function authorizeBaidu() {
+    document.getElementById("baiduAuthPanel").style.display = "block";
+    document.getElementById("btnBaiduAuth").disabled = true;
+}
+
+function openBaiduAuthUrl() {
+    fetch("/api/baidu/auth_url")
+        .then(r => r.json())
+        .then(d => {
+            if (d.url) {
+                window.open(d.url, "_blank");
+            } else {
+                alert("获取授权链接失败");
+            }
+        });
+}
+
+function exchangeBaiduCode() {
+    const code = document.getElementById("bdAuthCode").value.trim();
+    if (!code) { alert("请粘贴授权码"); return; }
+    fetch("/api/baidu/exchange", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({code: code})
+    })
+    .then(r => r.json())
+    .then(d => {
+        const st = document.getElementById("baiduStatus");
+        st.style.display = "block";
+        if (d.ok) {
+            st.innerHTML = "✅ 授权成功！备份完成后将自动上传到百度网盘";
+            st.style.color = "#4ade80";
+            document.getElementById("baiduAuthPanel").style.display = "none";
+        } else {
+            st.innerHTML = "❌ 授权失败，请检查授权码是否正确";
+            st.style.color = "#ff4444";
+        }
+        document.getElementById("btnBaiduAuth").disabled = false;
+    });
+}
+
+// ====== AI 命名设置 ======
+
+function loadAIStatus() {
+    fetch("/api/ai/status")
+        .then(r => r.json())
+        .then(s => {
+            document.getElementById("aiEnabled").checked = s.enabled;
+            document.getElementById("aiBackend").value = s.backend || "ollama";
+            document.getElementById("aiOllamaModel").value = s.ollama_model || "llava";
+            document.getElementById("aiOllamaUrl").value = s.ollama_url || "http://localhost:11434";
+            document.getElementById("aiOpenaiModel").value = s.openai_model || "gpt-4o-mini";
+            document.getElementById("aiOpenaiBase").value = s.openai_base || "https://api.openai.com/v1";
+            toggleAIBackend();
+        });
+}
+
+function toggleAIBackend() {
+    const v = document.getElementById("aiBackend").value;
+    document.getElementById("aiOllamaSettings").style.display = v === "ollama" ? "block" : "none";
+    document.getElementById("aiOpenaiSettings").style.display = v === "openai" ? "block" : "none";
+}
+
+function saveAISettings() {
+    fetch("/api/ai/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            backend: document.getElementById("aiBackend").value,
+            ollama_model: document.getElementById("aiOllamaModel").value.trim(),
+            ollama_url: document.getElementById("aiOllamaUrl").value.trim(),
+            openai_key: document.getElementById("aiOpenaiKey").value.trim(),
+            openai_model: document.getElementById("aiOpenaiModel").value.trim(),
+            openai_base: document.getElementById("aiOpenaiBase").value.trim(),
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById("aiSaveMsg");
+        msg.style.display = "block";
+        msg.textContent = "✅ AI 设置已保存";
+        msg.style.color = "#4ade80";
+        setTimeout(() => msg.style.display = "none", 3000);
+    });
+}
+
+// === 跨电脑同步 ===
+function syncPull() {
+    const url = document.getElementById("syncUrl").value.trim();
+    if (!url) { showSyncMsg("请输入远程地址", true); return; }
+    showSyncMsg("同步中...");
+    fetch("/api/sync/pull", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({url}),
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.error) { showSyncMsg(`❌ ${d.error}`, true); return; }
+        showSyncMsg(`✅ 已同步 ${d.imported} 条记录`);
+    });
+}
+function syncExport() {
+    fetch("/api/sync/export")
+    .then(r => r.json())
+    .then(d => {
+        const blob = new Blob([JSON.stringify(d, null, 2)], {type: "application/json"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `smb-sync-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        showSyncMsg(`✅ 已导出 ${d.history.length} 条记录`);
+    });
+}
+function showSyncMsg(msg, isError) {
+    const el = document.getElementById("syncMsg");
+    el.textContent = msg; el.style.display = "block";
+    el.style.color = isError ? "#e74c3c" : "#2ecc71";
+}
+
+async function createPocketPairing() {
+    const panel = document.getElementById("pocketPairing");
+    try {
+        const response = await fetch("/api/pocket/pairing", {method:"POST"});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "生成失败");
+        document.getElementById("pocketUrl").textContent = data.url;
+        document.getElementById("pocketCode").textContent = data.code;
+        const tcpPairing = document.getElementById("pocketTcpPairing");
+        tcpPairing.style.display = data.tcp_enabled ? "flex" : "none";
+        if (data.tcp_enabled) {
+            document.getElementById("pocketTcpUrl").textContent = `${data.tcp_host}:${data.tcp_port}`;
+        }
+        panel.style.display = "grid";
+    } catch (error) {
+        panel.style.display = "block";
+        panel.textContent = `❌ ${error.message}`;
+    }
+}
+
+async function loadPocketTcpSettings() {
+    try {
+        const response = await fetch("/api/pocket/tcp-settings");
+        const data = await response.json();
+        document.getElementById("pocketTcpEnabled").checked = data.enabled === true;
+        showPocketTcpStatus(data);
+    } catch (_) {
+        showPocketTcpStatus({error: "读取 Pocket App 连接状态失败"});
+    }
+}
+
+async function savePocketTcpSetting() {
+    const enabled = document.getElementById("pocketTcpEnabled").checked;
+    const toggle = document.getElementById("pocketTcpEnabled");
+    toggle.disabled = true;
+    try {
+        const response = await fetch("/api/pocket/tcp-settings", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({enabled}),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "设置失败");
+        showPocketTcpStatus(data);
+    } catch (error) {
+        toggle.checked = !enabled;
+        showPocketTcpStatus({error: error.message});
+    } finally {
+        toggle.disabled = false;
+    }
+}
+
+function showPocketTcpStatus(data) {
+    const status = document.getElementById("pocketTcpStatus");
+    status.style.display = "block";
+    if (data.error) {
+        status.textContent = `❌ ${data.error}`;
+        status.style.color = "#e74c3c";
+    } else if (["copying", "paused", "queued"].includes((data.phone_transfer || {}).status)) {
+        const transfer = data.phone_transfer || {};
+        const count = `${transfer.processed_files || 0} / ${transfer.total_files || 0} 项`;
+        const current = transfer.current_file ? ` · ${transfer.current_file}` : "";
+        const label = transfer.status === "paused" ? "已暂停" : transfer.status === "queued" ? "等待重连" : "正在传输";
+        const bytes = transfer.total_bytes ? ` · ${Math.floor((transfer.bytes_copied || 0) / transfer.total_bytes * 100)}%` : "";
+        status.textContent = `✅ 手机局域网导入：${label} ${count}${bytes}${current}`;
+        status.style.color = "#4ade80";
+    } else if (data.running) {
+        const transfer = data.phone_transfer || {};
+        const count = `${transfer.processed_files || 0} / ${transfer.total_files || 0} 项`;
+        const current = transfer.current_file ? ` · ${transfer.current_file}` : "";
+        const active = ["copying", "paused", "queued"].includes(transfer.status);
+        const label = transfer.status === "paused" ? "已暂停" : transfer.status === "queued" ? "等待重连" : "正在传输";
+        status.textContent = `✅ 已开启：${data.host}:${data.port}（仅局域网）${active ? `\n手机导入：${label} ${count}${current}` : ""}`;
+        status.style.color = "#4ade80";
+    } else if (data.enabled) {
+        status.textContent = "⚠️ 设置为开启，但服务未运行；请检查端口占用后重启影序";
+        status.style.color = "#f0ad4e";
+    } else {
+        status.textContent = "已关闭；不会开放 Pocket 手机 App TCP 端口";
+        status.style.color = "var(--text-dim)";
+    }
+}
+
+// === 高级设置 ===
+let currentSortOrder = ["device", "event", "type"];
+const FIELD_NAMES = {device:"📷设备", event:"📁事件", type:"📂类型", date:"📅日期", location:"📍地点"};
+
+function renderSortOrderList() {
+    const el = document.getElementById("sortOrderList");
+    el.innerHTML = currentSortOrder.map((f, i) => `
+        <div class="sort-order-item">
+            <span class="sort-order-label">${FIELD_NAMES[f] || f}</span>
+            <span class="sort-order-btns">
+                <button onclick="moveSortItem(${i},-1)" ${i===0?'disabled':''}>▲</button>
+                <button onclick="moveSortItem(${i},1)" ${i===currentSortOrder.length-1?'disabled':''}>▼</button>
+            </span>
+        </div>
+    `).join("");
+}
+
+function moveSortItem(idx, dir) {
+    const t = currentSortOrder[idx + dir];
+    currentSortOrder[idx + dir] = currentSortOrder[idx];
+    currentSortOrder[idx] = t;
+    renderSortOrderList();
+}
+
+function saveAdvancedSettings() {
+    const val = {
+        webhook_url: document.getElementById("webhookUrl").value.trim(),
+        max_speed_mbps: parseInt(document.getElementById("maxSpeed").value) || 0,
+        phash_threshold: parseInt(document.getElementById("phashThreshold").value) || 0,
+        sort_order: currentSortOrder,
+    };
+    fetch("/api/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(val),
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById("advSaveMsg");
+        msg.style.display = "block";
+        msg.textContent = d.error ? `❌ ${d.error}` : "✅ 已保存";
+        msg.style.color = d.error ? "#e74c3c" : "#4ade80";
+        setTimeout(() => msg.style.display = "none", 3000);
+    });
+}
+function loadAdvancedSettings() {
+    fetch("/api/settings").then(r => r.json()).then(d => {
+        document.getElementById("webhookUrl").value = d.webhook_url || "";
+        document.getElementById("maxSpeed").value = d.max_speed_mbps || 0;
+        document.getElementById("phashThreshold").value = d.phash_threshold || 0;
+        if (d.sort_order && d.sort_order.length) {
+            currentSortOrder = d.sort_order;
+            renderSortOrderList();
+        }
+    });
+}
+
+document.getElementById("aiBackend").addEventListener("change", toggleAIBackend);
+document.addEventListener("DOMContentLoaded", function() { loadAdvancedSettings(); });
+</script>
+
+<style>
+.settings-form .form-row { display: flex; align-items: center; justify-content: space-between; flex-wrap:wrap; gap:8px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.settings-form label { font-weight: 500; }
+.settings-form input[type="number"] { width: 120px; }
+.setting-value { font-weight: 600; color: var(--accent); }
+.form-actions { margin-top: 20px; }
+.save-msg { margin-top: 12px; font-weight: 500; }
+.setting-help { display:block; width:100%; margin-top:2px; color:var(--text-dim); font-size:.84em; line-height:1.55; }
+.pocket-copy { color:var(--text-dim); line-height:1.65; margin-bottom:16px; }
+.pocket-tcp-row { margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
+.pocket-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.pocket-open { display:inline-grid; place-items:center; text-decoration:none; }
+.pocket-pairing { grid-template-columns:minmax(0,1fr) auto; gap:12px; margin-top:16px; padding:16px; border:1px solid var(--border); border-radius:14px; background:var(--bg); }
+.pocket-pairing > div { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.pocket-caption { color:var(--text-dim); font-size:.78em; }
+.pocket-pairing strong { overflow-wrap:anywhere; }
+.pocket-code { color:var(--accent); font-size:1.7em; letter-spacing:.18em; }
+.firebase-history-entry { padding:10px 0; border-bottom:1px solid var(--border); }
+.firebase-history-entry > summary { display:flex; flex-direction:column; gap:5px; cursor:pointer; }
+.firebase-history-entry > summary small { color:var(--text-dim); }
+.firebase-history-detail { padding:10px 0 0 16px; color:var(--text-dim); font-size:.88em; line-height:1.7; overflow-wrap:anywhere; }
+.firebase-history-detail ul { max-height:320px; overflow:auto; padding-left:20px; }
+.firebase-history-detail details { margin-top:8px; }
+@media (max-width:680px) { .pocket-pairing { grid-template-columns:1fr; } }
+
+/* Toggle开关 */
+.toggle { position: relative; display: inline-block; width: 48px; height: 26px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background: #374151; border-radius: 26px; transition: 0.3s;
+}
+.toggle-slider::before {
+    content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
+    background: #94a3b8; border-radius: 50%; transition: 0.3s;
+}
+.toggle input:checked + .toggle-slider { background: var(--accent); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(22px); background: #fff; }
+</style>
+{% endblock %}
