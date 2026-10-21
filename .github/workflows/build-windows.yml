@@ -217,39 +217,21 @@ jobs:
           $configPath = Join-Path $configDir 'config.json'
           [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
 
-          if (-not ('YingxuConsoleCodePage' -as [type])) {
-            Add-Type -TypeDefinition @"
-          using System.Runtime.InteropServices;
-          public static class YingxuConsoleCodePage {
-            [DllImport("kernel32.dll")] public static extern uint GetConsoleOutputCP();
-            [DllImport("kernel32.dll")] public static extern bool SetConsoleOutputCP(uint codePage);
-          }
-          "@
-          }
-          $originalConsoleCodePage = [YingxuConsoleCodePage]::GetConsoleOutputCP()
-          if (-not $originalConsoleCodePage) { throw 'Could not read the runner console output code page.' }
-
           function Start-YingxuVersion($Executable, $Version, $ConfigPath, $Headless) {
             $info = [System.Diagnostics.ProcessStartInfo]::new()
+            $info.FileName = $Executable
             $info.WorkingDirectory = Split-Path -Parent $Executable
             $info.UseShellExecute = $false
             $info.CreateNoWindow = $Headless
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
             $legacyConsole = $Version -eq '1.0.34'
-            $legacyStderrPath = Join-Path (Split-Path -Parent $ConfigPath) 'legacy-v1.0.34-stderr.log'
-            # The published v1.0.34 frozen build predates the in-app UTF-8 fix
-            # and ignores environment-level encoding overrides. Run it in the
-            # inherited UTF-8 console with its streams attached to NUL; Python
-            # uses the console output code page for NUL character devices.
-            # The candidate keeps the runner's original streams and code page.
             if ($legacyConsole) {
-              if (-not [YingxuConsoleCodePage]::SetConsoleOutputCP(65001)) { throw 'Could not set UTF-8 console mode for v1.0.34.' }
-              $info.FileName = $env:ComSpec
-              $info.Arguments = "/d /s /c `"`"$Executable`" 1>NUL 2>`"$legacyStderrPath`"`""
-              $info.CreateNoWindow = $false
+              # Set the Python encoding overrides on the frozen process before
+              # it starts. Changing the PowerShell environment after Start()
+              # cannot affect the old release's threaded startup banner.
+              $info.Environment['PYTHONUTF8'] = '1'
+              $info.Environment['PYTHONIOENCODING'] = 'utf-8:backslashreplace'
             } else {
-              if (-not [YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)) { throw 'Could not restore the runner console code page for the candidate.' }
-              $info.FileName = $Executable
               # The old-version E2E also sets these variables for its Python
               # helper in this PowerShell process. Do not let them mask the
               # candidate's own CP1252-safe startup behavior.
@@ -258,23 +240,10 @@ jobs:
             }
             if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
             else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
-            $launcher = [System.Diagnostics.Process]::Start($info)
-            if (-not $launcher) { throw "Could not launch $Version." }
-            $process = $launcher
+            $process = [System.Diagnostics.Process]::Start($info)
+            if (-not $process) { throw "Could not launch $Version." }
+            $launcher = $process
             $deadline = [DateTime]::UtcNow.AddSeconds(45)
-            if ($legacyConsole) {
-              $expectedPath = [System.IO.Path]::GetFullPath($Executable)
-              $process = $null
-              while ([DateTime]::UtcNow -lt $deadline -and -not $process) {
-                if ($launcher.HasExited) { throw "$Version launcher exited early with code $($launcher.ExitCode)." }
-                $child = Get-CimInstance -ClassName Win32_Process -Filter "ParentProcessId = $($launcher.Id)" |
-                  Where-Object { $_.ExecutablePath -and $_.ExecutablePath.Equals($expectedPath, [System.StringComparison]::OrdinalIgnoreCase) } |
-                  Select-Object -First 1
-                if ($child) { $process = Get-Process -Id $child.ProcessId -ErrorAction SilentlyContinue }
-                if (-not $process) { Start-Sleep -Milliseconds 250 }
-              }
-              if (-not $process) { Stop-Process -Id $launcher.Id -Force -ErrorAction SilentlyContinue; throw "Could not locate the launched $Version process." }
-            }
             $running = [pscustomobject]@{ App = $process; Launcher = $launcher }
             $health = $null
             $lastProbeError = ''
@@ -285,8 +254,6 @@ jobs:
             }
             if (-not $health -or $health.version -ne $Version) {
               Stop-YingxuVersion $running
-              $detail = if ($legacyConsole -and (Test-Path -LiteralPath $legacyStderrPath)) { Get-Content -LiteralPath $legacyStderrPath -Raw -Encoding Default } else { '' }
-              if ($detail) { Write-Host "[$Version stderr]`n$detail" }
               throw "$Version did not become healthy; got '$($health.version)'. Last probe: $lastProbeError"
             }
             return $running
@@ -311,7 +278,6 @@ jobs:
           }
           finally {
             Stop-YingxuVersion $oldProcess
-            [void][YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)
           }
 
           Copy-Item -LiteralPath $configDir -Destination $rollbackDir -Recurse
@@ -339,7 +305,6 @@ jobs:
           }
           finally {
             Stop-YingxuVersion $rollbackProcess
-            [void][YingxuConsoleCodePage]::SetConsoleOutputCP($originalConsoleCodePage)
           }
 
       - name: Verify x64 PE and create SHA-256 manifest
