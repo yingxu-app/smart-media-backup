@@ -6,12 +6,12 @@
 
 ## 2026-10-21 PR #12 CI 与 Windows 虚拟机编码修正
 
-- PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 的工作分支为 `codex/windows-vm-webview-acceptance`，head `7a69c7add6654dba731a89b09304916328cc9ef5`，PR OPEN/DRAFT、mergeable，工作树在本轮修改前 clean。
-- Windows run `39540877703` 中，隔离备份 21 项与 pywebview GUI 八项探针均通过。其版本升级步骤在启动公开 v1.0.34 时失败：旧冻结包的服务线程向 CP1252 stderr 输出中文，触发 `UnicodeEncodeError`，健康接口未就绪，因此本轮安装/升级/回退没有完成。
-- 修复已在本地实现、尚待提交：桌面入口启动时将 stdout/stderr 同时重配置为 UTF-8 与 `backslashreplace`；CP1252 `TextIOWrapper` 中文写入回归用例通过。Windows workflow 仅给旧版 v1.0.34 测试进程设置 `PYTHONIOENCODING=utf-8` 与 `PYTHONUTF8=1`，候选版不依赖该兼容环境。
+- PR #12 `feat: add resumable PWA phone backup and Windows VM acceptance` 的工作分支为 `codex/windows-vm-webview-acceptance`，修复提交 `70ee5a82070c7fcb9ab28683839d7b2ff83dcfed`，PR OPEN/DRAFT、mergeable。
+- Windows run `39542648189` 的隔离备份 21 项与 pywebview GUI 八项探针均通过。旧 v1.0.34 仍在 CP1252 stderr 输出中文并崩溃，Python 编码环境变量没有改变附着控制台的代码页，因此安装/升级/回退步骤失败。
+- 桌面入口已重配置 stdout/stderr 为 UTF-8 与 `backslashreplace`；CP1252 `TextIOWrapper` 中文写入回归用例通过。本机 Windows workflow 修正正在准备：Windows Python 控制台会忽略 `PYTHONIOENCODING`，除非同时设置 `PYTHONLEGACYWINDOWSSTDIO`（[Python 3.11 文档](https://docs.python.org/3.11/using/cmdline.html#envvar-PYTHONIOENCODING)）；旧版测试会组合这两项，候选启动时清除 helper 变量以检验自身修复。Pocket workflow 也将纳入新增的暂存队列测试。
 - 本机桌面入口定向 unittest 5/5 通过；完整桌面 Python suite 126 项通过、2 项 Windows-only 跳过。Firebase rules/server/sync Python 测试 20/20 通过；仓库与 Pocket Node 全部测试 46/46 通过，含新增手机暂存队列恢复/无效记录清理检查。覆盖 UID 子树、匿名访问拒绝、凭据不落盘、离线缓存/恢复、桌面重连队列、进度及取消。测试未使用真实账号。
 - PWA 新增可单测的本机暂存队列建档/恢复逻辑，并加入 Pocket 页面与 Service Worker 离线应用壳；变更后全 Node suite、Pocket JavaScript 语法检查和 `git diff --check` 通过。真实 iPhone IndexedDB 配额、页面重启恢复与完整文件传输仍待设备验收。
-- Pocket run `39540877621` 的 PWA 与 mobile check job success；Android debug build 在最近一次查询仍为 in_progress，未取消或重启。当前修复提交前的 Windows run `39540877703` 终态 failure，故本地修正需进入新 Windows x64 workflow 重新验收。
+- 对 `70ee5a8` 的 Reliability PR/push、macOS candidate 和 Pocket PWA/mobile check job success；Pocket Android debug build 最近查询仍为 in_progress，未取消或重启。Windows run `39542648189` 终态 failure，等待修正后的 x64 VM workflow 验收。
 - 验收范围按用户确认：Windows 只做 x64 虚拟机；iPhone 仅用 Safari PWA；Android 真机、小程序、原生 iOS、正式签名/公证排除。PWA 已实现手机素材选择、桌面交接、本机 IndexedDB 暂存与手动重试；完整 iPhone 传输/恢复和 Firebase 真实账号隔离仍待验收。
 
 ## 2026-10-21 PWA 本机媒体队列候选（未部署）

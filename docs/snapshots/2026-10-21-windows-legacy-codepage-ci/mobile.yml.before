@@ -1,0 +1,114 @@
+name: Pocket mobile checks
+
+on:
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "site/pocket/**"
+      - "smb/pocket_tcp.py"
+      - "smb/server.py"
+      - "smb/static/pocket/**"
+      - "smb/templates/pocket.html"
+      - "tests/pocket-cloud-sync.test.cjs"
+      - "tests/pocket-sha256.test.cjs"
+      - "tests/test_pocket_http_upload.py"
+      - "tests/test_pocket_tcp.py"
+      - ".github/workflows/mobile.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - "site/pocket/**"
+      - "smb/pocket_tcp.py"
+      - "smb/server.py"
+      - "smb/static/pocket/**"
+      - "smb/templates/pocket.html"
+      - "tests/pocket-cloud-sync.test.cjs"
+      - "tests/pocket-sha256.test.cjs"
+      - "tests/test_pocket_http_upload.py"
+      - "tests/test_pocket_tcp.py"
+      - ".github/workflows/mobile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pocket:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/setup@v1
+        with:
+          version: 11.25.0
+          runtime: node@24
+          cache: true
+          cache-dependency-path: mobile/pnpm-lock.yaml
+          install: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install Python server dependencies
+        working-directory: .
+        run: python -m pip install -r requirements.txt
+      - name: Check iPhone PWA JavaScript and cloud client
+        working-directory: .
+        run: |
+          node --check site/pocket/app.js
+          node --check site/pocket/cloud-sync.js
+          node --check site/pocket/sw.js
+          node --test tests/pocket-cloud-sync.test.cjs
+          node --test tests/pocket-sha256.test.cjs
+          python -m unittest tests.test_pocket_http_upload tests.test_pocket_tcp -v
+          node -e "JSON.parse(require('node:fs').readFileSync('site/pocket/manifest.webmanifest', 'utf8'))"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check Expo package compatibility
+        env:
+          EXPO_OFFLINE: "1"
+        run: pnpm exec expo install --check
+      - name: Lint, typecheck, and unit tests
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+      - name: Generate Android native project
+        run: pnpm exec expo prebuild --no-install --platform android
+      - name: Export Android bundle
+        run: pnpm exec expo export --platform android --output-dir "$RUNNER_TEMP/yingxu-pocket-android"
+
+  android-debug:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/setup@v1
+        with:
+          version: 11.25.0
+          runtime: node@24
+          cache: true
+          cache-dependency-path: mobile/pnpm-lock.yaml
+          install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Generate Android project
+        run: pnpm exec expo prebuild --no-install --platform android
+      - name: Build debug APK
+        run: cd android && ./gradlew --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: yingxu-pocket-android-debug-${{ github.sha }}
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

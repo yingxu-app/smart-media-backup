@@ -6,10 +6,10 @@
 
 ## 2026-10-21 PR #12 Windows x64 VM 首轮与修正
 
-- PR #12 当前分支 `codex/windows-vm-webview-acceptance` head 为 `7a69c7add6654dba731a89b09304916328cc9ef5`，OPEN/DRAFT、mergeable。Windows run `39540877703` 的隔离备份 21 项和 pywebview GUI 八项均通过；版本验收在 v1.0.34 健康启动前因 CP1252 中文日志崩溃失败。
-- 本地已修正桌面启动输出流，固定为 UTF-8 并保留 `backslashreplace`；CP1252 中文写入回归用例纳入测试。Windows workflow 对 v1.0.34 测试进程单独设置 UTF-8 兼容环境，当前候选进程不设置该变量，以验证应用自身修复。以上改动尚未提交/推送，需由新 Windows x64 VM workflow 完整验收。
+- PR #12 当前分支 `codex/windows-vm-webview-acceptance` head 为 `70ee5a82070c7fcb9ab28683839d7b2ff83dcfed`，OPEN/DRAFT、mergeable。Windows run `39542648189` 的隔离备份 21 项和 pywebview GUI 八项均通过；旧 v1.0.34 仍因 CP1252 中文日志在健康启动前崩溃。
+- 提交 `70ee5a8` 已将桌面 stdout/stderr 固定为 UTF-8 并保留 `backslashreplace`，CP1252 中文写入回归用例通过。Windows Python 控制台忽略 `PYTHONIOENCODING`，除非同时设置 `PYTHONLEGACYWINDOWSSTDIO`；本地正在将这两项仅用于旧版 v1.0.34，并在候选启动时清除 helper 变量。Pocket workflow 也会执行新增的队列恢复用例。
 - 修复同时补齐 Pocket 本机暂存队列可测试模块，覆盖选中文件引用及元数据保存、重启恢复与无效队列清理，并加入离线 Service Worker shell。完整桌面 unittest 126 项通过、2 项 Windows-only 跳过；Firebase rules/server/sync Python 20/20、仓库与 Pocket Node 46/46、桌面入口定向 5/5 已通过，JavaScript 语法与 `git diff --check` 通过。
-- 当前 head Pocket run `39540877621` 的 PWA/mobile check job success，Android debug build 上次查询仍运行且未重启。修复提交前的 Windows run `39540877703` 终态 failure；需推送改动后由新 Windows x64 workflow 验收。
+- 当前 head `70ee5a8` 的 Reliability PR/push、macOS candidate、Pocket PWA/mobile check 均 success；Android debug job 上次查询仍运行且未重启。Windows run `39542648189` 版本转换步骤失败；新的 workflow 修正通过后还需由 Windows x64 runner 完整验收。
 
 ## 2026-10-21 已确认的验收范围修正
 

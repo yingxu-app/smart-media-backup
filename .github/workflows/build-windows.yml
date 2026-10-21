@@ -225,12 +225,20 @@ jobs:
             $info.CreateNoWindow = $Headless
             $info.Environment['SMB_CONFIG_DIR'] = Split-Path -Parent $ConfigPath
             # The published v1.0.34 frozen build predates the in-app UTF-8
-            # console fix. Keep its install/upgrade/rollback smoke test alive
-            # under CP1252 Windows consoles; the current candidate is tested
-            # without these compatibility overrides.
+            # console fix. Windows ignores PYTHONIOENCODING for interactive
+            # consoles unless legacy stdio is enabled; the candidate is tested
+            # without any of these compatibility overrides.
             if ($Version -eq '1.0.34') {
               $info.Environment['PYTHONIOENCODING'] = 'utf-8'
               $info.Environment['PYTHONUTF8'] = '1'
+              $info.Environment['PYTHONLEGACYWINDOWSSTDIO'] = '1'
+            } else {
+              # The old-version E2E also sets these variables for its Python
+              # helper in this PowerShell process. Do not let them mask the
+              # candidate's own CP1252-safe startup behavior.
+              $info.Environment.Remove('PYTHONIOENCODING') | Out-Null
+              $info.Environment.Remove('PYTHONUTF8') | Out-Null
+              $info.Environment.Remove('PYTHONLEGACYWINDOWSSTDIO') | Out-Null
             }
             if ($Headless) { $info.Environment['YINGXU_E2E_HEADLESS'] = '1' }
             else { $info.Environment.Remove('YINGXU_E2E_HEADLESS') | Out-Null }
@@ -257,7 +265,9 @@ jobs:
             python e2e_win_check.py
             if ($LASTEXITCODE -ne 0) { throw 'Published v1.0.34 did not pass the isolated backup flow.' }
           }
-          finally { if (-not $oldProcess.HasExited) { Stop-Process -Id $oldProcess.Id -Force } }
+          finally {
+            if (-not $oldProcess.HasExited) { Stop-Process -Id $oldProcess.Id -Force }
+          }
 
           Copy-Item -LiteralPath $configDir -Destination $rollbackDir -Recurse
           $candidate = Get-ChildItem -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'dist') -Filter '*.exe' -File | Select-Object -First 1
@@ -282,7 +292,9 @@ jobs:
             if ($items.Count -lt 1) { throw 'Rollback did not restore the v1.0.34 backup history.' }
             Write-Host "[PASS] Rollback reopened v1.0.34 with $($items.Count) backup history records from the saved data copy."
           }
-          finally { if (-not $rollbackProcess.HasExited) { Stop-Process -Id $rollbackProcess.Id -Force } }
+          finally {
+            if (-not $rollbackProcess.HasExited) { Stop-Process -Id $rollbackProcess.Id -Force }
+          }
 
       - name: Verify x64 PE and create SHA-256 manifest
         shell: pwsh
