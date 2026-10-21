@@ -280,6 +280,8 @@ jobs:
 
             $env:YINGXU_E2E_EXTERNAL_SERVER = '1'
             $env:YINGXU_E2E_BASE_URL = 'http://127.0.0.1:18200'
+            $env:PYTHONIOENCODING = 'utf-8'
+            $env:PYTHONUTF8 = '1'
             python e2e_win_check.py
             if ($LASTEXITCODE -ne 0) { throw 'Packaged candidate did not pass the isolated backup flow.' }
             $history = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/history' -TimeoutSec 5
