@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="影序 YINGXU">
-  <title>影序 YINGXU · 应用图标 v3</title>
+  <title>影序 YINGXU · 应用图标 v4</title>
   <rect width="512" height="512" rx="116" fill="#20251f"/>
   <g id="window-back">
     <rect x="178" y="102" width="232" height="232" rx="58" fill="#c7d47a"/>
@@ -9,7 +9,7 @@
     <rect x="102" y="178" width="232" height="232" rx="58" fill="#f4f2eb"/>
   </g>
   <g id="ai-badge">
-    <circle cx="270" cy="346" r="44" fill="#c7d47a"/>
-    <path fill="#20251f" d="M270 325 Q273.36 342.64 291 346 Q273.36 349.36 270 367 Q266.64 349.36 249 346 Q266.64 342.64 270 325 Z"/>
+    <circle cx="266" cy="342" r="48" fill="#c7d47a"/>
+    <g id="ai-letters" transform="translate(241.18 360.00) scale(0.02510 -0.02510)"><g transform="translate(0 0)"><path d="M1425 0H1073L971 319H461L360 0H10L532 1434H915ZM897 567 743 1049Q726 1103 719 1178H711Q706 1115 686 1053L530 567Z" fill="#20251f"/></g><g transform="translate(1480 0)"><path d="M487 0H164V1434H487Z" fill="#20251f"/></g></g>
   </g>
 </svg>
