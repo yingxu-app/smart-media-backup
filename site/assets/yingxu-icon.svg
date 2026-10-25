@@ -1,6 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="影序 YINGXU">
-  <title>影序 YINGXU</title>
+  <title>影序 YINGXU · 应用图标 v2</title>
   <rect width="512" height="512" rx="116" fill="#20251f"/>
-  <rect x="212" y="104" width="200" height="200" rx="50" fill="#c7d47a"/>
-  <rect x="140" y="168" width="208" height="208" rx="52" fill="#f4f2eb"/>
+  <g id="window-back"><rect x="198" y="60" width="208" height="208" rx="52" fill="#c7d47a"/></g>
+  <g id="window-front">
+    <rect x="106" y="152" width="208" height="208" rx="52" fill="none" stroke="#20251f" stroke-width="60"/>
+    <rect x="106" y="152" width="208" height="208" rx="52" fill="#f4f2eb"/>
+  </g>
+  <g id="ai-badge">
+    <circle cx="362" cy="404" r="54" fill="#c7d47a"/>
+    <path fill="#20251f" d="M362 376 Q366.48 399.52 390 404 Q366.48 408.48 362 432 Q357.52 408.48 334 404 Q357.52 399.52 362 376 Z"/>
+  </g>
 </svg>
