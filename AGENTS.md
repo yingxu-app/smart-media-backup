@@ -1,220 +1,105 @@
-# 🖼 Smart Media Backup — 完整项目交接文档
+# 影序 YINGXU · 交接与维护说明
 
-## 项目一句话
-插 SD 卡到电脑 → 自动读设备/日期 → 用户输入事件名 → 按 设备→事件→照片/视频 分类 → Web 面板可视化 → 可选百度网盘自动上传
+> 面向接手这个仓库的人（和 AI 助手）。产品说明在 [README.md](README.md)，文档入口在 [docs/README.md](docs/README.md)。
 
----
+## 一句话
 
-## 用户信息
-- GitHub 账号：nanyu-lu（组织：yingxu-app）
-- 微信：通过微信与Hermes沟通
-- 设备：MacBook Air M3 + 16GB RAM, macOS Sequoia
-- 摄影师/视频创作者，Sony A7 + DJI，11TB外置盘"回忆"
-- 百度网盘已注册开发者（App ID: 123996589）
+插存储卡 → 读设备与日期 → 用户填事件名 → 按「设备 / 事件 / 照片-视频」分类复制 → SHA-256 校验 → 写入历史并出报告。本地优先，百度网盘与云端 AI 都是可选项。
 
----
+## 运行环境
 
-## 项目目录结构
-```
-~/smart-media-backup/
-├── smb/                          # Python 核心包
-│   ├── __init__.py               # 包入口, 版本号
-│   ├── __main__.py               # python -m smb 入口
-│   ├── server.py                 # Flask + SocketIO Web 服务（主入口）
-│   ├── backup.py                 # 备份引擎（扫描→元数据→拷贝→校验+百度触发）
-│   ├── detector.py               # SD 卡检测（macOS /Volumes, Win盘符, Linux挂载点）
-│   ├── organizer.py              # EXIF 元数据提取 + 分类整理
-│   ├── verifier.py               # SHA256 校验
-│   ├── config.py                 # JSON 配置管理（~/.config/smb/）
-│   ├── db.py                     # SQLite 历史记录
-│   ├── baidu.py                  # 百度网盘 OAuth + 分片上传
-│   ├── ai_namer.py               # AI 自动命名（Ollama / OpenAI）
-│   ├── cli.py                    # 命令行接口
-│   ├── templates/                # HTML 模板
-│   │   ├── base.html             # 基础布局（侧边栏+状态栏）
-│   │   ├── dashboard.html        # 主仪表盘（检测+操作+进度）
-│   │   ├── history.html          # 备份历史
-│   │   └── settings.html         # 设置（含百度网盘+AI配置）
-│   └── static/
-│       ├── css/app.css           # 深色主题样式
-│       ├── js/app.js             # 全局JS
-│       └── img/icon.svg          # SVG图标
-├── desktop/                      # 桌面 App 打包
-│   ├── smb.spec                  # macOS PyInstaller 配置
-│   ├── smb-win.spec              # Windows PyInstaller 配置
-│   ├── app.py                    # macOS .app 启动入口
-│   ├── setup.py                  # py2app 配置（已弃用，保留参考）
-│   ├── icon.icns                 # 应用图标（相机+SD卡）
-│   └── dist/                     # 打包输出
-├── .github/workflows/
-│   ├── release-macos.yml         # macOS DMG 自动发布
-│   ├── build-windows.yml         # Windows .exe 自动构建
-│   └── test.yml                  # 测试
-├── setup.py                      # pip install 配置
-├── requirements.txt              # Python 依赖
-└── AGENTS.md                     # 本文件
+- 作者本机：MacBook Air M3 / 16 GB / macOS Sequoia，外置盘 11 TB「回忆」；Sony A7 + DJI 素材。
+- Windows 侧验证在 GitHub Actions 的 `windows-latest` 和一台真机上进行，没有长期可用的 Windows 开发机。
+- Python 3.11 / 3.12（CI 矩阵），Node + pnpm 用于 `mobile/`。
+
+## 仓库结构
+
+```text
+smb/           Python 核心包（server / backup / organizer / verifier / db / baidu / pocket*）
+desktop/       桌面壳（pywebview）与 PyInstaller 配置：smb.spec（macOS）、smb-win.spec（Windows）
+mobile/        Expo 原生壳（Android / iOS），pnpm 管理
+miniprogram/   微信小程序局域网 TCP 原型（占位 AppID）
+site/          GitHub Pages：官网、下载页、Pocket PWA
+scripts/       构建、打包、上传、图标生成、Windows 端到端与冒烟检查、文档链接检查
+tests/         unittest 回归套件 + Node 端 Pocket 测试
+docs/          文档（结构见 docs/README.md）
+dist/          PyInstaller 输出目录，不入库
 ```
 
----
+打包产物统一出到仓库根的 `dist/`；`desktop/dist/` 只在 macOS 本地打包时出现。
 
-## 核心业务流程
+## 核心流程
 
-### 备份流程（完整）
-```
-用户插SD卡 → detector.py自动检测到新卷
-  → organizer.py扫描卡内文件（按扩展名筛选RAW/照片/视频）
-  → 批量提取EXIF元数据（相机型号、拍摄日期、GPS）
-  → 按设备分类 → 前端显示检测结果
-  → 用户输入事件名 → 选择备份目标盘
-  → 点开始备份
-  → backup.py: 逐文件shutil.copy2到目标
-    目标路径: {backup_root}/{设备名}/{事件名}/照片/ 或 视频/
-    保留原始文件名
-  → verifier.py: SHA256校验每个拷贝的文件
-  → db.py: 写入SQLite历史记录
-  → 自动触发 baidu.py: 后台线程上传到百度网盘
-  → WebSocket实时推送到前端（进度条/速度/队列）
+**备份**
+
+```text
+detector 发现卷 → organizer 扫描 + EXIF → 前端按日期预览目录
+→ 用户填事件名、选目标 → backup 逐文件 copy2 + SHA-256
+→ db 写历史 → 报告 JSON / CSV / Markdown → 可选百度网盘后台上传
 ```
 
-### 目录结构（备份后的文件）
-```
-{备份盘}/
-├── Sony ILCE-7M4/
-│   └── 2025年8月漫展/           ← 用户输入的事件名
-│       ├── 照片/
-│       │   ├── DSC01234.ARW    ← 保留原始文件名
-│       │   └── checksums.json  ← SHA256校验清单
-│       └── 视频/
-│           ├── C0001.MP4
-│           └── checksums.json
-└── DJI Mavic 3/
-    └── 2025年8月漫展/
-        └── 视频/
-            └── ...
-```
+**转移老内容**（用户显式触发）：扫描已归档素材 → 分类命名 → 复制到目标 → 校验 → 校验通过才移除源文件；取消或失败一律保留源文件。Windows 上的删除走回收站，回收站不可用时整个流程失败退出。
 
-### 百度网盘上传流程
-```
-备份完成 → _trigger_baidu_upload() 后台线程
-  → 检查 baidu.is_configured() && baidu.is_authorized()
-  → 遍历备份目录所有文件（跳过checksums.json）
-  → baidu.mkdir() 创建远程目录
-  → baidu.upload_file() 上传
-    小文件(<4MB): 直接POST上传
-    大文件: precreate → 分片upload → create合并
-```
+**Pocket**：`site/pocket/`（HTTPS PWA，走 Firebase 看云端进度）与桌面端局域网 `/pocket/`（6 位一次性配对码，同 Wi-Fi）是两条不同入口，别混。局域网页面上传走「计划 → 分块 → 完成」的 inbox 接口，桌面端复核 SHA-256 后才落盘。
 
-### AI 自动命名流程
-```
-SD卡扫描完成 → ai_namer.suggest_event_name(sample_images)
-  → 取前5张照片
-  → 根据backend选择分析方式
-    ollama: POST /api/chat → llava模型
-    openai: OpenAI SDK → gpt-4o-mini
-  → 返回2-6字中文短语 → 自动填入事件名输入框
-```
+## 接口
 
----
+全部路由都在 `smb/server.py`（Flask + SocketIO），按前缀分组：
 
-## API 路由完整清单
+| 前缀 | 用途 |
+| --- | --- |
+| `/api/status`、`/api/volumes`、`/api/sources`、`/api/scan`、`/api/preview/` | 来源探测与扫描预览 |
+| `/api/start_backup`、`/api/cancel_backup`、`/api/pause_backup`、`/api/cleanup_sd` | 备份控制 |
+| `/api/transfer/*` | 转移老内容工作区 |
+| `/api/history*`、`/api/sync/*` | 归档记录与多设备元数据同步 |
+| `/api/baidu/*`、`/api/ai/*` | 百度网盘、AI 服务配置与状态 |
+| `/api/pocket/*`、`/pocket/` | 手机协作台（配对、状态、备注、inbox 上传） |
 
-| 路由 | 方法 | 说明 |
-|------|------|------|
-| `/` | GET | 仪表盘页面 |
-| `/history` | GET | 历史记录页面 |
-| `/settings` | GET | 设置页面 |
-| `/website` | GET | 官网landing page |
-| `/api/status` | GET | 当前状态+进度 |
-| `/api/volumes` | GET | 所有可用磁盘（过滤系统卷） |
-| `/api/scan` | GET/POST | 扫描SD卡，返回设备列表+文件+AI建议名 |
-| `/api/start_backup` | POST | 开始备份，body: {mount_point, event_name, backup_root} |
-| `/api/cancel_backup` | POST | 取消当前备份 |
-| `/api/history` | GET | 备份历史列表（limit/offset分页） |
-| `/api/history/<id>` | GET | 单条历史详情+文件列表 |
-| `/api/baidu/status` | GET | 百度网盘配置/授权状态 |
-| `/api/baidu/settings` | POST | 保存百度API Key/Secret |
-| `/api/baidu/auth_url` | GET | 获取OAuth授权URL |
-| `/api/baidu/exchange` | POST | 兑换授权码，body: {code} |
-| `/api/baidu/quota` | GET | 网盘容量 |
-| `/api/ai/status` | GET | AI命名配置状态 |
-| `/api/ai/settings` | POST | 保存AI命名配置 |
-| `/download/macos` | GET | 下载 macOS DMG |
+新增路由请顺手补 `tests/` 里的对应用例；`server.py` 里的表是这个仓库唯一可信的接口清单，不要再往文档里抄一份。
 
----
+## 配置与数据位置
 
-## 配置位置
-- 百度网盘凭证: `~/.config/smb/baidu_settings.json` + `baidu_token.json`
-- AI 命名设置: `~/.config/smb/ai_settings.json`
-- 应用配置: `~/.config/smb/config.json`
-- 历史数据库: `~/.config/smb/backup_history.db`
+| 内容 | 位置 |
+| --- | --- |
+| 应用配置 | `~/.config/smb/config.json`（`SMB_CONFIG_DIR` 可覆盖，测试与 CI 都靠它隔离） |
+| 配置 schema 版本 | 同目录 `config.schema.json`（独立记录，方便旧版回退） |
+| 历史数据库 | `~/.config/smb/backup_history.db` |
+| 百度网盘凭证 | `~/.config/smb/baidu_settings.json` + `baidu_token.json` |
+| AI 服务密钥 | 系统钥匙串 / 凭据库，不落明文配置 |
 
----
+## 当前状态（2026-10）
 
-## 当前状态（2025-07-19）
-
-### ✅ 已完成
-| 模块 | 说明 |
-|------|------|
-| 核心引擎 | SD检测→EXIF→按设备/事件/照片-视频分类→SHA256校验→SQLite |
-| Web面板 | Flask+SocketIO, Chart.js图表, 暗色主题 |
-| macOS App | PyInstaller打包, 自签名, DMG安装包, 桌面双击可用 |
-| Windows App | GitHub Actions自动构建, Release可下载 |
-| 官网 | GitHub Pages 主站 + ChatGPT Sites 备用站, 含下载链接+安装教程 |
-| AI命名 | 支持Ollama本地(llava) / OpenAI(gpt-4o-mini), 默认Ollama |
-| 百度网盘 | OAuth已授权, 分片上传, 备份完自动触发 |
-| GitHub | 代码全部推送, 含CI/CD工作流 |
-| Gitee | Actions自动同步（Pages服务已下线） |
-| 项目文档 | AGENTS.md供AI参考 |
-
-### ⏳ 待办/可优化
-- [ ] 百度网盘 quota API 返回为0（可能需要调试接口）
-- [ ] 增量备份（第二次只拷新文件）
-- [ ] 树莓派镜像
-- [ ] Apple开发者证书($99)彻底去掉Gatekeeper弹窗
-- [ ] 自定义域名（smartbackup.app等）
-
----
-
-## 关键命令
-```bash
-# 本地开发
-cd ~/smart-media-backup
-pip install -e .        # 安装（已安装则跳过）
-smb                     # 启动 Web 面板（localhost:8080）
-smb scan               # 快速扫描 SD 卡
-
-# 打包 macOS .app
-cd desktop
-pyinstaller smb.spec --noconfirm
-cp -R dist/Smart\ Media\ Backup.app ~/Desktop/
-
-# 打包 Windows .exe（在Windows上跑）
-pyinstaller smb-win.spec --noconfirm
-```
-
----
+- 公开 Release 最新是 v1.0.34，只有 Windows 包；macOS 与 Android 只有候选/预览。
+- v1.0.40 是当前开发版本，本机 macOS 验收通过，Windows 只有 unsigned CI preview。
+- 真实账号的 Firebase 跨设备同步、iPhone 真机配对、Android 真机安装仍未完成。
+- 逐版本细节见 [docs/releases/](docs/releases/)。
 
 ## 已知问题
-1. **百度网盘 quota API** 返回0——可能是个人版API端点与文档不同，需调试
-2. **Windows构建** 依赖GitHub Actions，本地需Windows环境
-3. **ai_namer.py** 依赖PIL(Pillow)处理图片base64，需确保安装
-4. **exiftool** 是可选依赖，没有它则用文件修改时间+文件名启发式
 
----
+1. 百度网盘 quota 接口曾返回 0，已改为带 `checkfree`/`checkexpire` 读取 `total`/`used`，真实账号仍待复核。
+2. Windows 打包只能在 Windows 上做，本地无 Windows 机器时依赖 Actions。
+3. `ai_namer` 依赖 Pillow 处理缩略图；缺少 ExifTool 时退化为文件名 + 修改时间启发式（会有明显误差，不要当成 EXIF 解析）。
+4. 物理拔卡、断电、大容量卡压力三项没有真实环境验收记录，不要在文案里写成“已支持”。
 
-## 部署
+## 常用命令
 
-**网页托管仅保留 GitHub Pages 与 ChatGPT Sites**。全部安装包从 GitHub Releases 下载。
+```bash
+pip install -r requirements.txt
+python -m unittest discover -s tests -v     # 回归套件
+python -m compileall -q smb desktop tests   # 语法检查
+python scripts/check_links.py               # 文档相对链接检查
+smb                                         # 启动本地面板（localhost:8080）
 
-- 主站：https://yingxu-app.github.io/smart-media-backup/
-- 备用站：https://yingxu-smart-media-backup.nanyu20050927.chatgpt.site/
-- 部署记录见 `docs/WEBSITE-HOSTING.md`。
+cd desktop && pyinstaller smb.spec --noconfirm        # macOS
+pyinstaller desktop/smb-win.spec --noconfirm          # Windows
+```
 
-- 发布页（含 macOS DMG / Windows EXE）：https://github.com/yingxu-app/smart-media-backup/releases/latest
+## 维护约定
 
-> 旧独立官网、Gitee 镜像和仓库内 `website/` 目录已停用；以以上两处现行地址为准。
-> 已归档副本见 `~/Documents/项目/_归档/影序-已废弃官网与Gitee同步/`。
+这几条是整理仓库时定下的，请保持：
 
-## 网站范围更新（2026-10-16）
-
-当前用户目标重新要求交付网页和小程序。官网采用 GitHub Pages 主站与 ChatGPT Sites 备用站：官网与下载页放在本仓库 `site/`，通过 GitHub Pages 发布；不恢复已失效的独立官网仓库。线上只列入 GitHub Releases 的正式版本，不把本机候选或 CI 预览写成公开下载。在线网页产品范围仍待用户确认。
+1. **文档分层**：使用说明留在 `docs/*.md`，版本记录进 `docs/releases/`，过程与审计进 `docs/reports/`，比赛材料进 `docs/product/`。新增文档前先看 [docs/README.md](docs/README.md) 放对位置。
+2. **不留副本**：改文件不要生成 `*.before-*`、`*.orig` 之类的副本再提交；要留证据就在 `docs/reports/` 写一份记录，旧内容交给 git 历史。`.gitignore` 已经把这些扩展名挡住了。
+3. **二进制不进库**：安装包、APK、DMG 一律放 GitHub Releases 或 Actions artifact，`dist/` 已在 `.gitignore` 里。
+4. **链接要能点**：移动或改名文档后跑 `python scripts/check_links.py`，CI 的 `Reliability tests` 也会跑这一步。
+5. **状态要诚实**：CI 跑通 ≠ 本机装过 ≠ 真机验收。写 README、官网、Release note 时按实际情况标注。

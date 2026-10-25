@@ -1,0 +1,49 @@
+name: 功能建议
+description: 素材工作流上的需求、体验改进、新的拍摄场景
+title: "[建议] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        影序的取舍是「原卡安全优先」。任何会自动删除、自动改写、后台传输的建议，需要说明失败时怎么保住原始素材。
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 属于哪一块
+      options:
+        - 扫描与来源识别
+        - 备份与目录规则
+        - 转移老内容 / 废片筛选
+        - 归档记录与报告
+        - 影序 Pocket（手机）
+        - AI 命名与视觉建议
+        - 安装、更新、打包
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 你实际遇到的场景
+      description: 描述拍摄和设备情况，不要只写"希望更智能"
+      placeholder: 例如：一次漫展 3 张卡混拍，回来要按机身和日期分开归档 …
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你希望它怎么工作
+    validations:
+      required: true
+
+  - type: textarea
+    id: safety
+    attributes:
+      label: 出错时怎么保住原始素材
+      description: 这项功能如果中途失败、取消、拔盘，应该留下什么状态
+    validations:
+      required: false

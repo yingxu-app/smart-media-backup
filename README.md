@@ -1,94 +1,115 @@
 # 影序 YINGXU
 
-> 摄影师的本地优先素材备份与归档工具。插卡、确认、备份、校验、可追溯。
+> 摄影师的本地优先素材备份与归档工具：插卡 → 确认 → 备份 → 校验 → 可追溯。
 
-[官网](https://yingxu-app.github.io/smart-media-backup/) · [下载最新版](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [全端闭环计划](docs/PROJECT-CLOSURE-PLAN-v1.0.40.md) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
+[官网](https://yingxu-app.github.io/smart-media-backup/) · [下载](https://github.com/yingxu-app/smart-media-backup/releases/latest) · [文档索引](docs/README.md) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yingxu-app/smart-media-backup/issues)
 
-> **版本状态（2026-10-19）**：GitHub 最新正式版仍为 v1.0.34，只有 Windows 安装包。v1.0.40 macOS 候选为 ad-hoc 签名、无 Team ID、未公证；Windows 仅有 unsigned preview。iOS 采用 Safari PWA；Android EAS preview 已构建但未公开，真机验收暂缓。Firebase 真实账号跨设备同步与新正式版本发布仍待完成。详见 [v1.0.40 候选验收记录](docs/RELEASE-v1.0.40.md) 和 [v1.0.40 全端闭环计划](docs/PROJECT-CLOSURE-PLAN-v1.0.40.md)。
+## 三步上手
 
-## 给摄影师的三个步骤
+1. **插卡**：插入相机存储卡或读卡器，影序自动识别来源、文件数量、照片与视频，并按拍摄日期给出目录预览。
+2. **确认**：填写事件名称，选择备份位置（本地目录、外接硬盘，可同时选多个目标）。
+3. **备份**：点“开始备份”。复制完成后逐文件比对 SHA-256，生成可打开的备份报告。
 
-1. 从 Releases 下载当前系统已有的正式安装包；macOS v1.0.40 候选、Windows unsigned preview 和 Android EAS preview 均未公开发行。
-2. 插入相机存储卡或读卡器，影序会扫描来源、文件数量、照片和视频。
-3. 选择备份位置，确认事件名称和目录预览，点击“开始备份”。完成后可在“归档记录”打开报告、查询素材位置。
+备份默认**只读扫描、复制、校验**，不会自动删除原卡素材。第一次备份保留每一个文件；同一来源再次备份到同一目标时，逐个跳过已完成文件。
 
-新内容备份默认只读、复制和校验，**不会自动删除原卡素材**。首次备份保留每一个文件；再次备份同一来源到同一目标时会逐个跳过已完成文件。“转移老内容”是单独的用户主动操作：目标副本通过 SHA-256 校验后才移除来源，取消或失败会保留来源。
+## 安全边界
 
-## 当前开发版本：v1.0.40（macOS 本机候选已安装；未公开发行）
-
-| 能力 | 当前行为 |
-| --- | --- |
-| 来源扫描 | 识别已挂载的存储卡、外接盘；显示文件、照片、视频与容量统计。 |
-| 多目标备份 | 可选本地目录、外接硬盘；一个目标异常不会删除原卡素材。 |
-| 转移老内容 | 扫描已归档素材，支持单个或批量选择；可做废片/相似照片提示、SHA-256 完全重复识别、按拍摄日期和设备分类命名。目标副本校验成功后才移除来源；取消或失败会保留来源。 |
-| 增量跳过 | 基于来源路径、哈希与完成历史判断；不会把同内容但不同文件误判为重复。 |
-| SHA-256 校验 | 复制后比对源与目标；报告和历史记录显示校验结果。 |
-| 中断恢复 | 取消或目标不可用时记录部分完成状态、失败原因与报告路径，重新执行可继续处理未完成文件。 |
-| 历史与报告 | 保留成功、跳过、失败、校验数量、来源卡、每个目标结果，并导出 JSON、CSV、Markdown 报告。 |
-| 本地优先 | 素材和历史默认留在本机；百度网盘为可选项，未配置时不会影响本地备份。 |
-| AI 视觉建议 | 可选 Ollama 本地模型或千问、DeepSeek、OpenRouter 云端视觉服务，用于事件命名和废片建议；云端 API Key 由用户自行配置并保存在系统凭据库。完全/相似重复仍由本地哈希识别。配置见 [AI 模型服务说明](docs/AI-MODEL-SETUP.md)。 |
-| 影序 Pocket | 同一 Wi-Fi 下用手机查看桌面备份进度、历史并填写拍摄信息；无需安装原生 App。 |
-| iOS Pocket | 按最新决定只维护 Safari PWA，不开发原生 iOS App。当前新增独立 HTTPS PWA 源码候选，可登录 Firebase 查看云端进度和历史；尚未部署或在 iPhone 上验收。 |
-| Android Pocket | EAS Android preview APK 已生成并校验；目前没有 Android 测试设备，真机验收和公开发行暂缓。 |
-
-## 影序 Pocket 手机协作台
-
-1. iPhone 可从官网打开“手机协作台”，用 Safari“分享 → 添加到主屏幕”安装 PWA；登录后查看 Firebase 云端备份进度与历史，首次打开需网络。
-2. 若要与附近电脑配对，在 Mac 版“偏好设置 → 影序 Pocket”生成 6 位配对码。
-3. 保持手机与 Mac 在同一 Wi-Fi，用手机 Safari 打开界面显示的局域网地址并输入配对码，即可查看该电脑实时进度、历史并发送事件、地点、设备和备注。
-
-Pocket 分为两个入口：`site/pocket/` 是 HTTPS PWA，可缓存页面及本机云端历史；电脑关闭时仍能查看缓存。PWA 的“打开电脑协作页”会进入桌面提供的局域网 `/pocket/` 页面，需要电脑运行、手机与电脑同一 Wi‑Fi并完成配对。局域网页面可从照片/Files/文件夹选择照片、RAW 和视频，按事件与类型分组、做 SHA‑256 预检、去除本批重复内容，再分块复制到电脑已设置的备份目标；桌面端复核 SHA‑256 并写入本机历史和已登录账号的云端元数据。浏览器需要保持局域网页面打开；锁屏或切换应用可能暂停，不能承诺后台持续复制。iOS Safari 18.4+ 才支持目录选择，旧版本可逐项选择文件。当前页面没有直接向手机任意目录写入、读取整个外接盘或离线排队传原件的浏览器权限。
-
-局域网配对码十分钟后失效且只能使用一次。只有用户主动选取的原始媒体会通过同一局域网传到配对电脑；不会上传到影序云端。详见 [Pocket 使用说明](docs/POCKET.md)。
-
-## macOS 安装与首次打开
-
-当前 GitHub Release 尚无 macOS v1.0.40 下载包。本机已安装的 v1.0.40 候选仅用于验收，不是公开发行版；Windows 只有 unsigned CI preview，Android EAS APK 也只是内部 preview。
-
-公开版发布后，请只从本仓库 Releases 下载并核对该 Release 提供的 SHA-256。未公证的候选可能触发 macOS Gatekeeper 提示；不要对来源不明的安装包放行。
-
-## 目录与安全原则
-
-目录由工作台中的“文件夹命名顺序”预览决定，可按时间、事件、地点、设备、照片/视频组合。
+这些规则写在代码里，也写在测试里（见 [测试矩阵](docs/TEST-MATRIX.md)）：
 
 - 原卡始终是源，只读扫描和复制；
 - 校验失败、取消、磁盘不可用、空间不足时，不允许清理原卡；
-- 只有所有已选目标完成且校验通过后，界面才允许用户主动进入清理流程；
-- 若设备或地点无法可靠识别，会明确显示待确认，不会假装猜测正确。
+- 只有全部已选目标都完成且校验通过，界面才允许用户主动进入清理流程；
+- Windows 上的“清理原卡”走系统回收站，回收站不可用时整个流程失败退出，素材保持原样；
+- 素材和历史默认留在本机；百度网盘、云端 AI 都是可选，未配置时不影响本地备份；
+- 若设备或地点无法可靠识别，会明确显示“待确认”，不假装猜对。
 
-## 历史本机验证证据（v1.0.34）
+## 平台现状
 
-在 macOS 与真实 `TF卡64G` 上完成两轮验收：
+最新公开 Release 是 **v1.0.34**，只包含 Windows 安装包。macOS v1.0.40 是 ad-hoc 签名、未公证的本机候选；Android 只有内部 preview；iOS 走 Safari PWA。都不要当成已上线产品宣传。
 
-- 首轮：132/132 个文件复制并 SHA-256 校验通过；
-- 同目标、同事件再次执行：0 复制、132 跳过、132 已校验；
-- 41 项自动回归测试覆盖空卡、取消、目标不可用、空间不足、权限不足、同内容不同文件、重复跳过、拔卡模拟、多目标部分失败、数据库迁移、校验发现损坏文件、AI 不可用时扫描仍即时返回、导航页不会在后台反复扫描原卡、并发扫描去重、Pocket 配对与访问隔离，以及清理原卡必经回收站、备份启动失败必须暴露错误、重复备份不产生重复文件与膨胀预览。
+| 平台 | 交付形态 | 当前状态 |
+| --- | --- | --- |
+| macOS | `.app` / DMG | v1.0.40 本机候选已安装并扫描真实存储卡；未公开发行，未公证 |
+| Windows | 便携 `.exe` | v1.0.40 unsigned CI preview 构建通过；真实读卡器与断电场景未验收 |
+| iPhone | Safari PWA | 局域网 Pocket 页可用（需配对）；独立 HTTPS PWA 源码就绪，未部署、未在 iPhone 验收 |
+| Android | EAS preview APK | 已构建并校验，无测试机，未公开发布 |
+| 微信小程序 | 局域网 TCP 原型 | 占位 AppID，未在微信开发者工具预览 |
 
-物理拔卡、断电尚未在本次发布环境完成实机验证。Pocket 已完成 Mac 本机接口和手机尺寸页面验收，仍需用户在实际 iPhone Safari 上完成一次同 Wi-Fi 配对确认。
+仍在等真实设备验证的项：物理拔卡、断电中断、大容量卡压力、Windows 真实读卡器、iPhone 同 Wi-Fi 配对。验收记录都在 [docs/releases](docs/releases/)。
 
-### Windows 实机验证记录
+## 功能
 
-Windows 安装包 `YINGXU-Windows-v1.0.33.exe` 已在 Windows 11 真机启动并验证：本地服务、工作台、归档记录、设置与 Pocket 页面均正常返回。端到端备份（模拟相机卡 10 个文件）完成 10/10 复制、SHA-256 全部校验通过、生成校验清单与 `_Windows预览` 树、按照片/视频分类、历史与 JSON/CSV/Markdown 报告可导出、原卡素材零改动；同目标同事件二次执行 0 复制 / 10 跳过，且不再新增或改名任何文件。
+| 能力 | 说明 |
+| --- | --- |
+| 来源扫描 | 识别存储卡、外接盘，显示文件数、照片/视频数与容量统计 |
+| 多目标备份 | 一个目标异常不影响其他目标，也不会删除原卡素材 |
+| 增量跳过 | 按来源路径、哈希与完成历史判断，不会把同内容不同文件误判为重复 |
+| SHA-256 校验 | 复制后比对源与目标，报告和历史都显示校验结果 |
+| 中断恢复 | 取消或目标不可用时记录部分完成状态，重跑可继续处理未完成文件 |
+| 归档与报告 | 保留每个目标的成功/跳过/失败/校验结果，导出 JSON、CSV、Markdown |
+| 转移老内容 | 已归档素材重新分类；目标副本校验通过后才移出源文件 |
+| 废片与重复提示 | 本地哈希判完全重复，感知哈希提示相似照片，AI 只做建议 |
+| AI 视觉建议 | 可选 Ollama 本地模型，或千问、DeepSeek、OpenRouter 云端视觉服务 |
+| 影序 Pocket | 同一 Wi-Fi 下用手机看桌面端进度、历史，填写拍摄信息 |
 
-仍未验证：真实 SD 卡/读卡器插拔、断电中断与大容量卡压力测试。
+AI 服务的配置与数据边界见 [AI 模型服务说明](docs/AI-MODEL-SETUP.md) 和 [AI 安全说明](docs/AI-SAFETY.md)。
 
-## 开发与测试
+## 影序 Pocket
+
+Pocket 有两个入口，别混在一起：
+
+- `site/pocket/` 是 HTTPS PWA：登录 Firebase 后可看云端备份进度与历史，页面可缓存，电脑关机时仍能看到缓存的记录。首次打开需要联网。
+- 桌面端提供的局域网 `/pocket/` 页面：需要在 Mac 版“偏好设置 → 影序 Pocket”生成 6 位配对码（十分钟内有效、只能用一次），手机与电脑在同一 Wi-Fi 下访问。可以查看实时进度、历史，也能从手机选照片/RAW/视频，按事件分组做 SHA-256 预检后分块传到已配对的电脑。
+
+只有用户主动选取的原始媒体会经局域网传到配对电脑，不会上传到影序云端。浏览器锁屏或切换应用可能中断复制，不承诺后台持续传输。详见 [Pocket 使用说明](docs/POCKET.md)。
+
+## 安装
+
+从 [Releases](https://github.com/yingxu-app/smart-media-backup/releases) 下载与系统对应的安装包，并核对 Release 里提供的 SHA-256。
+
+- macOS：未公证的候选会触发 Gatekeeper 提示，请只对你自己从本仓库下载并核对过哈希的文件放行。
+- Windows：当前 v1.0.34 安装包可直接安装；CI preview 是 unsigned 包，用于验收，不作正式分发。
+
+## 开发
 
 ```bash
 git clone https://github.com/yingxu-app/smart-media-backup.git
 cd smart-media-backup
+python3 -m pip install -r requirements.txt
 python3 -m unittest discover -s tests -v
+python3 -m compileall -q smb desktop tests
 ```
 
-macOS 打包使用项目内虚拟环境：
+macOS 打包（项目内虚拟环境）：
 
 ```bash
 cd desktop
 ../.venv/bin/python -m PyInstaller smb.spec --noconfirm
 ```
 
-## 开源与反馈
+Windows 端到端与冒烟检查：
 
-MIT License. 这是上海立达学院学生独立开发作品，欢迎通过 GitHub Issues 提交 Bug、使用建议与素材工作流需求。
+```bash
+python scripts/e2e_win_check.py
+python scripts/smoke_yingxu_win.py
+```
 
-更多资料：[架构](docs/ARCHITECTURE.md) · [测试矩阵](docs/TEST-MATRIX.md) · [隐私](PRIVACY.md) · [安全](SECURITY.md) · [贡献指南](CONTRIBUTING.md)
+## 仓库结构
+
+```text
+smb/           Python 核心包：扫描、备份、校验、配置、数据库、Pocket 服务
+desktop/       桌面端外壳与 PyInstaller 打包配置
+mobile/        Expo 原生壳（Android / iOS）
+miniprogram/   微信小程序局域网原型
+site/          GitHub Pages 官网、下载页与 Pocket PWA
+scripts/       构建、打包、验收脚本
+tests/         自动化回归测试
+docs/          文档：使用说明、架构、发布验收记录、比赛材料
+dist/          构建产物目录（不入库，仅本机生成）
+```
+
+文档怎么找，看 [docs/README.md](docs/README.md)。
+
+## 开源
+
+MIT License。上海立达学院学生独立开发作品，欢迎通过 [Issues](https://github.com/yingxu-app/smart-media-backup/issues) 提 Bug、使用建议与素材工作流需求。提交代码前请先读 [CONTRIBUTING.md](CONTRIBUTING.md)。

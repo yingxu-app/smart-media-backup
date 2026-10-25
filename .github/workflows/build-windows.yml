@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/build-windows.yml
-      - e2e_win_check.py
+      - scripts/e2e_win_check.py
       - desktop/run.py
       - smb/**
       - desktop/smb-win.spec
@@ -16,7 +16,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/build-windows.yml
-      - e2e_win_check.py
+      - scripts/e2e_win_check.py
       - desktop/run.py
       - smb/**
       - desktop/smb-win.spec
@@ -54,7 +54,7 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
-        run: python e2e_win_check.py
+        run: python scripts/e2e_win_check.py
 
       - name: Resolve application version
         id: app-version
@@ -124,7 +124,7 @@ jobs:
             $env:YINGXU_E2E_BASE_URL = 'http://127.0.0.1:18198'
             $env:PYTHONIOENCODING = 'utf-8'
             $env:PYTHONUTF8 = '1'
-            python e2e_win_check.py
+            python scripts/e2e_win_check.py
             if ($LASTEXITCODE -ne 0) { throw "Packaged EXE backup flow failed with exit code $LASTEXITCODE." }
           }
           finally {
@@ -282,7 +282,7 @@ jobs:
             $env:YINGXU_E2E_BASE_URL = 'http://127.0.0.1:18200'
             $env:PYTHONIOENCODING = 'utf-8'
             $env:PYTHONUTF8 = '1'
-            python e2e_win_check.py
+            python scripts/e2e_win_check.py
             if ($LASTEXITCODE -ne 0) { throw 'Packaged candidate did not pass the isolated backup flow.' }
             $history = Invoke-RestMethod -Uri 'http://127.0.0.1:18200/api/history' -TimeoutSec 5
             $items = if ($history.backups) { @($history.backups) } else { @($history.items) }
