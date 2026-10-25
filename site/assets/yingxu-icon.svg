@@ -1,34 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="影序 YINGXU">
-  <title>影序 YINGXU · 应用图标 v10</title>
+  <title>影序 YINGXU · 应用图标</title>
   <defs>
-    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#262c24"/>
-      <stop offset="1" stop-color="#191d18"/>
-    </linearGradient>
-    <linearGradient id="lime" x1="0" y1="0" x2="0.2" y2="1">
-      <stop offset="0" stop-color="#d6e293"/>
-      <stop offset="1" stop-color="#b8c96a"/>
-    </linearGradient>
-    <linearGradient id="paper" x1="0" y1="0" x2="0.15" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.55" stop-color="#f6f4ec"/>
-      <stop offset="1" stop-color="#e6e1d3"/>
-    </linearGradient>
-    <filter id="shadeLime" x="-30%" y="-30%" width="160%" height="180%">
-      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#0b0d0a" flood-opacity="0.55"/>
-    </filter>
-    <filter id="shadePaper" x="-30%" y="-30%" width="160%" height="180%">
-      <feDropShadow dx="0" dy="11" stdDeviation="18" flood-color="#0b0d0a" flood-opacity="0.45"/>
+    <filter id="typeShadow" x="-40%" y="-40%" width="180%" height="190%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3.5" flood-color="#3a362c" flood-opacity="0.55"/>
     </filter>
   </defs>
-  <g id="background"><rect width="512" height="512" rx="116" fill="url(#tile)"/></g>
-  <g id="window-back" filter="url(#shadeLime)">
-    <rect x="178" y="102" width="232" height="232" rx="58" fill="url(#lime)"/>
-  </g>
+  <g id="background"><rect width="512" height="512" rx="116" fill="#20251f"/></g>
+  <g id="window-back"><rect x="178" y="102" width="232" height="232" rx="58" fill="#c7d47a"/></g>
   <rect x="102" y="178" width="232" height="232" rx="58" fill="none"
-        stroke="#20251f" stroke-width="26"/>
-  <g id="window-front" filter="url(#shadePaper)">
-    <rect x="102" y="178" width="232" height="232" rx="58" fill="url(#paper)"/>
-  </g>
-  <g id="ai-mark" transform="translate(155.25 344.61) scale(0.07373 -0.07373)"><g transform="translate(0 0)"><path d="M1279 0H959Q959 66 868 374H406Q312 71 312 0H11Q11 39 244.5 640.0Q478 1241 478 1302H856Q856 1245 1067.5 649.5Q1279 54 1279 0ZM817 565Q646 1081 646 1123H630Q630 1084 453 565Z" fill="#20251f"/></g><g transform="translate(1250 0)"><path d="M395 0H126Q140 207 140 475Q140 741 106 941L394 970Q381 776 381 475Q381 218 395 0ZM441 1252Q441 1184 394.5 1133.0Q348 1082 265 1082Q195 1082 155.5 1126.0Q116 1170 116 1232Q116 1300 162.5 1350.0Q209 1400 293 1400Q364 1400 402.5 1356.5Q441 1313 441 1252Z" fill="#20251f"/></g></g>
+        stroke="#20251f" stroke-width="28"/>
+  <g id="window-front"><rect x="102" y="178" width="232" height="232" rx="58" fill="#f4f2eb"/></g>
+  <g id="ai-mark-shadowed" filter="url(#typeShadow)"><g id="ai-mark" transform="translate(151.56 341.47) scale(0.13559 -0.13559)"><g transform="translate(0 0)"><path d="M95 -5Q74 -5 62.0 8.0Q50 21 50 40Q50 48 55 60L310 662Q317 678 331.5 690.5Q346 703 368 703H378Q401 703 415.0 690.5Q429 678 436 662L691 60Q696 48 696 40Q696 21 684.0 8.0Q672 -5 651 -5Q620 -5 608 23L543 179H203L138 23Q126 -5 95 -5ZM238 262H508L373 587Z" fill="#20251f"/></g><g transform="translate(751 0)"><path d="M122 614Q101 614 86.0 629.0Q71 644 71 665V669Q71 690 86.0 705.0Q101 720 122 720H128Q149 720 164.0 705.0Q179 690 179 669V665Q179 644 164.0 629.0Q149 614 128 614ZM124 -5Q105 -5 92.0 8.0Q79 21 79 40V469Q79 489 92.0 502.0Q105 515 124 515Q144 515 157.0 502.0Q170 489 170 469V40Q170 21 157.0 8.0Q144 -5 124 -5Z" fill="#20251f"/></g></g></g>
 </svg>
