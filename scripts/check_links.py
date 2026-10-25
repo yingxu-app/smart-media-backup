@@ -22,6 +22,14 @@ import re
 import subprocess
 import sys
 
+# Windows runner 的 stdout 默认 cp1252，打印中文会抛 UnicodeEncodeError。
+# 输出目标是管道时也要能跑，所以直接改成 UTF-8 并放宽错误处理。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 - 老环境或已被替换的流
+        pass
+
 LINK_RE = re.compile(r"\]\(\s*([^)\s]+)(?:\s+\"[^\"]*\")?\s*\)")
 REFDEF_RE = re.compile(r"(?m)^\[[^\]]+\]:\s*(\S+)")
 INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
