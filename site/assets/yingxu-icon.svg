@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="影序 YINGXU">
-  <title>影序 YINGXU · 应用图标 v6</title>
+  <title>影序 YINGXU · 应用图标 v7</title>
   <rect width="512" height="512" rx="116" fill="#20251f"/>
   <g id="window-back">
     <rect x="178" y="102" width="232" height="232" rx="58" fill="#c7d47a"/>
@@ -8,5 +8,5 @@
     <rect x="102" y="178" width="232" height="232" rx="58" fill="none" stroke="#20251f" stroke-width="28"/>
     <rect x="102" y="178" width="232" height="232" rx="58" fill="#f4f2eb"/>
   </g>
-  <g id="ai-mark" transform="translate(234.26 370.00) scale(0.03533 -0.03533)"><g transform="translate(0 0)"><path d="M1279 0H959Q959 66 868 374H406Q312 71 312 0H11Q11 39 244.5 640.0Q478 1241 478 1302H856Q856 1245 1067.5 649.5Q1279 54 1279 0ZM817 565Q646 1081 646 1123H630Q630 1084 453 565Z" fill="#20251f"/></g><g transform="translate(1250 0)"><path d="M395 0H126Q140 207 140 475Q140 741 106 941L394 970Q381 776 381 475Q381 218 395 0ZM441 1252Q441 1184 394.5 1133.0Q348 1082 265 1082Q195 1082 155.5 1126.0Q116 1170 116 1232Q116 1300 162.5 1350.0Q209 1400 293 1400Q364 1400 402.5 1356.5Q441 1313 441 1252Z" fill="#20251f"/></g></g>
+  <g id="ai-mark" transform="translate(155.25 343.61) scale(0.07373 -0.07373)"><g transform="translate(0 0)"><path d="M1279 0H959Q959 66 868 374H406Q312 71 312 0H11Q11 39 244.5 640.0Q478 1241 478 1302H856Q856 1245 1067.5 649.5Q1279 54 1279 0ZM817 565Q646 1081 646 1123H630Q630 1084 453 565Z" fill="#20251f"/></g><g transform="translate(1250 0)"><path d="M395 0H126Q140 207 140 475Q140 741 106 941L394 970Q381 776 381 475Q381 218 395 0ZM441 1252Q441 1184 394.5 1133.0Q348 1082 265 1082Q195 1082 155.5 1126.0Q116 1170 116 1232Q116 1300 162.5 1350.0Q209 1400 293 1400Q364 1400 402.5 1356.5Q441 1313 441 1252Z" fill="#20251f"/></g></g>
 </svg>
