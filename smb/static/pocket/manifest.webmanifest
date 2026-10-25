@@ -1,0 +1,13 @@
+{
+  "name": "影序 Pocket",
+  "short_name": "影序",
+  "description": "与影序桌面端配对，查看备份进度并填写拍摄信息",
+  "start_url": "/pocket/",
+  "scope": "/pocket/",
+  "display": "standalone",
+  "background_color": "#080b0c",
+  "theme_color": "#080b0c",
+  "icons": [
+    {"src": "/static/img/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}

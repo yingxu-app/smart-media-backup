@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f2eb">
+  <meta name="description" content="影序 YINGXU 网站、桌面软件与 Pocket 移动客户端的隐私说明。">
+  <link rel="icon" href="./assets/yingxu-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <title>隐私说明 — 影序 YINGXU</title>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="./"><img src="./assets/yingxu-icon.svg" alt=""><span>影序 <b>YINGXU</b></span></a><nav aria-label="主导航"><a href="./#workflow">怎么工作</a><a href="./pocket/">手机协作台</a><a class="nav-cta" href="./download/">下载影序 <span>↗</span></a></nav></header>
+  <main class="wrap legal-page">
+    <p class="eyebrow">PRIVACY</p><h1>隐私说明</h1><p class="legal-date">更新日期：2026-10-19</p>
+    <section><h2>桌面软件与影序账号</h2><p>影序以本地备份为主：扫描、原始照片/视频、绝对文件路径、校验和及备份报告默认保存在你的电脑或选择的目标位置。可选云盘或 AI 服务由用户自行配置；启用后，发送到对应服务的数据遵循该服务的隐私规则。</p><p>如果你主动启用影序账号同步，邮箱、注册用户名和你输入的密码会通过 HTTPS 发送给 Firebase Authentication，用于创建或验证账号；影序不会把密码保存在本机配置或 Realtime Database。备份进度与归档元数据（包括文件名、事件/地点/设备备注、状态、时间、数量、大小和目标显示名）会写入影序 Firebase Realtime Database，并按账号 UID 隔离。数据库部署在新加坡区域。原始照片、视频和电脑绝对路径不会上传到数据库；本机刷新令牌由操作系统凭据库保存。</p><p>退出影序账号只会清除本机登录状态，不会删除云端历史。目前应用没有云端历史删除入口；如需清除，请联系项目维护者。Firebase 服务由 Google 提供，账户验证和数据托管还受 Google/Firebase 相关条款约束。</p></section>
+    <section><h2>iPhone Safari PWA</h2><p>iOS 当前仅提供 Safari PWA，不提供原生 iOS App 或 App Store 版本。通过 HTTPS 打开并完成首次加载后，PWA 可缓存应用页面，使电脑关闭或暂时断网时仍能启动并查看本机缓存的云端历史；实时进度和云端刷新仍需要网络及对应设备已同步。Firebase 刷新令牌和缓存的历史元数据保存在该浏览器的 IndexedDB 中，退出账号会清除此 PWA 的本机缓存。用户在同一 Wi‑Fi 下配对电脑后，可明确选择照片、视频、RAW 文件或 Files 文件夹，并将选中的原始媒体直接传到该电脑已配置的备份目标；媒体不会上传到影序云端。电脑端以 SHA‑256 校验并记录历史。iOS 浏览器只开放用户选中的项目，不提供静默扫描整张相册/外接盘、向任意手机目录写入或锁屏后台持续复制的能力。局域网 HTTP 页面需要电脑运行，且不支持 Service Worker 离线缓存。</p></section>
+    <section><h2>网站</h2><p>本网站包含产品介绍、下载页面和影序 Pocket 账号协作页面。Pocket 会把邮箱和密码通过 HTTPS 发送给 Firebase Authentication 进行登录；注册时的用户名通过账号资料接口保存。登录后 Pocket 读取当前账号自己的备份进度和归档元数据，不上传原始照片、视频、密码或电脑绝对路径。页面不主动加载广告、统计或追踪脚本。点击 GitHub 等外部链接后，相关服务按其自身隐私规则处理连接信息。</p></section>
+    <section><h2>隐私问题</h2><p>如需报告隐私问题，请通过 <a href="https://github.com/yingxu-app/smart-media-backup/issues">GitHub Issues</a> 联系项目维护者。请不要上传照片、密钥或个人凭据。</p></section>
+    <a class="back-link" href="./">← 返回影序首页</a>
+  </main>
+  <footer class="footer wrap"><span class="brand footer-brand"><img src="./assets/yingxu-icon.svg" alt=""><span>影序 <b>YINGXU</b></span></span><small>以实际发布版本和软件内设置为准。</small></footer>
+</body>
+</html>

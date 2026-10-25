@@ -1,0 +1,12 @@
+{
+  "pages": [
+    "pages/home/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "影序 Pocket",
+    "navigationBarBackgroundColor": "#09100e",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#09100e"
+  },
+  "sitemapLocation": "sitemap.json"
+}

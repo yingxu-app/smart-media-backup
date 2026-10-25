@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f2eb">
+  <meta name="description" content="影序 Pocket：查看多端备份进度与归档记录，并在同一 Wi-Fi 下把手机照片和视频备份到电脑。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebasedatabase.app https://*.firebaseio.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="影序 Pocket">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/yingxu-icon-180.png">
+  <link rel="icon" href="../assets/yingxu-icon.svg" type="image/svg+xml">
+  <title>影序 Pocket — 手机协作台</title>
+  <style>
+    :root{color-scheme:light;--paper:#f4f2eb;--panel:#fbfaf5;--panel-soft:#eeede5;--ink:#20251f;--muted:#697067;--line:#d9d9ce;--green:#55784e;--green-dark:#3f633b;--lime:#c7d47a;--danger:#a64636;--sans:Manrope,"Noto Sans SC",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}html{min-height:100%;background:var(--paper)}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 90% 0%,rgba(199,212,122,.16),transparent 30%),var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.7}button,input{font:inherit}a{color:inherit}.shell{width:min(780px,100%);margin:auto;padding:max(25px,env(safe-area-inset-top)) 20px max(40px,env(safe-area-inset-bottom))}.brand{display:flex;align-items:center;gap:12px;margin-bottom:23px}.brand img{width:42px;height:42px;border-radius:12px}.brand-title{min-width:0}.eyebrow{font:500 9px "DM Mono",monospace;letter-spacing:.17em;color:var(--green);text-transform:uppercase}.brand h1{font-size:20px;letter-spacing:-.04em;margin:1px 0 0}.home-link{margin-left:auto;color:var(--green);font-size:11px;font-weight:700;text-decoration:none}.console-intro{padding:21px 24px 23px;margin-bottom:15px;background:#27342b;color:#f4f2eb;position:relative;overflow:hidden}.console-intro:after{content:"";position:absolute;width:170px;height:170px;border:1px solid rgba(199,212,122,.23);border-radius:50%;right:-52px;top:-74px;box-shadow:0 0 0 23px rgba(199,212,122,.04),0 0 0 48px rgba(199,212,122,.03)}.console-intro .eyebrow{color:var(--lime);margin:0 0 7px}.console-intro h2{position:relative;z-index:1;font-size:23px;line-height:1.35;letter-spacing:-.045em;margin:0}.console-intro h2 span{color:var(--lime)}.console-intro p:last-child{position:relative;z-index:1;color:#c8cec2;font-size:11px;margin:8px 0 0;max-width:570px}.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:21px;box-shadow:0 8px 24px rgba(32,37,31,.035);margin-bottom:13px}.hidden{display:none!important}.card h2{font-size:16px;letter-spacing:-.02em;margin:0 0 9px}.section-kicker{font:500 8px "DM Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--green);margin:0 0 5px}.heading{display:flex;align-items:center;gap:12px}.heading h2{margin:0;font-size:18px}.avatar{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:50%;background:#e7ebd8;color:var(--green);font-size:17px;font-weight:800}.account-email,.hint,.muted{color:var(--muted);line-height:1.75}.hint{font-size:11px;margin:0 0 15px}.account-email{font-size:11px;margin-top:3px;overflow-wrap:anywhere}.field{margin-bottom:12px}.field label{display:block;color:#596057;font-size:10px;font-weight:600;margin:0 0 6px}.field input{width:100%;min-height:46px;border:1px solid #d4d5ca;border-radius:4px;background:#fffefa;color:var(--ink);padding:10px 12px;outline:none}.field input::placeholder{color:#9a9e94}.field input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(85,120,78,.12)}.row{display:flex;flex-wrap:wrap;gap:9px;align-items:center}.button{min-height:45px;border-radius:4px;border:1px solid #bbc6b1;padding:0 15px;font-weight:700;font-size:11px;cursor:pointer;transition:background .16s,color .16s,border-color .16s}.primary{background:var(--green);color:#fff;border-color:var(--green)}.primary:hover{background:var(--green-dark)}.secondary{background:transparent;color:var(--green);border-color:#c8cec0}.secondary:hover{background:#edf0e6}.button:disabled{opacity:.6;cursor:wait}.message{min-height:20px;margin:9px 0 0;font-size:11px;color:var(--green)}.message.error{color:var(--danger)}.status{display:flex;justify-content:space-between;gap:10px;align-items:center}.status-pill{border:1px solid #c4cfb8;border-radius:999px;color:var(--green);background:#eef1e7;padding:5px 10px;font-size:9px;white-space:nowrap}.live-item,.history-item{padding:13px 0;border-bottom:1px solid var(--line)}.live-item:last-child,.history-item:last-child{border-bottom:0}.live-title,.history-title{display:flex;justify-content:space-between;gap:12px;font-weight:700;font-size:12px}.live-title span:last-child,.history-title span:last-child{color:var(--green);font-size:10px}.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;color:var(--muted);font-size:9px}.pill{border:1px solid #dedfd5;border-radius:999px;padding:3px 8px;background:#f6f5ef}.empty{text-align:center;padding:22px 8px;color:var(--muted);font-size:11px;line-height:1.7}.progress-track{height:6px;background:#e4e5dc;border-radius:10px;overflow:hidden;margin-top:11px}.progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--green),var(--lime));border-radius:10px}.privacy{font-size:10px;color:#7b8177;text-align:center;padding:8px 10px;line-height:1.8}.footer-links{display:flex;justify-content:center;gap:18px;margin-top:13px;font-size:10px}.footer-links a{color:var(--green);font-weight:600;text-decoration:none}.file-input{width:100%;min-height:48px;border:1px dashed #b8c2ae;border-radius:4px;background:#f7f6f0;color:var(--muted);padding:10px}.file-list{max-height:240px;overflow:auto}.file-row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:10px}.file-row:last-child{border-bottom:0}.file-name{overflow-wrap:anywhere}.file-size{color:var(--muted);white-space:nowrap}.file-list .muted{font-size:10px}.card .status h2{margin:0}.card .status>.button{min-height:37px}
+    @media(min-width:700px){.shell{padding-top:34px}.brand{margin-bottom:25px}.console-intro{padding:24px 28px}.card{padding:23px}.account-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.account-grid .card{margin-bottom:0}}
+    @media(max-width:460px){.shell{padding-inline:15px}.brand{margin-bottom:18px}.brand img{width:38px;height:38px}.brand h1{font-size:18px}.console-intro{padding:19px 19px 20px}.console-intro h2{font-size:21px}.card{padding:17px}.row .button{flex:1}.status{align-items:flex-start}.status .heading{align-items:flex-start}.file-row{font-size:9px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="brand"><img src="../assets/yingxu-icon.svg" alt="影序"><div class="brand-title"><div class="eyebrow">YINGXU POCKET</div><h1>手机协作台</h1></div><a class="home-link" href="../">官网首页 ↗</a></header>
+  <section class="console-intro"><p class="eyebrow">YOUR MEDIA, IN SYNC</p><h2>备份进度看得见，<br><span>手机素材也能安心归档。</span></h2><p>查看设备间同步进度与历史，或选择手机素材交给同一 Wi-Fi 下的电脑完成备份。</p></section>
+
+  <section id="authCard" class="card">
+    <p class="section-kicker">01 / 账户同步</p><h2>登录影序账号</h2>
+    <p class="hint">登录后可查看电脑和其他设备同步的备份进度与归档记录。原始照片和视频不会上传到影序云端；同一 Wi‑Fi 下可从配对电脑页面选择手机素材并备份到电脑磁盘。</p>
+    <div class="field"><label for="email">邮箱</label><input id="email" type="email" autocomplete="username" inputmode="email" placeholder="name@example.com"></div>
+    <div class="field"><label for="displayName">用户名（注册必填；已有账号可修改）</label><input id="displayName" maxlength="40" autocomplete="nickname" placeholder="例如：影序用户；已有账号可留空"></div>
+    <div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password" placeholder="只用于本次登录请求"></div>
+    <div class="row"><button id="loginButton" class="button primary">登录并同步</button><button id="registerButton" class="button secondary">注册账号</button></div>
+    <p id="authMessage" class="message" role="status" aria-live="polite"></p>
+  </section>
+
+  <div id="accountView" class="hidden">
+    <section class="card">
+      <p class="section-kicker">01 / 账户状态</p><div class="status"><div class="heading"><div id="avatar" class="avatar" aria-label="账号头像简写">?</div><div><h2 id="displayNameLabel">影序账号</h2><div id="emailLabel" class="account-email"></div></div></div><span id="syncState" class="status-pill">正在连接</span></div>
+      <p id="syncMessage" class="hint">历史仅缓存在这台设备的浏览器空间中。</p>
+      <div class="row"><button id="refreshButton" class="button primary">刷新云端记录</button><button id="logoutButton" class="button secondary">退出账号</button></div>
+    </section>
+
+    <section class="card">
+      <p class="section-kicker">02 / 实时状态</p><div class="status"><h2>其他设备的实时备份</h2><button id="refreshLiveButton" class="button secondary">刷新进度</button></div>
+      <div id="liveList" class="empty">暂无正在同步的任务</div>
+    </section>
+
+    <section class="card">
+      <p class="section-kicker">03 / 归档历史</p><div class="status"><h2>云端归档记录</h2><span id="historyCount" class="muted"></span></div>
+      <div id="historyList" class="empty">登录后读取云端记录</div>
+    </section>
+  </div>
+
+  <section class="card">
+    <p class="section-kicker">04 / 手机到电脑</p><h2>连接附近的电脑</h2>
+    <p class="hint">手机和电脑使用同一 Wi‑Fi 时，选择素材并开始备份；影序会把所选文件交给配对电脑完成扫描、去重、分块传输和 SHA‑256 校验。电脑暂时离线时，所选素材会暂存在本机浏览器，重新连接后可继续。</p>
+    <div class="field"><label for="desktopAddress">电脑显示的局域网地址</label><input id="desktopAddress" inputmode="url" placeholder="例如 http://192.168.1.20:8080"></div>
+    <div class="field"><label for="phoneEventName">归档名称</label><input id="phoneEventName" maxlength="120" placeholder="例如：2026年秋季旅行"></div>
+    <div class="field"><label for="phoneMediaFiles">选择照片、视频或 Files 中的素材</label><input id="phoneMediaFiles" class="file-input" type="file" accept="image/*,video/*,.arw,.cr2,.cr3,.nef,.nrw,.dng,.orf,.rw2,.raf,.srw,.x3f,.3fr,.fff,.mef,.mos,.mxf,.braw,.mpg,.mts,.m2ts,.insv,.webm,.mkv,.wmv,.flv" multiple></div>
+    <div class="field"><label for="phoneFolderFiles">选择 Files/SD 卡中的文件夹（Safari 18.4+ 或支持目录选择的浏览器）</label><input id="phoneFolderFiles" class="file-input" type="file" webkitdirectory directory multiple></div>
+    <div class="row"><button id="phoneBackupButton" class="button primary">扫描并备份到电脑</button><button id="clearPhoneFilesButton" class="button secondary">清除选择</button></div>
+    <div id="phoneQueueActions" class="row hidden"><button id="resumePhoneQueueButton" class="button primary">连接电脑并继续</button><button id="clearPhoneQueueButton" class="button secondary">清除本机暂存</button></div>
+    <div id="phoneBackupControls" class="row hidden"><button id="pausePhoneBackupButton" class="button secondary">暂停</button><button id="cancelPhoneBackupButton" class="button secondary">取消任务</button></div>
+    <div id="phoneBackupProgressTrack" class="progress-track hidden"><div id="phoneBackupProgressBar" class="progress-bar"></div></div>
+    <p id="desktopMessage" class="message" role="status" aria-live="polite">选择素材后，影序会打开已配对的电脑协作页继续传输。</p>
+    <div id="phoneSelectedFiles" class="file-list empty">尚未选择素材</div>
+  </section>
+
+  <p id="offlineStatus" class="privacy" role="status" aria-live="polite">正在准备离线页面。</p>
+  <p class="privacy">原始照片和视频不会上传到影序云端。为支持电脑暂时离线后的重试，待处理素材会暂存在此浏览器的 IndexedDB；成功备份后自动清除，也可手动清除。电脑绝对路径和凭据不上传。手机浏览器需要保持页面打开；锁屏或切换应用后，系统可能暂停传输。登录刷新令牌与云端历史同样保存在本机；退出账号会清除这些账号缓存。</p>
+  <div class="footer-links"><a href="../">影序官网</a><a href="../privacy.html">隐私说明</a></div>
+</main>
+<script src="./firebase-config.js"></script>
+<script src="./cloud-sync.js"></script>
+<script src="./phone-queue.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

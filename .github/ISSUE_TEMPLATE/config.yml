@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用说明与文档
+    url: https://github.com/yingxu-app/smart-media-backup/tree/main/docs
+    about: 安装、备份、Pocket 配对、AI 配置，先看文档再提问。
+  - name: 隐私说明
+    url: https://github.com/yingxu-app/smart-media-backup/blob/main/PRIVACY.md
+    about: 素材会不会上传、数据存在哪里，这里写清楚了。

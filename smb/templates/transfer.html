@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% set active_page = "transfer" %}
+
+{% block head %}
+<style>
+.transfer-intro{color:var(--text-dim);margin-top:6px}.transfer-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.transfer-path{display:flex;gap:8px}.transfer-path input{flex:1;min-width:0}.transfer-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}.transfer-toolbar select{width:auto;min-width:140px}.transfer-list{max-height:520px;overflow:auto}.transfer-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border)}.transfer-row:last-child{border-bottom:0}.transfer-file{min-width:0}.transfer-file strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.transfer-meta{font-size:12px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.transfer-badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.transfer-badge{font-size:11px;padding:3px 7px;border-radius:999px;background:var(--bg-hover);color:var(--text-dim)}.transfer-badge.warn{color:var(--orange)}.transfer-badge.good{color:var(--accent)}.transfer-actions{display:flex;gap:8px;flex-wrap:wrap}.transfer-progress{display:none}.transfer-progress.show{display:block}.transfer-progress-track{height:8px;background:var(--bg-hover);border-radius:99px;overflow:hidden;margin:12px 0}.transfer-progress-fill{height:100%;width:0;background:var(--accent);transition:width .25s}.transfer-warning{padding:12px;border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.07);border-radius:9px;color:var(--orange);font-size:13px}.transfer-empty{padding:24px;text-align:center;color:var(--text-dim)}.transfer-confirm{display:flex;align-items:flex-start;gap:9px;margin-top:12px;color:var(--text-dim);font-size:13px}.transfer-confirm input{margin-top:4px}@media(max-width:760px){.transfer-grid{grid-template-columns:1fr}.transfer-path{flex-direction:column}.transfer-path button{width:100%}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header"><h2>02 转移老内容</h2><p class="transfer-intro">整理已保存的照片与视频，可单个或批量转移到新的本机或外置存储位置。</p></div>
+
+<section class="card">
+  <div class="transfer-grid">
+    <div class="form-row"><label for="transferSource">来源文件夹 / 磁盘</label><div class="transfer-path"><input id="transferSource" type="text" placeholder="选择已保存素材所在位置"><button class="btn-secondary" onclick="chooseTransferFolder('source')">选择来源</button></div></div>
+    <div class="form-row"><label for="transferTarget">目标文件夹 / 磁盘</label><div class="transfer-path"><input id="transferTarget" type="text" placeholder="选择要迁入的位置"><button class="btn-secondary" onclick="chooseTransferFolder('target')">选择目标</button></div></div>
+  </div>
+  <div class="transfer-actions"><button class="btn-primary" id="scanTransferBtn" onclick="scanTransferSource()">🔎 扫描旧素材</button><span class="hint" id="scanMessage">扫描只读取来源，不会改动文件。</span></div>
+</section>
+
+<section class="card" id="transferBrowser" style="display:none">
+  <div class="card-header"><div><h3>选择要转移的内容</h3><div class="hint" id="transferSummary"></div></div><button class="btn-secondary" onclick="scanTransferSource()">重新扫描</button></div>
+  <div class="transfer-toolbar">
+    <button class="btn-secondary" onclick="selectTransferItems(true)">全选</button><button class="btn-secondary" onclick="selectTransferItems(false)">全不选</button>
+    <select id="transferFilter" onchange="renderTransferItems()"><option value="all">全部类型</option><option value="photo">照片</option><option value="video">视频</option><option value="other">其他</option><option value="review">疑似问题素材</option></select>
+    <input id="transferSearch" type="text" placeholder="搜索文件名或文件夹" oninput="renderTransferItems()" style="max-width:300px">
+  </div>
+  <div class="transfer-list" id="transferList"><div class="transfer-empty">扫描后将在这里列出素材</div></div>
+</section>
+
+<section class="card" id="transferOptions" style="display:none">
+  <div class="card-header"><h3>智能整理与安全转移</h3></div>
+  <div class="transfer-grid">
+    <div class="form-row"><label for="transferEvent">事件 / 项目名称（可留空）</label><input id="transferEvent" type="text" placeholder="例如：海边旅拍；留空则按日期、设备和类型归档"></div>
+    <div class="form-row"><label>分析选项</label><label class="transfer-confirm"><input id="checkWaste" type="checkbox"><span>检测照片废片；命中项移入目标中的“待确认废片”，不删除</span></label><label class="transfer-confirm"><input id="checkSimilar" type="checkbox" checked><span>识别相似照片与完全重复文件；重复项需确认，分析不会删除素材</span></label><button class="btn-secondary" style="margin-top:8px" onclick="analyzeTransfer()">✨ 分析所选素材</button></div>
+  </div>
+  <div class="transfer-warning">执行“转移”后，只有目标副本通过 SHA‑256 校验，或目标已有副本再次确认哈希一致，才会删除来源文件。失败、取消或校验不通过的文件会保留在来源。</div>
+  <label class="transfer-confirm"><input id="confirmTransfer" type="checkbox"><span>我确认所选来源文件将在安全校验后从原位置移除。</span></label>
+  <div class="transfer-actions" style="margin-top:14px"><button class="btn-primary" id="startTransferBtn" onclick="startTransfer()">↗ 转移所选内容</button><button class="btn-secondary" onclick="suggestTransferName()">🤖 AI 建议事件名</button><span class="hint" id="analyzeMessage"></span></div>
+</section>
+
+<section class="card transfer-progress" id="transferProgress">
+  <div class="card-header"><h3 id="transferStatusTitle">转移进度</h3><button class="btn-danger" onclick="cancelTransfer()">取消剩余任务</button></div>
+  <div id="transferProgressText" class="hint"></div><div class="transfer-progress-track"><div class="transfer-progress-fill" id="transferProgressFill"></div></div><div class="transfer-meta" id="transferProgressMeta"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let transferItems=[];let scanPolling=null;let jobPolling=null;
+document.addEventListener('DOMContentLoaded',async()=>{try{const s=await transferApi('/api/transfer/scan/status');if(s.status==='ready'){transferItems=s.items||[];document.getElementById('transferSource').value=s.source;document.getElementById('transferBrowser').style.display='';document.getElementById('transferOptions').style.display='';document.getElementById('transferSummary').textContent=`${transferItems.length} 个文件 · ${formatTransferBytes(transferItems.reduce((n,x)=>n+x.size,0))} · 来源：${s.source}`;renderTransferItems()}else if(s.status==='scanning'){document.getElementById('scanTransferBtn').disabled=true;scanPolling=setInterval(pollTransferScan,900)}const j=await transferApi('/api/transfer/status');if(j.status==='running'){document.getElementById('transferProgress').classList.add('show');jobPolling=setInterval(pollTransferJob,700)}if(j.status==='done'||j.status==='partial'||j.status==='cancelled'){document.getElementById('transferProgress').classList.add('show');pollTransferJob()}}catch(_){}});
+function transferEscape(v){const d=document.createElement('div');d.textContent=v??'';return d.innerHTML}
+async function transferApi(url,body){const r=await fetch(url,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const d=await r.json();if(!r.ok)throw new Error(d.error||'请求失败');return d}
+async function chooseTransferFolder(purpose){try{const d=await transferApi('/api/transfer/choose_folder',{purpose});if(d.status==='ok')document.getElementById(purpose==='source'?'transferSource':'transferTarget').value=d.path}catch(e){showTransferMessage(e.message)}}
+function showTransferMessage(message){document.getElementById('scanMessage').textContent=message}
+async function scanTransferSource(){const source=document.getElementById('transferSource').value.trim();if(!source){showTransferMessage('请先选择或输入来源文件夹');return}try{await transferApi('/api/transfer/scan',{source});showTransferMessage('正在扫描文件并读取拍摄日期、设备信息…');document.getElementById('scanTransferBtn').disabled=true;clearInterval(scanPolling);scanPolling=setInterval(pollTransferScan,900)}catch(e){showTransferMessage(e.message)}}
+async function pollTransferScan(){try{const s=await transferApi('/api/transfer/scan/status');if(s.status==='scanning')return;clearInterval(scanPolling);document.getElementById('scanTransferBtn').disabled=false;if(s.status==='error'){showTransferMessage(s.error);return}transferItems=s.items||[];document.getElementById('transferBrowser').style.display='';document.getElementById('transferOptions').style.display='';document.getElementById('transferSummary').textContent=`${transferItems.length} 个文件 · ${formatTransferBytes(transferItems.reduce((n,x)=>n+x.size,0))} · 来源：${s.source}`;showTransferMessage(`扫描完成：找到 ${transferItems.length} 个媒体文件`);renderTransferItems()}catch(e){clearInterval(scanPolling);showTransferMessage(e.message)}}
+function formatTransferBytes(n){if(n<1024)return n+' B';if(n<1048576)return(n/1024).toFixed(1)+' KB';if(n<1073741824)return(n/1048576).toFixed(1)+' MB';return(n/1073741824).toFixed(2)+' GB'}
+function selectedTransferIds(){return transferItems.filter(x=>x.selected).map(x=>x.id)}
+function renderTransferItems(){const filter=document.getElementById('transferFilter').value,query=document.getElementById('transferSearch').value.trim().toLowerCase();const visible=transferItems.filter(x=>{const type=x.media_type==='photo'?'photo':x.media_type==='video'?'video':'other';if(filter==='review'&&!((x.waste&&x.waste.label!=='正常')||x.similar||x.exact_duplicate))return false;if(['photo','video','other'].includes(filter)&&type!==filter)return false;return !query||(x.name+' '+x.relative).toLowerCase().includes(query)});const list=document.getElementById('transferList');if(!visible.length){list.innerHTML='<div class="transfer-empty">没有符合条件的文件</div>';return}list.innerHTML=visible.map(x=>{const badges=[];if(x.waste&&x.waste.label!=='正常')badges.push(`<span class="transfer-badge warn">疑似${transferEscape(x.waste.label)}</span>`);if(x.similar)badges.push('<span class="transfer-badge warn">相似照片</span>');if(x.exact_duplicate)badges.push('<span class="transfer-badge good">目标已有相同文件</span>');return `<label class="transfer-row"><input type="checkbox" ${x.selected?'checked':''} onchange="toggleTransferItem('${x.id}',this.checked)"><span class="transfer-file"><strong>${transferEscape(x.name)}</strong><span class="transfer-meta">${transferEscape(x.relative)} · ${transferEscape(x.date_label)} · ${transferEscape(x.camera)} · ${formatTransferBytes(x.size)}</span></span><span class="transfer-badges">${badges.join('')}</span></label>`}).join('')}
+function toggleTransferItem(id,value){const x=transferItems.find(i=>i.id===id);if(x)x.selected=value}
+function selectTransferItems(value){transferItems.forEach(x=>x.selected=value);renderTransferItems()}
+async function analyzeTransfer(){const ids=selectedTransferIds();if(!ids.length){document.getElementById('analyzeMessage').textContent='请先选择素材';return}const target=document.getElementById('transferTarget').value.trim();if(!target){document.getElementById('analyzeMessage').textContent='请先选择目标位置';return}document.getElementById('analyzeMessage').textContent='正在分析，文件较多时可能需要一些时间…';try{const d=await transferApi('/api/transfer/analyze',{ids,target,check_waste:document.getElementById('checkWaste').checked,check_similar:document.getElementById('checkSimilar').checked});for(const update of d.items){const old=transferItems.find(x=>x.id===update.id);if(old)Object.assign(old,update)}renderTransferItems();const waste=transferItems.filter(x=>x.selected&&x.waste&&x.waste.label!=='正常').length,similar=transferItems.filter(x=>x.selected&&x.similar).length,dups=transferItems.filter(x=>x.selected&&x.exact_duplicate).length;document.getElementById('analyzeMessage').textContent=`分析完成：疑似废片 ${waste} 个 · 相似照片 ${similar} 个 · 目标中已有相同文件 ${dups} 个`}catch(e){document.getElementById('analyzeMessage').textContent=e.message}}
+async function suggestTransferName(){try{const d=await transferApi('/api/transfer/suggest_name',{ids:selectedTransferIds()});document.getElementById('transferEvent').value=d.name;document.getElementById('analyzeMessage').textContent='AI 已生成建议，可按需修改'}catch(e){document.getElementById('analyzeMessage').textContent=e.message}}
+async function startTransfer(){if(!document.getElementById('confirmTransfer').checked){document.getElementById('analyzeMessage').textContent='请先勾选确认，理解转移会在校验成功后移除来源文件';return}const target=document.getElementById('transferTarget').value.trim(),ids=selectedTransferIds();if(!target||!ids.length){document.getElementById('analyzeMessage').textContent='请设置目标并选择文件';return}try{await transferApi('/api/transfer/start',{ids,target,event:document.getElementById('transferEvent').value});document.getElementById('transferProgress').classList.add('show');clearInterval(jobPolling);jobPolling=setInterval(pollTransferJob,700);pollTransferJob()}catch(e){document.getElementById('analyzeMessage').textContent=e.message}}
+async function pollTransferJob(){try{const j=await transferApi('/api/transfer/status');let pct=j.total_bytes?Math.min(95,Math.round((j.bytes_done||0)/j.total_bytes*95)):(j.total?Math.round(j.done/j.total*95):0);if(j.status==='done')pct=100;document.getElementById('transferStatusTitle').textContent=j.status==='running'?'正在安全转移…':j.status==='done'?'转移完成':j.status==='cancelled'?'已取消':j.status==='partial'?'部分完成':'转移状态';document.getElementById('transferProgressText').textContent=`${pct}% · 已处理 ${j.done}/${j.total} 项 · 当前：${j.current||'—'}`;document.getElementById('transferProgressFill').style.width=pct+'%';document.getElementById('transferProgressMeta').textContent=`已迁移 ${j.copied} · 已确认重复 ${j.duplicates} · 失败 ${j.failed} · 速度 ${formatTransferBytes(j.speed||0)}/s${j.error?' · '+j.error:''}`;if(j.status!=='running')clearInterval(jobPolling)}catch(e){clearInterval(jobPolling)}}
+async function cancelTransfer(){try{await transferApi('/api/transfer/cancel',{});document.getElementById('transferProgressText').textContent='正在停止；当前单个文件完成安全校验后会停止剩余任务'}catch(e){document.getElementById('transferProgressText').textContent=e.message}}
+</script>
+{% endblock %}

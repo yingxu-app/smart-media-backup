@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+{% set active_page = "history" %}
+
+{% block content %}
+<div class="page-header">
+    <div><h2>03 归档记录</h2><div id="historyCount" class="history-count">—</div></div>
+</div>
+
+<div class="history-source-switch" role="tablist" aria-label="归档记录来源">
+    <button type="button" class="history-source-tab active" id="localHistoryTab" role="tab" aria-selected="true" onclick="switchHistorySource('local')">本机归档</button>
+    <button type="button" class="history-source-tab" id="cloudHistoryTab" role="tab" aria-selected="false" onclick="switchHistorySource('cloud')">查看云端历史</button>
+</div>
+
+<section id="localHistoryView" aria-labelledby="localHistoryTab">
+<div class="local-history-actions"><button class="btn-danger" onclick="clearAllHistory()">🗑 清空全部记录</button></div>
+<div class="card history-search">
+    <div class="search-grid">
+        <div class="form-row">
+            <label for="historyStatus">状态</label>
+            <select id="historyStatus">
+                <option value="">全部</option>
+                <option value="completed">成功</option>
+                <option value="partial">部分完成</option>
+                <option value="running">进行中</option>
+                <option value="cancelled">已取消</option>
+                <option value="error">失败</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="historyTargetCategory">位置类别</label>
+            <select id="historyTargetCategory" onchange="updateHistoryTargetOptions()">
+                <option value="">全部类别</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="historyTarget">备份位置</label>
+            <select id="historyTarget"><option value="">全部位置</option></select>
+        </div>
+        <div class="form-row">
+            <label for="historySearchMode">搜索方式</label>
+            <select id="historySearchMode" onchange="toggleHistoryQuery()">
+                <option value="">全部信息</option>
+                <option value="event">名称 / 项目</option>
+                <option value="date">拍摄时间</option>
+                <option value="device">设备</option>
+                <option value="location">地点</option>
+                <option value="photo">照片</option>
+                <option value="video">视频</option>
+                <option value="custom">自主输入…</option>
+            </select>
+            <input type="text" id="historyQuery" placeholder="输入关键词（Esc 返回选项）" style="display:none;">
+        </div>
+        <div class="form-row">
+            <label for="historyDateFrom">开始日期</label>
+            <input type="datetime-local" id="historyDateFrom">
+        </div>
+        <div class="form-row">
+            <label for="historyDateTo">结束日期</label>
+            <input type="datetime-local" id="historyDateTo">
+        </div>
+    </div>
+    <div class="search-actions">
+        <button class="btn-primary" onclick="loadHistory()">🔎 搜索</button>
+        <button class="btn-secondary" onclick="clearHistorySearch()">清空</button>
+    </div>
+</div>
+
+<div class="history-list card" id="historyList">
+    <div class="loading">加载中...</div>
+</div>
+
+<div class="history-detail card" id="historyDetail" style="display:none;">
+    <div class="detail-header">
+        <button class="btn-back" onclick="hideDetail()">← 返回</button>
+        <div class="detail-title-row"><h3 id="detailTitle"></h3><button class="btn-secondary" id="renameRecordBtn">✎ 改名</button></div>
+    </div>
+    <div id="detailContent"></div>
+</div>
+</section>
+
+<section id="cloudHistoryView" aria-labelledby="cloudHistoryTab" hidden>
+    <div class="card cloud-history-panel">
+        <div class="cloud-history-heading">
+            <div><h3>云端归档记录</h3><p class="setting-help">显示已登录账号同步的设备、进度与历史元数据。</p></div>
+            <button type="button" class="btn-secondary" onclick="loadFirebaseHistory()">刷新云端历史</button>
+        </div>
+        <div id="cloudHistoryMessage" class="setting-help" aria-live="polite">点击“刷新云端历史”读取记录。</div>
+        <div id="cloudHistoryList" class="history-list" style="margin-top:12px;"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => { loadHistory(); loadHistoryTargets(); });
+document.addEventListener("DOMContentLoaded", function() {
+    ["historyQuery"].forEach(id => {
+        document.getElementById(id).addEventListener("keydown", function(e) {
+            if (e.key === "Enter") loadHistory();
+            if (e.key === "Escape") restoreHistorySearchMode();
+        });
+    });
+});
+
+let historyTargetGroups = [];
+let openHistoryDays = new Set();
+
+function switchHistorySource(source) {
+    const isCloud = source === "cloud";
+    document.getElementById("localHistoryView").hidden = isCloud;
+    document.getElementById("cloudHistoryView").hidden = !isCloud;
+    document.getElementById("localHistoryTab").classList.toggle("active", !isCloud);
+    document.getElementById("cloudHistoryTab").classList.toggle("active", isCloud);
+    document.getElementById("localHistoryTab").setAttribute("aria-selected", String(!isCloud));
+    document.getElementById("cloudHistoryTab").setAttribute("aria-selected", String(isCloud));
+    if (isCloud) loadFirebaseHistory();
+}
+
+async function loadFirebaseHistory() {
+    const message = document.getElementById("cloudHistoryMessage");
+    const host = document.getElementById("cloudHistoryList");
+    message.textContent = "正在读取云端历史…";
+    host.replaceChildren();
+    try {
+        const response = await fetch("/api/firebase/history");
+        const result = await response.json();
+        if (response.status === 401) {
+            message.textContent = "请先到账户设置登录并同步，再查看云端历史。";
+            return;
+        }
+        if (!response.ok || result.error) throw new Error(result.error || "读取云端历史失败。");
+        const items = result.items || [];
+        if (!items.length) {
+            message.textContent = "当前账号还没有云端归档记录。";
+            return;
+        }
+        message.textContent = `共 ${items.length} 条云端归档记录。`;
+        items.slice(0, 100).forEach(item => {
+            const entry = document.createElement("details");
+            entry.className = "firebase-history-entry";
+            const summary = document.createElement("summary");
+            const title = document.createElement("strong");
+            title.textContent = item.eventName || item.deviceName || "影序同步记录";
+            const summaryDetail = document.createElement("small");
+            summaryDetail.textContent = `${item.deviceName || "设备"} · ${item.targetName || "目标未知"} · ${item.status || "状态未知"} · ${item.processedFiles || 0}/${item.totalFiles || 0}`;
+            summary.append(title, summaryDetail);
+            entry.append(summary);
+            const detail = document.createElement("div");
+            detail.className = "firebase-history-detail";
+            [
+                `开始：${item.startedAt || "未知"}；结束：${item.finishedAt || "进行中"}`,
+                `文件：${item.totalFiles || 0}；总大小：${item.totalBytes || 0} bytes；已复制：${item.copiedFiles || 0}；已跳过：${item.skippedFiles || 0}；已校验：${item.verifiedFiles || 0}；失败：${item.failedFiles || 0}`,
+                item.location ? `地点：${item.location}` : "",
+                item.cameraDevice ? `拍摄设备：${item.cameraDevice}` : "",
+                item.notes ? `备注：${item.notes}` : "",
+                item.currentFile ? `当前文件：${item.currentFile}` : "",
+            ].filter(Boolean).forEach(text => {
+                const line = document.createElement("div");
+                line.textContent = text;
+                detail.append(line);
+            });
+            if (Array.isArray(item.files) && item.files.length) {
+                const files = document.createElement("details");
+                const filesSummary = document.createElement("summary");
+                filesSummary.textContent = `文件明细（${item.files.length} 项）`;
+                const list = document.createElement("ul");
+                files.addEventListener("toggle", () => {
+                    if (!files.open || files.dataset.loaded) return;
+                    item.files.forEach(file => {
+                        const li = document.createElement("li");
+                        li.textContent = `${file.name || "未命名文件"} · ${file.status || "未知"} · ${file.size || 0} bytes`;
+                        list.append(li);
+                    });
+                    files.dataset.loaded = "true";
+                });
+                files.append(filesSummary, list);
+                detail.append(files);
+            }
+            entry.append(detail);
+            host.append(entry);
+        });
+    } catch (error) {
+        message.textContent = error.message || "读取云端历史失败。";
+    }
+}
+
+function loadHistoryTargets() {
+    fetch("/api/history_targets").then(r => r.json()).then(payload => {
+        historyTargetGroups = payload.groups || [];
+        const category = document.getElementById("historyTargetCategory");
+        category.innerHTML = '<option value="">全部类别</option>' + historyTargetGroups.map(group =>
+            `<option value="${escapeHtml(group.id)}">${escapeHtml(group.label)}（${group.items.length}）</option>`
+        ).join("");
+        updateHistoryTargetOptions();
+    }).catch(() => {
+        historyTargetGroups = [];
+        updateHistoryTargetOptions();
+    });
+}
+
+function updateHistoryTargetOptions() {
+    const category = document.getElementById("historyTargetCategory").value;
+    const select = document.getElementById("historyTarget");
+    const visibleGroups = category
+        ? historyTargetGroups.filter(group => group.id === category)
+        : historyTargetGroups;
+    select.innerHTML = '<option value="">全部位置</option>' + visibleGroups.flatMap(group =>
+        group.items.map(item => ({...item, groupLabel: group.label}))
+    ).map(item =>
+        `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)} · ${escapeHtml(item.groupLabel)}</option>`
+    ).join("");
+}
+
+function escapeHtml(value) { const d = document.createElement("div"); d.textContent = value || ""; return d.innerHTML; }
+
+function historyDayKey(iso) {
+    if (!iso) return "未知日期";
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "未知日期";
+    return date.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function statusLabel(status) {
+    return ({
+        completed: "✅ 成功", partial: "⚠️ 部分完成", cancelled: "⏹️ 已取消",
+        error: "❌ 失败", running: "⏳ 进行中"
+    })[status] || "⏳ 处理中";
+}
+
+function toggleHistoryDay(day) {
+    if (openHistoryDays.has(day)) openHistoryDays.delete(day);
+    else openHistoryDays.add(day);
+    loadHistory();
+}
+
+function renderHistoryRecord(record) {
+    const icon = record.status === "completed" ? "✅" : record.status === "partial" ? "⚠️" : record.status === "cancelled" ? "⏹️" : record.status === "error" ? "❌" : "⏳";
+    return `
+        <div class="history-item" onclick="showDetail(${record.id})">
+            <div class="h-left">
+                <span class="h-icon">${icon}</span>
+                <div class="h-info">
+                    <div class="h-event">${escapeHtml(record.event_name || "未命名备份")}</div>
+                    <div class="h-meta">${escapeHtml(record.backup_root || "未记录目标位置")}</div>
+                </div>
+            </div>
+            <div class="h-right">
+                <div class="h-count">${record.total_files || 0} 文件</div>
+                <div class="h-date">${statusLabel(record.status)} · ${formatDateTime(record.started_at)}</div>
+            </div>
+        </div>`;
+}
+
+function loadHistory() {
+    const params = new URLSearchParams();
+    params.set("limit", "50");
+
+    const mode = document.getElementById("historySearchMode").value;
+    const query = mode === "custom" ? document.getElementById("historyQuery").value.trim() : "";
+    const status = document.getElementById("historyStatus").value.trim();
+    const target = document.getElementById("historyTarget").value.trim();
+    const dateFrom = document.getElementById("historyDateFrom").value;
+    const dateTo = document.getElementById("historyDateTo").value;
+
+    if (query) params.set("query", query);
+    if (status) params.set("status", status);
+    if (target) params.set("target", target);
+    if (mode && mode !== "custom") params.set("scope", mode);
+    if (dateFrom) params.set("date_from", new Date(dateFrom).toISOString());
+    if (dateTo) params.set("date_to", new Date(dateTo).toISOString());
+
+    fetch(`/api/history?${params.toString()}`)
+        .then(r => r.json())
+        .then(payload => {
+            const records = payload.items || [];
+            document.getElementById("historyCount").textContent = `找到 ${payload.total || 0} 条记录`;
+            const container = document.getElementById("historyList");
+            if (!records || records.length === 0) {
+                container.innerHTML = '<div class="empty-state">没有找到匹配的备份记录</div>';
+                return;
+            }
+            const groups = records.reduce((result, record) => {
+                const day = historyDayKey(record.started_at);
+                (result[day] ||= []).push(record);
+                return result;
+            }, {});
+            container.innerHTML = Object.entries(groups).map(([day, dayRecords]) => {
+                const isOpen = openHistoryDays.has(day);
+                const copied = dayRecords.reduce((sum, item) => sum + (item.copied_files || 0), 0);
+                return `<section class="history-day-group ${isOpen ? 'open' : ''}">
+                    <button class="history-day-toggle" onclick='toggleHistoryDay(${JSON.stringify(day)})' aria-expanded="${isOpen}">
+                        <span class="history-day-chevron">${isOpen ? '⌄' : '›'}</span>
+                        <span><strong>${day}</strong><small>本次共 ${dayRecords.length} 个备份任务 · 已复制 ${copied} 个文件</small></span>
+                    </button>
+                    <div class="history-day-records" ${isOpen ? '' : 'hidden'}>${dayRecords.map(renderHistoryRecord).join("")}</div>
+                </section>`;
+            }).join("");
+        });
+}
+
+function clearHistorySearch() {
+    document.getElementById("historyQuery").value = "";
+    document.getElementById("historyStatus").value = "";
+    document.getElementById("historyTargetCategory").value = "";
+    updateHistoryTargetOptions();
+    document.getElementById("historyTarget").value = "";
+    document.getElementById("historySearchMode").value = "";
+    toggleHistoryQuery();
+    document.getElementById("historyDateFrom").value = "";
+    document.getElementById("historyDateTo").value = "";
+    loadHistory();
+}
+
+function toggleHistoryQuery() {
+    const select = document.getElementById("historySearchMode");
+    const custom = select.value === "custom";
+    const input = document.getElementById("historyQuery");
+    select.style.display = custom ? "none" : "block";
+    input.style.display = custom ? "block" : "none";
+    if (!custom) input.value = "";
+    if (custom) input.focus();
+}
+
+function restoreHistorySearchMode() {
+    const select = document.getElementById("historySearchMode");
+    const input = document.getElementById("historyQuery");
+    input.value = "";
+    input.style.display = "none";
+    select.style.display = "block";
+    select.value = "";
+}
+
+let activeHistoryId = null;
+function showDetail(id) {
+    activeHistoryId = id;
+    document.getElementById("historyList").style.display = "none";
+    const detail = document.getElementById("historyDetail");
+    detail.style.display = "block";
+
+    fetch(`/api/history/${id}`)
+        .then(r => r.json())
+        .then(data => {
+            const rec = data.record || {};
+            document.getElementById("detailTitle").textContent = rec.event_name || "详情";
+            document.getElementById("renameRecordBtn").onclick = () => renameHistory(id, rec.event_name || "");
+
+            let html = `
+                <div class="detail-summary">
+                    <div class="ds-item"><label>状态</label><span>${rec.status === 'completed' ? '✅ 成功' : rec.status === 'partial' ? '⚠️ 部分完成，可继续备份' : rec.status === 'cancelled' ? '⏹️ 已取消，原卡安全' : rec.status === 'error' ? '❌ 失败' : '⏳ 进行中'}</span></div>
+                    <div class="ds-item"><label>目标位置</label><span>${rec.backup_root || ''}</span></div>
+                    <div class="ds-item"><label>总文件</label><span>${rec.total_files || 0}</span></div>
+                    <div class="ds-item"><label>校验通过</label><span>${rec.verified_files || 0}</span></div>
+                    <div class="ds-item"><label>跳过重复</label><span>${rec.skipped_files || 0}</span></div>
+                    <div class="ds-item"><label>待确认废片</label><span>${rec.reviewed_files || 0}</span></div>
+                    <div class="ds-item"><label>Windows预览</label><span>${rec.preview_files || 0}</span></div>
+                    <div class="ds-item"><label>报告文件</label><span>${rec.report_path ? `
+                        <a class="report-link" href="/api/history/${rec.id}/report/json">JSON</a>
+                        <a class="report-link" href="/api/history/${rec.id}/report/csv">CSV</a>
+                        <a class="report-link" href="/api/history/${rec.id}/report/markdown">Markdown</a>` : '--'}</span></div>
+                    <div class="ds-item"><label>耗时</label><span>${rec.duration_seconds ? Math.round(rec.duration_seconds) + 's' : '--'}</span></div>
+                    <div class="ds-item"><label>开始</label><span>${formatDateTime(rec.started_at)}</span></div>
+                    ${rec.finished_at ? `<div class="ds-item"><label>完成</label><span>${formatDateTime(rec.finished_at)}</span></div>` : ''}
+                </div>
+            `;
+
+            if (data.targets && data.targets.length) {
+                html += `<h4 style="margin-top:20px;">各备份位置结果</h4><div class="target-result-list">` +
+                    data.targets.map(t => `<div class="target-result ${t.status}">
+                        <strong>${escapeHtml(t.target_path)}</strong>
+                        <span>${t.status === 'completed' ? '✅ 完成' : '⚠️ 部分完成'} · 复制 ${t.copied_files} · 跳过 ${t.skipped_files} · 失败 ${t.failed_files}</span>
+                    </div>`).join("") + `</div>`;
+            }
+
+            if (data.files && data.files.length > 0) {
+                html += `<h4 style="margin-top:20px;">文件列表 (前 ${data.files.length} 个)</h4>
+                    <div class="file-list">`;
+                data.files.forEach(f => {
+                    const icon = f.status === 'skipped' ? '⏭️' : f.status === 'reviewed' ? '🧹' : (f.media_type === 'video' ? '🎬' : '📸');
+                    html += `<div class="file-item ${f.status}">
+                        <span class="f-icon">${icon}</span>
+                        <span class="f-name">${f.source_path.split('/').pop()}</span>
+                        <span class="f-cam">${f.camera || ''}</span>
+                        <span class="f-status ${f.status}">${f.status === 'completed' ? '✅' : f.status === 'failed' ? '❌' : f.status === 'skipped' ? '⏭️' : f.status === 'reviewed' ? '🧹' : '⏳'}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            document.getElementById("detailContent").innerHTML = html;
+        });
+}
+
+function renameHistory(id, currentName) {
+    const name = prompt("给这条归档记录换一个名称：", currentName);
+    if (name === null) return;
+    const eventName = name.trim();
+    if (!eventName) { alert("名称不能为空"); return; }
+    fetch(`/api/history/${id}/rename`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({event_name:eventName})})
+        .then(r=>r.json()).then(d=>{ if(d.error) throw new Error(d.error); showDetail(id); loadHistory(); })
+        .catch(e=>alert("改名失败："+e.message));
+}
+
+function clearAllHistory() {
+    if (!confirm("确定清空所有归档记录吗？这不会删除已备份的素材或报告文件。")) return;
+    if (!confirm("请再次确认：这会删除应用内的全部历史列表。")) return;
+    fetch("/api/history/clear", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({confirm:"CLEAR_HISTORY"})})
+      .then(r=>r.json()).then(d=>{if(d.error) throw new Error(d.error); hideDetail(); loadHistory();})
+      .catch(e=>alert("清空失败："+e.message));
+}
+
+function hideDetail() {
+    document.getElementById("historyList").style.display = "block";
+    document.getElementById("historyDetail").style.display = "none";
+}
+
+function formatDateTime(iso) {
+    if (!iso) return "--";
+    const d = new Date(iso);
+    return d.toLocaleString("zh-CN", {
+        month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit"
+    });
+}
+</script>
+
+<style>
+.history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px; border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: background 0.2s;
+}
+.history-item:hover { background: var(--hover); }
+.history-day-group { border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:10px; background:var(--panel); }
+.history-day-toggle { width:100%; border:0; background:var(--panel-soft); color:var(--text); padding:14px 16px; display:flex; gap:12px; align-items:center; text-align:left; cursor:pointer; }
+.history-day-toggle:hover { background:var(--hover); }
+.history-day-toggle strong { display:block; font-size:1em; }
+.history-day-toggle small { display:block; color:var(--text-dim); margin-top:3px; font-size:.84em; }
+.history-day-chevron { color:var(--green); font-size:1.4em; width:14px; line-height:1; }
+.history-day-records { border-top:1px solid var(--border); }
+.history-day-records[hidden] { display:none; }
+.history-count { color: var(--text-dim); font-size: 0.9em; margin-top: 4px; }
+.report-link { display:inline-block; margin-right:8px; color:var(--green); text-decoration:none; }
+.target-result-list { display:grid; gap:8px; }
+.target-result { display:flex; justify-content:space-between; gap:16px; padding:12px 14px; border:1px solid var(--border); border-radius:10px; }
+.target-result.partial { border-color:#8b6d2e; }
+.page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.detail-title-row { display:flex; align-items:center; gap:10px; }
+.btn-danger { padding:9px 12px; color:#fecaca; border:1px solid rgba(248,113,113,.45); border-radius:8px; background:rgba(248,113,113,.08); cursor:pointer; }
+.history-search { margin-bottom: 16px; }
+.search-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+.search-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 14px;
+}
+.search-grid .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.search-grid label {
+    font-size: 0.85em;
+    color: var(--text-dim);
+}
+.search-grid input, .search-grid select {
+    width: 100%;
+    min-height: 44px;
+    height:44px;
+    background:var(--bg);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color-scheme:dark;
+}
+.h-left { display: flex; align-items: center; gap: 12px; }
+.h-icon { font-size: 1.3em; }
+.h-event { font-weight: 600; margin-bottom: 4px; }
+.h-meta { font-size: 0.85em; color: var(--text-dim); }
+.h-right { text-align: right; }
+.h-count { font-weight: 500; margin-bottom: 4px; }
+.h-date { font-size: 0.85em; color: var(--text-dim); }
+.detail-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ds-item label { display: block; font-size: 0.85em; color: var(--text-dim); margin-bottom: 4px; }
+.ds-item span { font-weight: 500; }
+.file-list { margin-top: 12px; max-height: 400px; overflow-y: auto; }
+.file-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.file-item.failed { background: rgba(255,68,68,0.05); }
+.file-item.skipped { background: rgba(251,191,36,0.06); }
+.file-item.reviewed { background: rgba(96,165,250,0.06); }
+.f-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.f-cam { color: var(--text-dim); font-size: 0.85em; min-width: 80px; }
+.f-status.skipped { color: #fbbf24; }
+.f-status.reviewed { color: #60a5fa; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+.loading { text-align: center; padding: 40px; color: var(--text-dim); }
+
+@media (max-width: 1100px) {
+    .search-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+    .search-grid { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
