@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import time
+import traceback
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -24,14 +25,42 @@ def command(*args: str, check: bool = True) -> str:
 
 
 def hierarchy() -> ET.Element:
-    command("shell", "uiautomator", "dump", "/sdcard/window.xml")
-    raw = subprocess.run(
-        ["adb", "exec-out", "cat", "/sdcard/window.xml"],
-        check=True,
-        capture_output=True,
-        timeout=30,
-    ).stdout
-    return ET.fromstring(raw)
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    last_error = "no attempt made"
+    for attempt in range(1, 6):
+        dump = subprocess.run(
+            ["adb", "shell", "uiautomator", "dump", "/sdcard/window.xml"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        read = subprocess.run(
+            ["adb", "exec-out", "cat", "/sdcard/window.xml"],
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
+        try:
+            if dump.returncode:
+                raise RuntimeError(f"uiautomator dump exited {dump.returncode}")
+            if read.returncode:
+                raise RuntimeError(f"adb cat exited {read.returncode}")
+            root = ET.fromstring(read.stdout)
+            if root.tag != "hierarchy":
+                raise RuntimeError(f"unexpected XML root: {root.tag!r}")
+            return root
+        except (ET.ParseError, RuntimeError) as exc:
+            last_error = (
+                f"attempt={attempt}/5; error={exc}; "
+                f"dump stdout={dump.stdout[-2000:]!r}; dump stderr={dump.stderr[-2000:]!r}; "
+                f"read stdout prefix={read.stdout[:2000]!r}; read stderr={read.stderr[:2000]!r}"
+            )
+            (RESULTS / "hierarchy-read-failures.txt").write_text(
+                last_error + "\n", encoding="utf-8"
+            )
+            time.sleep(0.8)
+    raise RuntimeError(f"Could not read a valid UI hierarchy after retries: {last_error}")
 
 
 def visible_texts(root: ET.Element) -> set[str]:
@@ -115,7 +144,7 @@ def assert_absent(*unexpected: str) -> None:
         raise AssertionError(f"Unexpected desktop controls visible on phone: {present}")
 
 
-def main() -> None:
+def run_smoke() -> None:
     apk = Path(sys.argv[1]).resolve()
     if not apk.is_file():
         raise SystemExit(f"APK not found: {apk}")
@@ -170,6 +199,47 @@ def main() -> None:
         encoding="utf-8",
     )
     print((RESULTS / "result.txt").read_text(encoding="utf-8"))
+
+
+def save_failure_evidence() -> None:
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    (RESULTS / "failure.txt").write_text(traceback.format_exc(), encoding="utf-8")
+    diagnostics = []
+    try:
+        with (RESULTS / "failure.png").open("wb") as screenshot:
+            capture = subprocess.run(
+                ["adb", "exec-out", "screencap", "-p"],
+                check=False,
+                stdout=screenshot,
+                stderr=subprocess.PIPE,
+                timeout=30,
+            )
+        diagnostics.append(f"## failure screenshot\nexit={capture.returncode}\nstderr={capture.stderr!r}")
+    except Exception as exc:
+        diagnostics.append(f"## failure screenshot\nerror={exc!r}")
+    for label, args in (
+        ("adb devices", ["adb", "devices", "-l"]),
+        ("uiautomator dump", ["adb", "shell", "uiautomator", "dump", "/sdcard/failure.xml"]),
+        ("hierarchy XML", ["adb", "exec-out", "cat", "/sdcard/failure.xml"]),
+        ("logcat tail", ["adb", "logcat", "-d", "-t", "500"]),
+    ):
+        try:
+            result = subprocess.run(args, check=False, capture_output=True, text=True, timeout=30)
+            diagnostics.append(
+                f"## {label}\nexit={result.returncode}\nstdout:\n{result.stdout[-20000:]}\nstderr:\n{result.stderr[-4000:]}"
+            )
+        except Exception as exc:
+            diagnostics.append(f"## {label}\nerror={exc!r}")
+    (RESULTS / "device-diagnostics.txt").write_text("\n\n".join(diagnostics), encoding="utf-8")
+
+
+def main() -> None:
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    try:
+        run_smoke()
+    except BaseException:
+        save_failure_evidence()
+        raise
 
 
 if __name__ == "__main__":
