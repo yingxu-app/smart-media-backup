@@ -76,7 +76,9 @@ def click_text(expected: str, timeout: float = 15) -> None:
             target = node
             while target is not None and target.attrib.get("clickable") != "true":
                 target = parents.get(target)
-            center = bounds_center((target or node).attrib.get("bounds", ""))
+            if target is None:
+                continue
+            center = bounds_center(target.attrib.get("bounds", ""))
             if center:
                 command("shell", "input", "tap", str(center[0]), str(center[1]))
                 time.sleep(1.2)
@@ -160,10 +162,11 @@ def main() -> None:
     capture("06-settings")
 
     (RESULTS / "result.txt").write_text(
-        "PASS: Android Emulator launch, login skip, home, local/cloud history, "
-        "desktop read-only screen, Agent, AI review entry, and settings navigation.\n"
-        "Not covered: real credentials/model requests, media permission and copy, "
-        "paired desktop network, iOS behavior, and production distribution.\n",
+        "PASS: Android Emulator launch, login skip, home, local history and "
+        "cross-device history screen, disconnected desktop page without task controls, "
+        "Agent screen, AI review screen, and settings navigation.\n"
+        "Not covered: authenticated account sync, real model requests, media permission "
+        "and copy, paired desktop status/network, iOS behavior, and production distribution.\n",
         encoding="utf-8",
     )
     print((RESULTS / "result.txt").read_text(encoding="utf-8"))
